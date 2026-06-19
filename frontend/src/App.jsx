@@ -87,8 +87,18 @@ const AppContent = () => {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <A11yBar />
 
-      <div className="app-layout">
-        {isAuthenticated && (
+      {!isAuthenticated ? (
+        <main id="main-content-section" className="main-content" role="main" style={{ display: 'flex', flex: 1, padding: 0 }}>
+          <Routes>
+            <Route 
+              path="/login" 
+              element={<Login />} 
+            />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </main>
+      ) : (
+        <div className="app-layout">
           <aside className="sidebar" role="complementary" aria-label="Menú principal y categorías">
             <nav className="sidebar-section" aria-label="Navegación del sistema">
               <h2 className="sidebar-title">Menú</h2>
@@ -151,10 +161,8 @@ const AppContent = () => {
               </div>
             </div>
           </aside>
-        )}
 
-        <main id="main-content-section" className="main-content" role="main">
-          {isAuthenticated && (
+          <main id="main-content-section" className="main-content" role="main">
             <div className="top-bar">
               <button 
                 className="shortcuts-help-btn" 
@@ -181,41 +189,37 @@ const AppContent = () => {
                 Salir
               </button>
             </div>
-          )}
 
-          <Routes>
-            <Route 
-              path="/login" 
-              element={!isAuthenticated ? <Login /> : <Navigate to="/" replace />} 
-            />
-            <Route 
-              path="/" 
-              element={
-                <ProtectedRoute>
-                  <Home />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/perfil" 
-              element={
-                <ProtectedRoute>
-                  <ProfileView />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/import" 
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminPanel />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
+            <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <ProtectedRoute>
+                    <Home />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/perfil" 
+                element={
+                  <ProtectedRoute>
+                    <ProfileView />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/import" 
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </div>
+      )}
 
       <AudioPlayer />
 
