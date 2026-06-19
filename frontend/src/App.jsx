@@ -1,96 +1,16 @@
 import { useState, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { AudioProvider } from './context/AudioContext';
 import { useAudio } from './hooks/useAudio';
 import { A11yBar } from './components/A11yBar';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { Login } from './pages/Login';
+import { Home } from './pages/Home';
+import { AudioPlayer } from './components/AudioPlayer';
 
-// Views Placeholders (to be implemented in next tasks)
-const LoginView = () => {
-  const { login } = useAuth();
-  const { announceText, playCue } = useAudio();
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await login(email, password);
-      announceText('Inicio de sesión exitoso. Redirigiendo al catálogo.');
-      playCue('success');
-      navigate('/');
-    } catch (err) {
-      setError(err.message || 'Credenciales incorrectas');
-      announceText(`Error al iniciar sesión: ${err.message || 'Credenciales incorrectas'}`);
-      playCue('error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="login-container">
-      <div className="login-card" role="main">
-        <h1>Invision</h1>
-        <p className="login-subtitle">Biblioteca Central para Ciegos</p>
-        {error && <div className="login-error" role="alert">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">Correo Electrónico</label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              aria-required="true"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              aria-required="true"
-            />
-          </div>
-          <button 
-            type="submit" 
-            className="btn-submit"
-            disabled={loading}
-            aria-busy={loading}
-          >
-            {loading ? 'Iniciando sesión...' : 'Ingresar'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const CatalogView = () => {
-  return (
-    <section aria-labelledby="catalog-title">
-      <h2 id="catalog-title" className="results-heading">Catálogo de Audiolibros</h2>
-      <div style={{ padding: '2rem 0', fontWeight: 'bold' }}>
-        Vista del catálogo. El usuario administrador puede gestionar el contenido aquí.
-      </div>
-    </section>
-  );
-};
-
+// View Placeholders (Profile and AdminImport placeholders remain here for now)
 const ProfileView = () => {
   const { user } = useAuth();
   return (
@@ -132,98 +52,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   }
 
   return children;
-};
-
-// Floating Global Player Component
-const GlobalPlayer = () => {
-  const {
-    currentBook,
-    currentChapterIndex,
-    isPlaying,
-    currentTime,
-    duration,
-    togglePlayback,
-    skipSeconds,
-    seekTime,
-  } = useAudio();
-
-  if (!currentBook) return null;
-
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  return (
-    <footer className="player-dock active" role="region" aria-label="Reproductor de audiolibros">
-      <div className="player-info">
-        <div className="player-book-title" id="playerTitle">
-          {currentBook.nombre || currentBook.title}
-        </div>
-        <div className="player-chapter-title" id="playerChapter">
-          Capítulo {currentChapterIndex} (Streaming desde Azure Storage)
-        </div>
-      </div>
-
-      <div className="player-controls">
-        <div className="player-buttons">
-          <button 
-            className="player-btn" 
-            onClick={() => skipSeconds(-15)} 
-            aria-label="Retroceder 15 segundos"
-          >
-            <svg viewBox="0 0 24 24" role="img" aria-label="Retroceder"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" stroke="currentColor" fill="none" strokeWidth="2.5"></path></svg>
-          </button>
-          
-          <button 
-            className="player-btn btn-play-toggle" 
-            id="playerPlayBtn" 
-            onClick={togglePlayback} 
-            aria-label={isPlaying ? "Pausar audiolibro" : "Reproducir audiolibro"}
-          >
-            {isPlaying ? (
-              <svg viewBox="0 0 24 24" role="img" aria-label="Pausa"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" strokeWidth="2.5"></line><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" strokeWidth="2.5"></line></svg>
-            ) : (
-              <svg viewBox="0 0 24 24" role="img" aria-label="Reproducir"><polygon points="5 3 19 12 5 21 5 3" stroke="currentColor" fill="none" strokeWidth="2.5"></polygon></svg>
-            )}
-          </button>
-
-          <button 
-            className="player-btn" 
-            onClick={() => skipSeconds(15)} 
-            aria-label="Adelantar 15 segundos"
-          >
-            <svg viewBox="0 0 24 24" role="img" aria-label="Adelantar"><path d="M13 17l5-5-5-5M6 17l5-5-5-5" stroke="currentColor" fill="none" strokeWidth="2.5"></path></svg>
-          </button>
-        </div>
-
-        <div className="progress-bar-container">
-          <span aria-hidden="true" style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>
-            {formatTime(currentTime)}
-          </span>
-          <input 
-            type="range" 
-            className="progress-slider" 
-            min="0" 
-            max="100" 
-            value={progressPercent} 
-            aria-label="Posición de reproducción"
-            onChange={(e) => seekTime(parseFloat(e.target.value))}
-          />
-          <span aria-hidden="true" style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>
-            {formatTime(duration)}
-          </span>
-        </div>
-      </div>
-
-      <div style={{ textAlign: 'right' }}>
-        {/* Simple spacing block or custom action */}
-      </div>
-    </footer>
-  );
 };
 
 // Main App Wrapper to bind routing, state, and shortcuts
@@ -368,13 +196,13 @@ const AppContent = () => {
           <Routes>
             <Route 
               path="/login" 
-              element={!isAuthenticated ? <LoginView /> : <Navigate to="/" replace />} 
+              element={!isAuthenticated ? <Login /> : <Navigate to="/" replace />} 
             />
             <Route 
               path="/" 
               element={
                 <ProtectedRoute>
-                  <CatalogView />
+                  <Home />
                 </ProtectedRoute>
               } 
             />
@@ -399,7 +227,7 @@ const AppContent = () => {
         </main>
       </div>
 
-      <GlobalPlayer />
+      <AudioPlayer />
 
       {/* Shortcuts modal dialog */}
       <div 
