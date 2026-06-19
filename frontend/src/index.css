@@ -16,6 +16,7 @@
   
   /* Tipografía y escalas relativas */
   --font-scale: 16px;
+  font-size: var(--font-scale);
   
   /* Bordes y sombras */
   --radius-lg: 16px;
