@@ -9,6 +9,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { AudioPlayer } from './components/AudioPlayer';
+import { AdminPanel } from './pages/Admin/AdminPanel';
 
 // View Placeholders (Profile and AdminImport placeholders remain here for now)
 const ProfileView = () => {
@@ -19,17 +20,6 @@ const ProfileView = () => {
       <div style={{ padding: '2rem 0', fontWeight: 'bold' }}>
         <p>Usuario: {user?.email || 'Cargando...'}</p>
         <p>Roles: {user?.roles?.join(', ') || 'Usuario'}</p>
-      </div>
-    </section>
-  );
-};
-
-const AdminImportView = () => {
-  return (
-    <section aria-labelledby="admin-title">
-      <h2 id="admin-title" className="results-heading">Panel de Administración - Ingesta de Lotes</h2>
-      <div style={{ padding: '2rem 0', fontWeight: 'bold' }}>
-        Vista de carga masiva desde Excel y SharePoint.
       </div>
     </section>
   );
@@ -218,7 +208,7 @@ const AppContent = () => {
               path="/admin/import" 
               element={
                 <ProtectedRoute requireAdmin={true}>
-                  <AdminImportView />
+                  <AdminPanel />
                 </ProtectedRoute>
               } 
             />
