@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Propuesta Técnica: Bibliotecario Digital Inteligente (Invision - BCC)</title>
+  
+  <!-- Google Fonts: Atkinson Hyperlegible -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* Colores Accesibles (Blanco y Naranja de alta visibilidad) */
+      --bg-primary: #FFFFFF;
+      --bg-secondary: #FAF6F2;
+      --bg-card: #FFFFFF;
+      --text-primary: #111827;
+      --text-secondary: #4B5563;
+      --accent-orange: #D34500; /* Ratio de contraste 4.8:1 */
+      --accent-orange-hover: #B03A00;
+      --accent-blue: #0A58CA;
+      --border-color: #E5E7EB;
+      
+      /* Foco fluorescente de alta visibilidad para baja visión */
+      --focus-ring: #00FF66;
+      --focus-ring-outline: 4px solid var(--focus-ring);
+      
+      --font-scale: 16px;
+      
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-round: 50px;
+      
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Modo de Alto Contraste Extremo */
+    .high-contrast {
+      --bg-primary: #000000;
+      --bg-secondary: #000000;
+      --bg-card: #000000;
+      --text-primary: #FFFFFF;
+      --text-secondary: #FFFF00;
+      --accent-orange: #FFFF00;
+      --accent-orange-hover: #FFFFFF;
+      --accent-blue: #00FFFF;
+      --border-color: #FFFFFF;
+      --focus-ring: #FFFF00;
+      --shadow-sm: none;
+      --shadow-md: none;
+      --shadow-lg: none;
+    }
+
+    /* Reset global */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: var(--font-scale);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    /* Skip link */
+    .skip-link {
+      position: absolute;
+      top: -100px;
+      left: 1.5rem;
+      background: var(--accent-orange);
+      color: #FFFFFF;
+      padding: 1rem 1.8rem;
+      z-index: 100;
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: var(--radius-md);
+      transition: top 0.2s ease;
+    }
+    .skip-link:focus {
+      top: 1.5rem;
+      outline: var(--focus-ring-outline);
+    }
+
+    /* Accesibilidad Superior */
+    .a11y-bar {
+      background-color: #1F2937;
+      color: #FFFFFF;
+      padding: 0.6rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      border-bottom: 4px solid var(--accent-orange);
+    }
+    .a11y-controls {
+      display: flex;
+      gap: 0.8rem;
+    }
+    .a11y-btn {
+      background-color: #374151;
+      color: #FFFFFF;
+      border: 2px solid #4B5563;
+      padding: 0.5rem 1rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+    }
+    .a11y-btn:hover, .a11y-btn:focus {
+      background-color: var(--accent-orange);
+      border-color: #FFFFFF;
+      outline: var(--focus-ring-outline);
+    }
+
+    /* Header Principal */
+    .app-header {
+      background-color: var(--bg-secondary);
+      border-bottom: 2px solid var(--border-color);
+      padding: 1.8rem 2rem;
+      text-align: center;
+    }
+    .header-logo {
+      font-size: 2.8rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      margin-bottom: 0.5rem;
+    }
+    .header-desc {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    /* Navegación por pestañas */
+    .tabs-nav {
+      display: flex;
+      justify-content: center;
+      background-color: var(--bg-secondary);
+      border-bottom: 2px solid var(--border-color);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 4px solid transparent;
+      padding: 1.2rem 2.5rem;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tab-btn:hover {
+      color: var(--accent-orange);
+    }
+    .tab-btn.active {
+      color: var(--accent-orange);
+      border-bottom-color: var(--accent-orange);
+    }
+    .tab-btn:focus-visible {
+      outline: var(--focus-ring-outline);
+    }
+
+    /* Contenedor de Contenidos */
+    .tab-content-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+      width: 100%;
+      flex: 1;
+    }
+
+    .tab-panel {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    .tab-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* PÁGINA 1: PROPUESTA TÉCNICA */
+    .proposal-card {
+      background-color: var(--bg-card);
+      border: 3px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2.5rem;
+    }
+    .proposal-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .proposal-p {
+      font-size: 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Tabla comparativa */
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 2rem 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .comp-table th, .comp-table td {
+      border: 3px solid var(--border-color);
+      padding: 1.2rem;
+      font-size: 1.15rem;
+      text-align: left;
+    }
+    .comp-table th {
+      background-color: var(--bg-secondary);
+      font-weight: 700;
+      color: var(--accent-blue);
+    }
+    .comp-table td {
+      background-color: var(--bg-card);
+    }
+
+    /* Lista de Recursos a Solicitar */
+    .resources-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .resource-card {
+      border: 3px solid var(--accent-blue);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      background-color: var(--bg-secondary);
+    }
+    .resource-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin-bottom: 0.8rem;
+    }
+    .resource-list {
+      list-style-position: inside;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* PÁGINA 2: DEMO INTERACTIVA DEL BIBLIOTECARIO */
+    .chat-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .chat-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chat-interface {
+      background-color: var(--bg-secondary);
+      border: 3px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      height: 500px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-md);
+    }
+
+    .chat-header {
+      background-color: var(--accent-orange);
+      color: #FFFFFF;
+      padding: 1rem 1.5rem;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .message-bubble {
+      max-width: 80%;
+      padding: 1rem 1.2rem;
+      border-radius: var(--radius-lg);
+      font-size: 1.2rem;
+      line-height: 1.4;
+      font-weight: 700;
+    }
+    .message-bubble.user {
+      background-color: var(--accent-blue);
+      color: #FFFFFF;
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
+    }
+    .message-bubble.agent {
+      background-color: var(--bg-card);
+      color: var(--text-primary);
+      border: 2px solid var(--border-color);
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
+    }
+
+    /* Tarjeta de recomendación dentro del chat */
+    .bubble-book-recommendation {
+      margin-top: 0.8rem;
+      background-color: var(--bg-secondary);
+      border: 2px solid var(--accent-orange);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      cursor: pointer;
+      text-align: left;
+    }
+    .bubble-book-recommendation:hover {
+      background-color: var(--bg-card);
+    }
+
+    .chat-input-bar {
+      border-top: 3px solid var(--border-color);
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+      background-color: var(--bg-card);
+      border-radius: 0 0 12px 12px;
+      position: relative;
+    }
+    .chat-text-input {
+      flex: 1;
+      border: 3px solid var(--accent-blue);
+      border-radius: var(--radius-round);
+      padding: 0.8rem 4rem 0.8rem 1.5rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+    .chat-text-input:focus {
+      outline: var(--focus-ring-outline);
+      border-color: var(--accent-orange);
+    }
+
+    .btn-mic {
+      position: absolute;
+      right: 5.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      color: var(--accent-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-round);
+    }
+    .btn-mic svg {
+      width: 26px;
+      height: 26px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.5;
+    }
+    .btn-mic:hover, .btn-mic:focus-visible {
+      color: var(--accent-orange);
+      background-color: var(--bg-secondary);
+      outline: var(--focus-ring-outline);
+    }
+    .btn-mic.recording {
+      color: red;
+      background-color: #FEE2E2;
+      animation: micPulse 1s infinite alternate;
+    }
+    @keyframes micPulse {
+      from { transform: translateY(-50%) scale(1); }
+      to { transform: translateY(-50%) scale(1.15); }
+    }
+
+    .btn-send {
+      background-color: var(--accent-orange);
+      color: #FFFFFF;
+      border: none;
+      border-radius: var(--radius-round);
+      padding: 0.8rem 1.8rem;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-send:hover {
+      background-color: var(--accent-orange-hover);
+    }
+    .btn-send:focus-visible {
+      outline: var(--focus-ring-outline);
+    }
+
+    /* Tarjeta de Ayuda e Instrucciones de la Demo */
+    .demo-info-card {
+      background-color: var(--bg-secondary);
+      border: 3px dashed var(--accent-orange);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+    }
+    .demo-info-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      margin-bottom: 0.8rem;
+    }
+    .demo-info-list {
+      list-style-position: inside;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    /* REPRODUCTOR FLOTANTE INFERIOR */
+    .player-dock {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #111827;
+      color: #FFFFFF;
+      border-top: 4px solid var(--accent-orange);
+      padding: 1.2rem 2.5rem;
+      display: grid;
+      grid-template-columns: 280px 1fr 200px;
+      align-items: center;
+      gap: 2rem;
+      box-shadow: 0 -10px 25px rgba(0,0,0,0.3);
+      z-index: 50;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .player-dock.active {
+      transform: translateY(0);
+    }
+
+    @media (max-width: 900px) {
+      .player-dock {
+        grid-template-columns: 1fr;
+        grid-gap: 1rem;
+        padding: 1rem;
+        text-align: center;
+      }
+    }
+
+    .player-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      text-align: left;
+    }
+    .player-book-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-chapter-title {
+      font-size: 1.0rem;
+      color: #9CA3AF;
+    }
+
+    .player-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .player-buttons {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .player-btn {
+      background: none;
+      border: 2px solid transparent;
+      color: #FFFFFF;
+      border-radius: var(--radius-round);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .player-btn svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.5;
+    }
+    .player-btn:hover {
+      background-color: #374151;
+      color: var(--accent-orange);
+    }
+    .player-btn:focus-visible {
+      outline: var(--focus-ring-outline);
+    }
+    .player-btn.btn-play-toggle {
+      background-color: var(--accent-orange);
+      width: 52px;
+      height: 52px;
+    }
+    .player-btn.btn-play-toggle:hover {
+      background-color: var(--accent-orange-hover);
+      color: #FFFFFF;
+    }
+
+    /* Slider de progreso */
+    .progress-bar-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .progress-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      border-radius: 4px;
+      background: #4B5563;
+      outline: none;
+      cursor: pointer;
+    }
+    .progress-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      cursor: pointer;
+      border: 2px solid #FFFFFF;
+    }
+    .progress-slider:focus-visible {
+      outline: var(--focus-ring-outline);
+      outline-offset: 3px;
+    }
+
+    /* Atajos en Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-card {
+      background-color: var(--bg-primary);
+      border: 4px solid var(--accent-orange);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: var(--shadow-lg);
+      text-align: left;
+    }
+    .modal-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      margin-bottom: 1rem;
+    }
+    .shortcuts-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+    }
+    .shortcuts-table td {
+      padding: 0.6rem 0.4rem;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .kbd-tag {
+      background-color: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      font-family: monospace;
+    }
+
+    /* Región viva oculta */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Skip link -->
+  <a href="#main-container" class="skip-link">Saltar al contenido principal</a>
+
+  <!-- REGION VIVA -->
+  <div id="speakAnnouncer" class="sr-only" aria-live="assertive"></div>
+
+  <!-- Barra de accesibilidad superior -->
+  <div class="a11y-bar" role="region" aria-label="Ajustes de accesibilidad visual">
+    <div class="a11y-title">
+      <span>♿</span>
+      <span>Herramientas de Accesibilidad</span>
+    </div>
+    <div class="a11y-controls">
+      <button class="a11y-btn" onclick="zoomText(1)" aria-label="Aumentar tamaño de texto">Aumentar Texto A+</button>
+      <button class="a11y-btn" onclick="zoomText(-1)" aria-label="Disminuir tamaño de texto">Disminuir Texto A-</button>
+      <button class="a11y-btn" id="contrastBtn" onclick="toggleContrast()" aria-label="Activar contraste alto">Modo Contraste Alto</button>
+      <button class="a11y-btn" id="audioToggle" onclick="toggleAudio()" aria-label="Desactivar señales de audio">Audio: ON</button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="app-header" role="banner">
+    <h1 class="header-logo">Invision — Biblioteca BCC</h1>
+    <p class="header-desc">Propuesta de Implementación: Bibliotecario Digital Agéntico</p>
+  </header>
+
+  <!-- Pestañas de Navegación -->
+  <nav class="tabs-nav" role="tablist" aria-label="Secciones de la propuesta">
+    <button id="tab1" class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel1" onclick="switchTab('panel1', 'tab1')">📋 Propuesta Técnica (Blueprint)</button>
+    <button id="tab2" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel2" onclick="switchTab('panel2', 'tab2')">🎙️ Demo Interactiva (Mockup IA)</button>
+  </nav>
+
+  <!-- Contenedor de contenido -->
+  <main id="main-container" class="tab-content-container">
+    
+    <!-- PESTAÑA 1: PROPUESTA TÉCNICA (BLUEPRINT) -->
+    <section id="panel1" class="tab-panel active" role="tabpanel" aria-labelledby="tab1">
+      
+      <!-- Introducción / Caso de Negocio -->
+      <div class="proposal-card">
+        <h2 class="proposal-title">🌟 Introducción y Propósito</h2>
+        <p class="proposal-p">
+          Las personas con ceguera y baja visión navegan la web de manera secuencial (leyendo o escuchando elemento por elemento de arriba a abajo). Encontrar un libro específico en una biblioteca digital tradicional requiere decenas de clics y búsquedas exactas, lo cual genera fatiga cognitiva y frustración.
+        </p>
+        <p class="proposal-p">
+          La **Propuesta Agéntica** consiste en implementar un **Bibliotecario Digital** basado en Inteligencia Artificial. Este asistente actúa como un intermediario inteligente: procesa la voz libre y coloquial del usuario, interpreta su necesidad semántica, busca en el catálogo y le entrega recomendaciones personalizadas y audiolibros al instante.
+        </p>
+      </div>
+
+      <!-- Tabla Comparativa -->
+      <div class="proposal-card">
+        <h2 class="proposal-title">📊 Comparativa: Invision Tradicional vs. Invision Agéntico</h2>
+        <table class="comp-table" aria-label="Tabla comparativa de arquitecturas">
+          <thead>
+            <tr>
+              <th scope="col">Característica</th>
+              <th scope="col">Caso Actual (Básico)</th>
+              <th scope="col">Propuesta Agéntica (IA)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Búsqueda de Libros</th>
+              <td>Exacta por texto (debe coincidir con la base de datos).</td>
+              <td>**Semántica y Coloquial:** Entiende intenciones ("para relajarme", "de misterio corto").</td>
+            </tr>
+            <tr>
+              <th scope="row">Canal de Interacción</th>
+              <td>Uso obligado de teclado, mouse o lector de pantalla tradicional.</td>
+              <td>**Conversación por Voz Fluida:** Diálogo hablado natural en español.</td>
+            </tr>
+            <tr>
+              <th scope="row">Estructuración de Catálogo</th>
+              <td>Mapeo rígido en base de datos; archivos de audio subidos a mano.</td>
+              <td>**Ingesta Inteligente:** IA que clasifica géneros, limpia ruidos y segmenta capítulos.</td>
+            </tr>
+            <tr>
+              <th scope="row">Retención de Lectura</th>
+              <td>Solo guarda segundo y capítulo.</td>
+              <td>**Memoria Contextual:** Recuerda la trama y ofrece resúmenes al vuelo.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Blueprint: Recursos a pedir al proveedor -->
+      <div class="proposal-card">
+        <h2 class="proposal-title">🏢 Blueprint: Recursos e Infraestructura Necesaria</h2>
+        <p class="proposal-p">
+          Para que el proveedor implemente esta solución basada en el backend de FastAPI existente, se requiere la habilitación y aprovisionamiento de los siguientes servicios en la nube:
+        </p>
+        
+        <div class="resources-grid">
+          
+          <div class="resource-card">
+            <h3 class="resource-title">1. Servicio de Large Language Models (LLM)</h3>
+            <ul class="resource-list">
+              <li>API Key de **Gemini 1.5 Flash** (Google AI) o **Azure OpenAI** (GPT-4o).</li>
+              <li>Aprovisionamiento de cuotas de procesamiento (Tokens por minuto) en producción.</li>
+            </ul>
+          </div>
+
+          <div class="resource-card">
+            <h3 class="resource-title">2. Base de Datos Vectorial (Para Búsqueda Semántica)</h3>
+            <ul class="resource-list">
+              <li>Habilitar la extensión **vectorial** en el servidor de base de datos actual (ej. `pgvector` en PostgreSQL o búsqueda semántica en Azure SQL).</li>
+              <li>Provisionar espacio de almacenamiento para índices de embeddings de libros.</li>
+            </ul>
+          </div>
+
+          <div class="resource-card">
+            <h3 class="resource-title">3. Actualización de API y Servidor</h3>
+            <ul class="resource-list">
+              <li>Habilitar puertos y balanceadores de carga para soporte de conexiones persistentes de **WebSockets**.</li>
+              <li>Configuración de internet saliente (egress proxy) en la red virtual del contenedor API para comunicación segura con el proveedor de IA.</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- PESTAÑA 2: DEMO INTERACTIVA (MOCKUP) -->
+    <section id="panel2" class="tab-panel" role="tabpanel" aria-labelledby="tab2">
+      
+      <div class="chat-layout">
+        
+        <!-- Interfaz del Chat del Bibliotecario -->
+        <div class="chat-interface">
+          <div class="chat-header">
+            <span>🤖</span>
+            <span>Bibliotecario Digital — Asistente por Voz</span>
+          </div>
+          
+          <!-- Mensajes del Chat -->
+          <div class="chat-messages" id="chatMessages" role="log" aria-label="Historial de conversación con el bibliotecario">
+            <div class="message-bubble agent">
+              ¡Hola! Soy tu Bibliotecario Digital de Invision. ¿Qué te gustaría escuchar hoy? Puedes escribir tu respuesta o presionar el micrófono para hablarme de forma libre (por ejemplo, pídeme "un libro de fantasía corto" o "algo para relajarme").
+            </div>
+          </div>
+
+          <!-- Barra de entrada -->
+          <div class="chat-input-bar">
+            <input 
+              type="text" 
+              id="chatTextInput" 
+              class="chat-text-input" 
+              placeholder="Habla o escribe aquí tu petición... [S]" 
+              aria-label="Mensaje para el bibliotecario"
+              onkeydown="if(event.key === 'Enter') handleSendBtn()"
+            >
+            <button 
+              id="chatMicBtn"
+              class="btn-mic" 
+              onclick="dictateMessage()" 
+              aria-label="Hablarle al bibliotecario"
+              title="Hablarle al bibliotecario"
+            >
+              <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            </button>
+            <button class="btn-send" onclick="handleSendBtn()">Enviar</button>
+          </div>
+        </div>
+
+        <!-- Columna de Ayuda e Instrucciones -->
+        <div class="demo-info-card">
+          <h2 class="demo-info-title">💡 ¿Cómo funciona esta demo?</h2>
+          <p style="margin-bottom: 1rem; font-weight: bold;">
+            Esta es una maqueta interactiva que simula el procesamiento de lenguaje natural y te da la respuesta en texto y **voz sintetizada en español**.
+          </p>
+          <p style="margin-bottom: 1.2rem; font-weight: bold;">Prueba dictando o escribiendo estas frases de ejemplo:</p>
+          <ul class="demo-info-list" style="margin-bottom: 1rem;">
+            <li>🗣️ <em>"Quiero escuchar una aventura de fantasía con dragones"</em></li>
+            <li>🗣️ <em>"Recomiéndame algo para mejorar mis hábitos"</em></li>
+            <li>🗣️ <em>"Busco un misterio de John Katzenbach"</em></li>
+            <li>🗣️ <em>"Algo clásico de amor en Macondo"</em></li>
+          </ul>
+          <button class="a11y-btn" style="width: 100%; border-color: var(--accent-orange); color: var(--accent-orange); background: none;" onclick="toggleHelpModal(true)">❓ Ayuda de Atajos de Teclado [H]</button>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- REPRODUCTOR INTEGRADO INFERIOR -->
+  <footer class="player-dock" id="playerDock" role="region" aria-label="Reproductor de audiolibros">
+    <div class="player-info">
+      <div class="player-book-title" id="playerTitle">Título del libro</div>
+      <div class="player-chapter-title" id="playerChapter">Cargando capítulo...</div>
+    </div>
+
+    <div class="player-controls">
+      <div class="player-buttons">
+        <button class="player-btn" onclick="rewindAudio()" aria-label="Retroceder 15 segundos">
+          <svg viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"></path></svg>
+        </button>
+        
+        <button class="player-btn btn-play-toggle" id="playerPlayBtn" onclick="togglePlayback()" aria-label="Reproducir">
+          <svg viewBox="0 0 24 24" id="playIcon"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <svg viewBox="0 0 24 24" id="pauseIcon" style="display: none;"><line x1="6" y1="4" x2="6" y2="20"></line><line x1="18" y1="4" x2="18" y2="20"></line></svg>
+        </button>
+
+        <button class="player-btn" onclick="forwardAudio()" aria-label="Adelantar 15 segundos">
+          <svg viewBox="0 0 24 24"><path d="M13 17l5-5-5-5M6 17l5-5-5-5"></path></svg>
+        </button>
+      </div>
+
+      <div class="progress-bar-container">
+        <span id="currentTimeLabel" aria-hidden="true" style="font-size: 0.95rem; font-weight: bold; color:#9CA3AF;">0:00</span>
+        <input 
+          type="range" 
+          id="playerSlider" 
+          class="progress-slider" 
+          min="0" 
+          max="100" 
+          value="0" 
+          aria-label="Posición de reproducción"
+          onchange="seekAudio(this.value)"
+        >
+        <span id="durationLabel" aria-hidden="true" style="font-size: 0.95rem; font-weight: bold; color:#9CA3AF;">0:00</span>
+      </div>
+    </div>
+
+    <div style="text-align: right;">
+      <button class="player-btn" onclick="closePlayer()" aria-label="Cerrar reproductor">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- MODAL DE AYUDA DE ATAJOS -->
+  <div class="modal-overlay" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <h2 class="modal-title" id="modal-title">Atajos de Teclado Disponibles</h2>
+      <table class="shortcuts-table">
+        <tbody>
+          <tr>
+            <td><kbd class="kbd-tag">Shift + S</kbd> o <kbd class="kbd-tag">S</kbd></td>
+            <td>Enfocar chat (dictado/escribir)</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">Espacio</kbd> (en reproductor)</td>
+            <td>Reproducir / Pausar audiolibro</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">Flecha Izquierda / Derecha</kbd></td>
+            <td>Retroceder / Adelantar 15s</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">1</kbd> / <kbd class="kbd-tag">2</kbd></td>
+            <td>Ir a Pestaña 1 / Pestaña 2</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">Esc</kbd></td>
+            <td>Cerrar reproductor o ayuda</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">?</kbd> o <kbd class="kbd-tag">H</kbd></td>
+            <td>Escuchar esta ayuda por voz / abrir atajos</td>
+          </tr>
+        </tbody>
+      </table>
+      <button class="btn-send" style="width:100%; border-radius: var(--radius-md);" onclick="toggleHelpModal(false)">Entendido</button>
+    </div>
+  </div>
+
+  <script>
+    // --- NAVEGACIÓN DE PESTAÑAS ---
+    function switchTab(panelId, tabId) {
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      
+      document.getElementById(panelId).classList.add('active');
+      const activeTab = document.getElementById(tabId);
+      activeTab.classList.add('active');
+      activeTab.setAttribute('aria-selected', 'true');
+      
+      // Anunciar cambio por voz
+      const text = activeTab.innerText;
+      playA11yBeep(523, 'sine', 0.1);
+      speakFeedback(`Abriendo pestaña: ${text}`);
+    }
+
+    // --- ACCESIBILIDAD (ZOOM, CONTRASTE, SEÑALES DE AUDIO) ---
+    let rootFontSize = 16;
+    let audioFeedbackOn = true;
+    let audioContext = null;
+
+    function playA11yBeep(freq, type, duration) {
+      if (!audioFeedbackOn) return;
+      try {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+        gain.gain.setValueAtTime(0.06, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + duration);
+      } catch (e) {
+        console.warn("Fallo de audio context", e);
+      }
+    }
+
+    function speakFeedback(text) {
+      document.getElementById("speakAnnouncer").innerText = text;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'es-ES';
+        utterance.rate = 1.1;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function zoomText(dir) {
+      rootFontSize += dir * 2;
+      if (rootFontSize < 12) rootFontSize = 12;
+      if (rootFontSize > 28) rootFontSize = 28;
+      document.documentElement.style.setProperty('--font-scale', `${rootFontSize}px`);
+      playA11yBeep(659, 'sine', 0.1);
+      speakFeedback(`Texto ajustado a ${rootFontSize} píxeles`);
+    }
+
+    function toggleContrast() {
+      const hc = document.body.classList.toggle("high-contrast");
+      playA11yBeep(440, 'triangle', 0.15);
+      setTimeout(() => playA11yBeep(880, 'triangle', 0.15), 100);
+      if (hc) {
+        document.getElementById("contrastBtn").innerText = "Modo Estándar";
+        speakFeedback("Contraste alto activado. Fondo negro y texto amarillo.");
+      } else {
+        document.getElementById("contrastBtn").innerText = "Modo Contraste Alto";
+        speakFeedback("Contraste estándar activado.");
+      }
+    }
+
+    function toggleAudio() {
+      audioFeedbackOn = !audioFeedbackOn;
+      const btn = document.getElementById("audioToggle");
+      if (audioFeedbackOn) {
+        btn.innerText = "Audio: ON";
+        playA11yBeep(880, 'sine', 0.1);
+        speakFeedback("Señales de audio encendidas.");
+      } else {
+        btn.innerText = "Audio: OFF";
+        speakFeedback("Señales de audio apagadas.");
+      }
+    }
+
+    // Sonido sutil al tabular
+    document.addEventListener("focusin", function(e) {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'INPUT') {
+        playA11yBeep(523, 'sine', 0.05); // Clic sutil C5
+      }
+    });
+
+    // --- REPRODUCTOR INTEGRADO MOCKED ---
+    let playerActive = false;
+    let isPlaying = false;
+    let playbackInterval = null;
+    let currentPlayTime = 0;
+    const playTimeMax = 180; // 3 min de demo
+
+    function formatPlayTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function loadAudiobook(book) {
+      playerActive = true;
+      isPlaying = true;
+      currentPlayTime = 0;
+      
+      document.getElementById("playerTitle").innerText = book.title;
+      document.getElementById("playerChapter").innerText = `Capítulo 1: Introducción y Prólogo (Narrador: Voz Oficial)`;
+      document.getElementById("durationLabel").innerText = formatPlayTime(playTimeMax);
+      document.getElementById("playerDock").classList.add("active");
+      
+      updatePlayIcons();
+      playA11yBeep(880, 'triangle', 0.2);
+      speakFeedback(`Iniciando reproducción de ${book.title}. Presiona la tecla espacio para pausar.`);
+      
+      startPlaybackTimer();
+    }
+
+    function startPlaybackTimer() {
+      clearInterval(playbackInterval);
+      playbackInterval = setInterval(() => {
+        if (isPlaying) {
+          currentPlayTime += 1;
+          if (currentPlayTime >= playTimeMax) {
+            currentPlayTime = playTimeMax;
+            isPlaying = false;
+            clearInterval(playbackInterval);
+            speakFeedback("Fin del audiolibro. Has completado el capítulo de demostración.");
+            playA11yBeep(880, 'triangle', 0.2);
+          }
+          document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+          const percent = (currentPlayTime / playTimeMax) * 100;
+          document.getElementById("playerSlider").value = percent;
+        }
+      }, 1000);
+    }
+
+    function togglePlayback() {
+      if (!playerActive) return;
+      isPlaying = !isPlaying;
+      updatePlayIcons();
+      playA11yBeep(659, 'sine', 0.1);
+      if (isPlaying) {
+        speakFeedback("Reproducción reanudada");
+      } else {
+        speakFeedback("Reproducción pausada");
+      }
+    }
+
+    function updatePlayIcons() {
+      const playIcon = document.getElementById("playIcon");
+      const pauseIcon = document.getElementById("pauseIcon");
+      const btn = document.getElementById("playerPlayBtn");
+      
+      if (isPlaying) {
+        playIcon.style.display = "none";
+        pauseIcon.style.display = "block";
+        btn.setAttribute("aria-label", "Pausar audiolibro");
+      } else {
+        playIcon.style.display = "block";
+        pauseIcon.style.display = "none";
+        btn.setAttribute("aria-label", "Reproducir audiolibro");
+      }
+    }
+
+    function rewindAudio() {
+      currentPlayTime -= 15;
+      if (currentPlayTime < 0) currentPlayTime = 0;
+      document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+      playA11yBeep(659, 'sine', 0.1);
+      speakFeedback("Retroceder 15 segundos");
+    }
+
+    function forwardAudio() {
+      currentPlayTime += 15;
+      if (currentPlayTime > playTimeMax) currentPlayTime = playTimeMax;
+      document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+      playA11yBeep(659, 'sine', 0.1);
+      speakFeedback("Adelantar 15 segundos");
+    }
+
+    function seekAudio(percentValue) {
+      currentPlayTime = (percentValue / 100) * playTimeMax;
+      document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+      speakFeedback(`Posicionando tiempo a ${formatPlayTime(currentPlayTime)}`);
+    }
+
+    function closePlayer() {
+      isPlaying = false;
+      playerActive = false;
+      clearInterval(playbackInterval);
+      document.getElementById("playerDock").classList.remove("active");
+      playA11yBeep(523, 'sine', 0.1);
+      speakFeedback("Reproductor cerrado.");
+    }
+
+    // --- MOCK NPL ENGINE (Lógica del Bibliotecario Digital) ---
+    const botCatalog = [
+      { id: 1, title: "Don Quijote de la Mancha", author: "Miguel de Cervantes", genre: "Clásicos de la Literatura", desc: "El gran clásico de caballería.", trigger: ["quijote", "cervantes", "caballero", "molino", "clasico", "clásico"] },
+      { id: 2, title: "Hábitos Atómicos", author: "James Clear", genre: "Desarrollo Personal", desc: "Guía práctica para mejorar tus hábitos diarios.", trigger: ["habito", "hábito", "habitos", "hábitos", "desarrollo", "james", "clear"] },
+      { id: 3, title: "El Principito", author: "Antoine de Saint-Exupéry", genre: "Infantil", desc: "Aventura y amistad para reflexionar.", trigger: ["principito", "príncipe", "infantil", "niño", "rosa"] },
+      { id: 4, title: "Cien Años de Soledad", author: "Gabriel García Márquez", genre: "Clásicos de la Literatura", desc: "La maravillosa saga de los Buendía en Macondo.", trigger: ["soledad", "cien", "buendia", "buendía", "marquez", "márquez", "macondo"] },
+      { id: 5, title: "El Hobbit", author: "J.R.R. Tolkien", genre: "Fantasía y Ciencia Ficción", desc: "La aventura fantástica de Bilbo Bolsón.", trigger: ["hobbit", "tolkien", "dragon", "dragón", "fantasia", "fantasía", "bilbo"] },
+      { id: 6, title: "El Psicoanalista", author: "John Katzenbach", genre: "Misterio, Crimen y Suspenso", desc: "Un thriller psicológico impactante.", trigger: ["psicoanalista", "katzenbach", "misterio", "suspenso", "psicologo", "psicólogo"] }
+    ];
+
+    function getAIResponse(input) {
+      const cleanInput = input.toLowerCase();
+      let match = null;
+      
+      for (let book of botCatalog) {
+        for (let word of book.trigger) {
+          if (cleanInput.includes(word)) {
+            match = book;
+            break;
+          }
+        }
+        if (match) break;
+      }
+
+      if (match) {
+        return {
+          text: `¡Hola! Excelente elección. He buscado en nuestra base de datos y encontré "${match.title}" de ${match.author}. Es un audiolibro de la categoría ${match.genre}. La descripción es la siguiente: ${match.desc} ¿Quieres que iniciemos la reproducción del primer capítulo?`,
+          book: match
+        };
+      } else {
+        return {
+          text: `Entendí tu petición. No he encontrado una coincidencia exacta para esa búsqueda en el catálogo. Sin embargo, te recomiendo escuchar 'El Principito' de Antoine de Saint-Exupéry, que es uno de los audiolibros favoritos de nuestra comunidad. ¿Te gustaría intentar buscar de nuevo con otra frase?`,
+          book: botCatalog[2]
+        };
+      }
+    }
+
+    // Enviar mensaje en el chat
+    function handleSendBtn() {
+      const input = document.getElementById("chatTextInput");
+      const text = input.value.trim();
+      if (text === "") return;
+      
+      input.value = "";
+      addMessageBubble(text, "user");
+      
+      playA11yBeep(659, 'sine', 0.1);
+      speakFeedback("Procesando tu petición...");
+      
+      setTimeout(() => {
+        const response = getAIResponse(text);
+        addMessageBubble(response.text, "agent", response.book);
+        playA11yBeep(880, 'sine', 0.15);
+        speakFeedback(response.text);
+      }, 1000);
+    }
+
+    function addMessageBubble(text, sender, book = null) {
+      const messagesContainer = document.getElementById("chatMessages");
+      const bubble = document.createElement("div");
+      bubble.className = `message-bubble ${sender}`;
+      bubble.innerText = text;
+      
+      if (book && sender === "agent") {
+        const bookDiv = document.createElement("div");
+        bookDiv.className = "bubble-book-recommendation";
+        bookDiv.setAttribute("role", "button");
+        bookDiv.setAttribute("tabindex", "0");
+        bookDiv.setAttribute("aria-label", `Resultado recomendado: ${book.title}. Presiona Enter para reproducir.`);
+        bookDiv.innerHTML = `
+          <strong>🎧 Reproducir ahora:</strong> ${book.title}<br>
+          <small>👤 ${book.author} | 📁 ${book.genre}</small>
+        `;
+        bookDiv.onclick = () => {
+          loadAudiobook(book);
+        };
+        bookDiv.onkeydown = (e) => {
+          if (e.key === 'Enter') {
+            loadAudiobook(book);
+          }
+        };
+        bubble.appendChild(bookDiv);
+      }
+      
+      messagesContainer.appendChild(bubble);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Dictado de voz para el chat
+    function dictateMessage() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        playA11yBeep(220, 'sawtooth', 0.3);
+        speakFeedback("El dictado por voz no está soportado en tu navegador actual. Usa Google Chrome.");
+        return;
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.interimResults = false;
+      
+      const micBtn = document.getElementById("chatMicBtn");
+      micBtn.classList.add("recording");
+      playA11yBeep(880, 'sine', 0.15);
+      speakFeedback("Te escucho, dicta tu mensaje ahora.");
+
+      recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
+        document.getElementById("chatTextInput").value = text;
+        micBtn.classList.remove("recording");
+        playA11yBeep(880, 'triangle', 0.15);
+        speakFeedback(`Entendido: ${text}. Presiona Enviar para hablar con el bibliotecario.`);
+      };
+
+      recognition.onerror = function() {
+        micBtn.classList.remove("recording");
+        playA11yBeep(220, 'sawtooth', 0.3);
+        speakFeedback("Hubo un error de dictado. Intenta hablar nuevamente.");
+      };
+
+      recognition.onend = function() {
+        micBtn.classList.remove("recording");
+      };
+
+      recognition.start();
+    }
+
+    // --- MANEJO DEL MODAL DE ATÁJOS ---
+    function toggleHelpModal(show) {
+      const modal = document.getElementById("helpModal");
+      playA11yBeep(659, 'sine', 0.15);
+      if (show) {
+        modal.classList.add("active");
+        modal.querySelector("button").focus();
+        speakFeedback("Ventana de atajos abierta. Presiona la tecla tabulador para explorar.");
+      } else {
+        modal.classList.remove("active");
+        speakFeedback("Ventana de ayuda cerrada.");
+      }
+    }
+
+    // --- ATAJOS DE TECLADO ---
+    document.addEventListener("keydown", function(e) {
+      const activeEl = document.activeElement;
+      const isInput = activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA';
+
+      // Cerrar todo con ESC
+      if (e.key === "Escape") {
+        if (document.getElementById("helpModal").classList.contains("active")) {
+          toggleHelpModal(false);
+        } else if (playerActive) {
+          closePlayer();
+        }
+      }
+
+      // Atajo general para enfocar el chat: Shift + S o tecla S (cuando no se escribe)
+      if ((e.shiftKey && e.key.toLowerCase() === 's') || (e.key.toLowerCase() === 's' && !isInput)) {
+        e.preventDefault();
+        const chatInput = document.getElementById("chatTextInput");
+        chatInput.focus();
+        playA11yBeep(523, 'sine', 0.1);
+        speakFeedback("Cuadro de texto del chat enfocado. Escribe o dicta tu consulta.");
+      }
+
+      // Teclas numéricas rápidas de pestaña o navegación
+      if (!isInput) {
+        if (e.key === "1") {
+          e.preventDefault();
+          switchTab('panel1', 'tab1');
+        } else if (e.key === "2") {
+          e.preventDefault();
+          switchTab('panel2', 'tab2');
+        } else if (e.key === "?" || e.key.toLowerCase() === "h") {
+          e.preventDefault();
+          toggleHelpModal(true);
+        }
+      }
+
+      // Atajo de espacio para pausar
+      if (e.key === " " && playerActive && !isInput) {
+        e.preventDefault();
+        togglePlayback();
+      }
+
+      // Flechas para adelantar/retroceder en reproductor
+      if (playerActive && !isInput) {
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          forwardAudio();
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          rewindAudio();
+        }
+      }
+    });
+
+    // bienvenida inicial
+    window.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        speakFeedback("Bienvenido a la Propuesta del Bibliotecario Digital de Invision. Presiona la tecla H o el signo de interrogación para abrir la ayuda y atajos de teclado.");
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invision — Biblioteca Central para Ciegos (A11y Premium)</title>
+  
+  <!-- Google Fonts: Atkinson Hyperlegible -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* Paleta Blanco y Naranja Accesible (Estándar WCAG AA/AAA) */
+      --bg-primary: #FFFFFF;
+      --bg-sidebar: #FAF6F2;
+      --bg-card: #FFFFFF;
+      --text-primary: #111827;
+      --text-secondary: #4B5563;
+      --accent-orange: #D34500; /* Contraste 4.8:1 */
+      --accent-orange-hover: #B03A00;
+      --accent-blue: #0A58CA;
+      --border-color: #E5E7EB;
+      
+      /* Foco fluorescente de alta visibilidad para baja visión */
+      --focus-ring: #00FF66;
+      --focus-ring-outline: 4px solid var(--focus-ring);
+      
+      /* Tipografía y escalas relativas */
+      --font-scale: 16px;
+      
+      /* Bordes y sombras */
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-round: 50px;
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Alto Contraste Extremo */
+    .high-contrast {
+      --bg-primary: #000000;
+      --bg-sidebar: #000000;
+      --bg-card: #000000;
+      --text-primary: #FFFFFF;
+      --text-secondary: #FFFF00;
+      --accent-orange: #FFFF00;
+      --accent-orange-hover: #FFFFFF;
+      --accent-blue: #00FFFF;
+      --border-color: #FFFFFF;
+      --focus-ring: #FFFF00;
+      --shadow-sm: none;
+      --shadow-md: none;
+      --shadow-lg: none;
+    }
+
+    /* Reset */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: var(--font-scale);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    /* Skip link */
+    .skip-link {
+      position: absolute;
+      top: -100px;
+      left: 1.5rem;
+      background: var(--accent-orange);
+      color: #FFFFFF;
+      padding: 1rem 1.8rem;
+      z-index: 100;
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: var(--radius-md);
+      transition: top 0.2s ease;
+    }
+    .skip-link:focus {
+      top: 1.5rem;
+      outline: var(--focus-ring-outline);
+      outline-offset: 2px;
+    }
+
+    /* Panel de Accesibilidad Superior */
+    .a11y-header {
+      background-color: #1F2937;
+      color: #FFFFFF;
+      padding: 0.6rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      border-bottom: 3px solid var(--accent-orange);
+    }
+    .a11y-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .a11y-controls {
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .a11y-btn {
+      background-color: #374151;
+      color: #FFFFFF;
+      border: 2px solid #4B5563;
+      padding: 0.5rem 1rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .a11y-btn:hover, .a11y-btn:focus {
+      background-color: var(--accent-orange);
+      border-color: #FFFFFF;
+      outline: var(--focus-ring-outline);
+    }
+
+    /* Layout */
+    .app-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      min-height: calc(100vh - 55px);
+    }
+
+    @media (max-width: 1000px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* BARRA LATERAL (Sidebar) */
+    .sidebar {
+      background-color: var(--bg-sidebar);
+      border-right: 3px solid var(--border-color);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .sidebar-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 0.4rem;
+    }
+
+    .nav-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 1.25rem;
+      font-weight: 700;
+      padding: 0.8rem 1rem;
+      border-radius: var(--radius-md);
+      border: 2px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .nav-link svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--text-primary);
+      stroke-width: 2.5;
+      fill: none;
+    }
+    .nav-link:hover {
+      background-color: var(--bg-primary);
+      border-color: var(--accent-orange);
+      color: var(--accent-orange);
+    }
+    .nav-link:hover svg {
+      stroke: var(--accent-orange);
+    }
+    .nav-link:focus-visible {
+      outline: var(--focus-ring-outline);
+      background-color: var(--bg-primary);
+    }
+
+    /* Listado de Géneros (Navegación tipo Listbox) */
+    .genres-box {
+      background-color: var(--bg-card);
+      border: 3px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 0.5rem;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .genre-btn {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 2px solid transparent;
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.8rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .genre-btn:hover {
+      background-color: var(--bg-sidebar);
+      color: var(--accent-orange);
+    }
+    .genre-btn:focus-visible, .genre-btn.keyboard-focused {
+      outline: var(--focus-ring-outline);
+      background-color: var(--bg-sidebar);
+    }
+
+    /* CONTENIDO PRINCIPAL */
+    .main-content {
+      padding: 2rem 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      position: relative;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .shortcuts-help-btn {
+      background: none;
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      font-weight: bold;
+      padding: 0.6rem 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .shortcuts-help-btn:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+    .shortcuts-help-btn:focus-visible {
+      outline: var(--focus-ring-outline);
+    }
+
+    .btn-logout {
+      background: none;
+      border: 2px solid transparent;
+      border-radius: var(--radius-md);
+      color: var(--accent-orange);
+      font-size: 1.25rem;
+      font-weight: bold;
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .btn-logout svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--accent-orange);
+      stroke-width: 2.5;
+      fill: none;
+    }
+    .btn-logout:hover {
+      background-color: var(--bg-sidebar);
+      border-color: var(--accent-orange);
+    }
+    .btn-logout:focus-visible {
+      outline: var(--focus-ring-outline);
+      background-color: var(--bg-sidebar);
+    }
+
+    /* Hero / Buscador */
+    .search-hero {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .brand-title {
+      font-size: 4.5rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      line-height: 1;
+    }
+    .brand-subtitle {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+    }
+
+    /* Barra del Buscador Adaptada con Búsqueda de Voz */
+    .search-wrapper {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-input {
+      width: 100%;
+      background-color: var(--bg-sidebar);
+      border: 3px solid var(--accent-blue);
+      border-radius: var(--radius-round);
+      padding: 1.2rem 6.5rem 1.2rem 3.5rem;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+    }
+    .search-input:focus {
+      outline: var(--focus-ring-outline);
+      border-color: var(--accent-orange);
+      background-color: var(--bg-primary);
+    }
+
+    .search-icon-decor {
+      position: absolute;
+      left: 1.2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .search-icon-decor svg {
+      width: 28px;
+      height: 28px;
+      stroke: var(--accent-blue);
+      stroke-width: 2.5;
+      fill: none;
+    }
+
+    /* Botón de Dictar/Micrófono (Búsqueda por Voz) */
+    .btn-voice-search {
+      position: absolute;
+      right: 1.2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: 2px solid transparent;
+      border-radius: var(--radius-round);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--accent-blue);
+      transition: all 0.15s ease;
+    }
+    .btn-voice-search svg {
+      width: 26px;
+      height: 26px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      fill: none;
+    }
+    .btn-voice-search:hover {
+      background-color: var(--border-color);
+      color: var(--accent-orange);
+    }
+    .btn-voice-search:focus-visible {
+      outline: var(--focus-ring-outline);
+      background-color: var(--border-color);
+    }
+    .btn-voice-search.recording {
+      color: red;
+      animation: pulse 1s infinite alternate;
+      background-color: #FEE2E2;
+      border-color: red;
+    }
+
+    @keyframes pulse {
+      from { transform: translateY(-50%) scale(1); }
+      to { transform: translateY(-50%) scale(1.1); }
+    }
+
+    .btn-submit-search {
+      background-color: var(--accent-orange);
+      color: #FFFFFF;
+      border: 3px solid transparent;
+      border-radius: var(--radius-round);
+      padding: 1rem 3.5rem;
+      font-size: 1.35rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      transition: all 0.15s ease;
+    }
+    .btn-submit-search:hover {
+      background-color: var(--accent-orange-hover);
+    }
+    .btn-submit-search:focus-visible {
+      outline: var(--focus-ring-outline);
+      border-color: #FFFFFF;
+    }
+
+    /* AREA DE RESULTADOS (UPGRADE: Tarjetas de libros interactivas) */
+    .results-section {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .results-heading {
+      font-size: 1.6rem;
+      font-weight: 700;
+      border-bottom: 3px solid var(--accent-orange);
+      padding-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .book-card {
+      background-color: var(--bg-card);
+      border: 3px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    .book-card:hover {
+      border-color: var(--accent-orange);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+    }
+    .book-card:focus-visible, .book-card.keyboard-focused {
+      outline: var(--focus-ring-outline);
+      border-color: var(--accent-orange);
+      background-color: var(--bg-sidebar);
+    }
+
+    .book-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+    }
+    .book-meta {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+    .book-desc {
+      font-size: 1rem;
+      color: var(--text-primary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* REPRODUCTOR FLOTANTE INFERIOR (UPGRADE: Audio Player Accesible) */
+    .player-dock {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #111827;
+      color: #FFFFFF;
+      border-top: 4px solid var(--accent-orange);
+      padding: 1.2rem 2.5rem;
+      display: grid;
+      grid-template-columns: 280px 1fr 200px;
+      align-items: center;
+      gap: 2rem;
+      box-shadow: 0 -10px 25px rgba(0,0,0,0.3);
+      z-index: 50;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .player-dock.active {
+      transform: translateY(0);
+    }
+
+    @media (max-width: 900px) {
+      .player-dock {
+        grid-template-columns: 1fr;
+        grid-gap: 1rem;
+        padding: 1rem;
+        text-align: center;
+      }
+    }
+
+    .player-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .player-book-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-chapter-title {
+      font-size: 1rem;
+      color: #9CA3AF;
+    }
+
+    .player-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .player-buttons {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .player-btn {
+      background: none;
+      border: 2px solid transparent;
+      color: #FFFFFF;
+      border-radius: var(--radius-round);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .player-btn svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.5;
+    }
+    .player-btn:hover {
+      background-color: #374151;
+      color: var(--accent-orange);
+    }
+    .player-btn:focus-visible {
+      outline: var(--focus-ring-outline);
+    }
+    .player-btn.btn-play-toggle {
+      background-color: var(--accent-orange);
+      width: 52px;
+      height: 52px;
+    }
+    .player-btn.btn-play-toggle:hover {
+      background-color: var(--accent-orange-hover);
+      color: #FFFFFF;
+    }
+
+    /* Slider de progreso */
+    .progress-bar-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .progress-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      border-radius: 4px;
+      background: #4B5563;
+      outline: none;
+      cursor: pointer;
+    }
+    .progress-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      cursor: pointer;
+      border: 2px solid #FFFFFF;
+    }
+    .progress-slider:focus-visible {
+      outline: var(--focus-ring-outline);
+      outline-offset: 3px;
+    }
+
+    /* Atajos en Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-card {
+      background-color: var(--bg-primary);
+      border: 4px solid var(--accent-orange);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: var(--shadow-lg);
+      text-align: left;
+    }
+    .modal-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      margin-bottom: 1rem;
+    }
+    .shortcuts-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+    }
+    .shortcuts-table td {
+      padding: 0.6rem 0.4rem;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .kbd-tag {
+      background-color: var(--bg-sidebar);
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Skip Link -->
+  <a href="#main-content-section" class="skip-link">Saltar al contenido principal</a>
+
+  <!-- REGION VIVA: Feedback del Lector de Pantalla -->
+  <div id="srAnnouncer" class="sr-only" aria-live="assertive"></div>
+
+  <!-- BARRA DE ACCESIBILIDAD SUPERIOR -->
+  <header class="a11y-header" role="region" aria-label="Ajustes de accesibilidad visual">
+    <div class="a11y-title">
+      <span>♿</span>
+      <span>Herramientas de Accesibilidad</span>
+    </div>
+    <div class="a11y-controls">
+      <button class="a11y-btn" onclick="adjustTextScale(1)" aria-label="Aumentar tamaño de letra">Aumentar Texto A+</button>
+      <button class="a11y-btn" onclick="adjustTextScale(-1)" aria-label="Disminuir tamaño de letra">Disminuir Texto A-</button>
+      <button class="a11y-btn" id="contrastButton" onclick="toggleAccessibilityContrast()" aria-label="Activar contraste alto">Alto Contraste</button>
+      <button class="a11y-btn" id="audioCuesButton" onclick="toggleAudioCues()" aria-label="Desactivar señales de audio">Señales de Audio: ON</button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    
+    <!-- BARRA LATERAL (Sidebar) -->
+    <aside class="sidebar" role="complementary" aria-label="Menú principal y géneros">
+      
+      <!-- Menú -->
+      <nav class="sidebar-section" aria-label="Navegación del sistema">
+        <h2 class="sidebar-title">Menú</h2>
+        <ul class="nav-menu">
+          <li>
+            <a href="#perfil" class="nav-link" onclick="loadMockPage('Perfil')">
+              <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <span>[1] Perfil</span>
+            </a>
+          </li>
+          <li>
+            <a href="#mis-audiolibros" class="nav-link" onclick="loadMockPage('Mis Audiolibros')">
+              <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+              <span>[2] Mis Audiolibros</span>
+            </a>
+          </li>
+          <li>
+            <a href="#usuarios" class="nav-link" onclick="loadMockPage('Usuarios')">
+              <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              <span>[3] Usuarios</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Géneros -->
+      <div class="sidebar-section">
+        <h2 class="sidebar-title" id="genres-heading">Géneros [4]</h2>
+        <div class="genres-box">
+          <ul class="genres-list" id="genresList" role="menu" aria-labelledby="genres-heading">
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Biografías y Memorias')">BIOGRAFÍAS Y MEMORIAS</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Clásicos de la Literatura')">CLÁSICOS DE LA LITERATURA</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Desarrollo Personal')">DESARROLLO PERSONAL</button></li>
+            <li role="none"><button class="genre-item-btn genre-btn" role="menuitem" onclick="filterGenre('Desarrollo Personal y Bienestar')">DESARROLLO Y BIENESTAR</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Fantasía y Ciencia Ficción')">FANTASÍA Y CIENCIA FICCIÓN</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Infantil')">INFANTIL</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Literatura Juvenil')">LITERATURA JUVENIL</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Misterio, Crimen y Suspenso')">MISTERIO Y CRIMEN</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('Narrativa Contemporánea')">NARRATIVA CONTEMPORÁNEA</button></li>
+            <li role="none"><button class="genre-btn" role="menuitem" onclick="filterGenre('No Ficción Ensayo')">NO FICCIÓN ENSAYO</button></li>
+          </ul>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="main-content-section" class="main-content" role="main">
+      
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <button class="shortcuts-help-btn" onclick="toggleHelpModal(true)" aria-label="Ver atajos de teclado y ayuda">
+          <span>❓ Ayuda de Atajos</span>
+        </button>
+        
+        <button class="btn-logout" onclick="logoutSession()" aria-label="Cerrar sesión">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          Salir
+        </button>
+      </div>
+
+      <!-- Buscador Hero -->
+      <section class="search-hero" aria-label="Formulario de búsqueda">
+        <div>
+          <h1 class="brand-title">Invision</h1>
+          <p class="brand-subtitle">Biblioteca de audiolibros accesible</p>
+        </div>
+
+        <div class="search-wrapper">
+          <span class="search-icon-decor" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </span>
+          <input 
+            type="text" 
+            id="searchBox" 
+            class="search-input" 
+            placeholder="Busca tu próximo audiolibro... [S]" 
+            aria-label="Buscar audiolibro por título o autor"
+          >
+          <button 
+            id="voiceBtn"
+            class="btn-voice-search" 
+            onclick="startVoiceRecognition()" 
+            aria-label="Buscar usando la voz"
+            title="Buscar usando la voz"
+          >
+            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+          </button>
+        </div>
+
+        <button class="btn-submit-search" onclick="triggerSearch()">Buscar</button>
+      </section>
+
+      <!-- SECCION DE RESULTADOS -->
+      <section class="results-section" aria-labelledby="results-title-header">
+        <h2 class="results-heading" id="results-title-header">
+          <span>Audiolibros Disponibles</span>
+          <span id="results-count" style="font-size: 1.1rem; color: var(--text-secondary);">Cargando catálogo...</span>
+        </h2>
+        
+        <div class="results-grid" id="resultsGrid" role="listbox" aria-label="Resultados de libros">
+          <!-- Las tarjetas de libros se renderizarán dinámicamente aquí -->
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- REPRODUCTOR INTEGRADO INFERIOR -->
+  <footer class="player-dock" id="playerDock" role="region" aria-label="Reproductor de audiolibros">
+    <div class="player-info">
+      <div class="player-book-title" id="playerTitle">Título del libro</div>
+      <div class="player-chapter-title" id="playerChapter">Cargando capítulo...</div>
+    </div>
+
+    <div class="player-controls">
+      <div class="player-buttons">
+        <button class="player-btn" onclick="rewindAudio()" aria-label="Retroceder 15 segundos">
+          <svg viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"></path></svg>
+        </button>
+        
+        <button class="player-btn btn-play-toggle" id="playerPlayBtn" onclick="togglePlayback()" aria-label="Reproducir">
+          <svg viewBox="0 0 24 24" id="playIcon"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <svg viewBox="0 0 24 24" id="pauseIcon" style="display: none;"><line x1="6" y1="4" x2="6" y2="20"></line><line x1="18" y1="4" x2="18" y2="20"></line></svg>
+        </button>
+
+        <button class="player-btn" onclick="forwardAudio()" aria-label="Adelantar 15 segundos">
+          <svg viewBox="0 0 24 24"><path d="M13 17l5-5-5-5M6 17l5-5-5-5"></path></svg>
+        </button>
+      </div>
+
+      <div class="progress-bar-container">
+        <span id="currentTimeLabel" aria-hidden="true" style="font-size: 0.95rem; font-weight: bold;">0:00</span>
+        <input 
+          type="range" 
+          id="playerSlider" 
+          class="progress-slider" 
+          min="0" 
+          max="100" 
+          value="0" 
+          aria-label="Posición de reproducción"
+          onchange="seekAudio(this.value)"
+        >
+        <span id="durationLabel" aria-hidden="true" style="font-size: 0.95rem; font-weight: bold;">0:00</span>
+      </div>
+    </div>
+
+    <div style="text-align: right;">
+      <button class="player-btn" onclick="closePlayer()" aria-label="Cerrar reproductor">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- MODAL DE AYUDA DE ATAJOS -->
+  <div class="modal-overlay" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <h2 class="modal-title" id="modal-title">Atajos de Teclado Disponibles</h2>
+      <table class="shortcuts-table">
+        <tbody>
+          <tr>
+            <td><kbd class="kbd-tag">Shift + S</kbd> o <kbd class="kbd-tag">S</kbd></td>
+            <td>Ir al buscador</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">Espacio</kbd> (en reproductor)</td>
+            <td>Reproducir / Pausar</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">Flecha Izquierda / Derecha</kbd></td>
+            <td>Retroceder / Adelantar 15s</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">1</kbd> / <kbd class="kbd-tag">2</kbd> / <kbd class="kbd-tag">3</kbd></td>
+            <td>Ir a Perfil / Mis Libros / Usuarios</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">4</kbd> o <kbd class="kbd-tag">G</kbd></td>
+            <td>Ir al listado de Géneros</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">Esc</kbd></td>
+            <td>Cerrar reproductor o ayuda</td>
+          </tr>
+          <tr>
+            <td><kbd class="kbd-tag">?</kbd> o <kbd class="kbd-tag">H</kbd></td>
+            <td>Escuchar esta ayuda por voz</td>
+          </tr>
+        </tbody>
+      </table>
+      <button class="btn-submit-search" style="width:100%;" onclick="toggleHelpModal(false)">Entendido</button>
+    </div>
+  </div>
+
+  <script>
+    // --- MOCK DATA ---
+    const mockBooks = [
+      { id: 1, title: "Don Quijote de la Mancha", author: "Miguel de Cervantes", genre: "Clásicos de la Literatura", desc: "La maravillosa historia de un hidalgo caballero loco por las novelas de caballería que recorre las tierras de La Mancha." },
+      { id: 2, title: "Hábitos Atómicos", author: "James Clear", genre: "Desarrollo Personal", desc: "Una guía sumamente práctica para cambiar tus hábitos diarios y mejorar un 1% cada día con pasos sencillos." },
+      { id: 3, title: "El Principito", author: "Antoine de Saint-Exupéry", genre: "Infantil", desc: "El viaje de un pequeño príncipe desde su asteroide hasta la Tierra, donde aprende el valor de la amistad y lo esencial." },
+      { id: 4, title: "Cien Años de Soledad", author: "Gabriel García Márquez", genre: "Clásicos de la Literatura", desc: "La genial crónica de la familia Buendía en el fantástico e inolvidable pueblo de Macondo." },
+      { id: 5, title: "El Hobbit", author: "J.R.R. Tolkien", genre: "Fantasía y Ciencia Ficción", desc: "Bilbo Bolsón es arrastrado a una gran aventura para recuperar el tesoro custodiado por el dragón Smaug." },
+      { id: 6, title: "El Psicoanalista", author: "John Katzenbach", genre: "Misterio, Crimen y Suspenso", desc: "Un impactante juego de gato y ratón donde un psiquiatra debe descubrir la identidad de un misterioso extorsionador en 15 días." }
+    ];
+
+    // --- CONFIGURACIÓN DE AUDIO Y ACCESIBILIDAD ---
+    let fontBaseSize = 16;
+    let audioCuesEnabled = true;
+    const announcer = document.getElementById("srAnnouncer");
+    
+    // Sintetizador Web Audio API para señales sonoras (Sonificación/Earcons)
+    let audioCtx = null;
+    function playBeep(freq, type, duration) {
+      if (!audioCuesEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        // Desvanecimiento suave
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.warn("Web Audio API no soportada o bloqueada por políticas del navegador.", e);
+      }
+    }
+
+    // Señales de sonido predefinidas
+    const playCue = {
+      focus: () => playBeep(523.25, 'sine', 0.08),     // C5 (sutil clic de foco)
+      success: () => {                                // Tono ascendente rápido
+        playBeep(440, 'triangle', 0.15);
+        setTimeout(() => playBeep(880, 'triangle', 0.15), 100);
+      },
+      error: () => {                                  // Tono grave descendente
+        playBeep(180, 'sawtooth', 0.3);
+      },
+      action: () => playBeep(659.25, 'sine', 0.1),    // E5
+      voiceStart: () => playBeep(880, 'sine', 0.15)
+    };
+
+    // Text to Speech
+    function announceAndSpeak(message) {
+      announcer.innerText = message;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'es-ES';
+        utterance.rate = 1.15;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    // --- COMPONENTE DE ACCESIBILIDAD SUPERIOR ---
+    function adjustTextScale(direction) {
+      fontBaseSize += direction * 2;
+      if (fontBaseSize < 12) fontBaseSize = 12;
+      if (fontBaseSize > 28) fontBaseSize = 28;
+      
+      document.documentElement.style.setProperty('--font-scale', `${fontBaseSize}px`);
+      playCue.action();
+      announceAndSpeak(`Tamaño de letra ajustado a ${fontBaseSize} píxeles`);
+    }
+
+    function toggleAccessibilityContrast() {
+      const isHc = document.body.classList.toggle("high-contrast");
+      playCue.success();
+      if (isHc) {
+        document.getElementById("contrastButton").innerText = "Modo Estándar";
+        announceAndSpeak("Alto contraste activado. Interfaz optimizada en color negro y amarillo.");
+      } else {
+        document.getElementById("contrastButton").innerText = "Alto Contraste";
+        announceAndSpeak("Alto contraste desactivado. Interfaz en blanco y naranja.");
+      }
+    }
+
+    function toggleAudioCues() {
+      audioCuesEnabled = !audioCuesEnabled;
+      const btn = document.getElementById("audioCuesButton");
+      if (audioCuesEnabled) {
+        btn.innerText = "Señales de Audio: ON";
+        playCue.success();
+        announceAndSpeak("Señales de audio activadas.");
+      } else {
+        btn.innerText = "Señales de Audio: OFF";
+        announceAndSpeak("Señales de audio desactivadas.");
+      }
+    }
+
+    // --- REPRODUCTOR MOCKED INTERACTIVO ---
+    let playerActive = false;
+    let isPlaying = false;
+    let playbackInterval = null;
+    let currentPlayTime = 0;
+    const playTimeMax = 180; // 3 minutos por demo
+
+    function formatPlayTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function loadAudiobook(book) {
+      playerActive = true;
+      isPlaying = true;
+      currentPlayTime = 0;
+      
+      document.getElementById("playerTitle").innerText = book.title;
+      document.getElementById("playerChapter").innerText = `Capítulo 1: Introducción y Prólogo (Narrador: Voz Oficial)`;
+      document.getElementById("durationLabel").innerText = formatPlayTime(playTimeMax);
+      document.getElementById("playerDock").classList.add("active");
+      
+      updatePlayIcons();
+      playCue.success();
+      announceAndSpeak(`Cargando e iniciando reproducción de ${book.title}. Presiona espacio para pausar.`);
+      
+      startPlaybackTimer();
+    }
+
+    function startPlaybackTimer() {
+      clearInterval(playbackInterval);
+      playbackInterval = setInterval(() => {
+        if (isPlaying) {
+          currentPlayTime += 1;
+          if (currentPlayTime >= playTimeMax) {
+            currentPlayTime = playTimeMax;
+            isPlaying = false;
+            clearInterval(playbackInterval);
+            announceAndSpeak("Fin del audiolibro. Has completado el capítulo.");
+            playCue.success();
+          }
+          document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+          const percent = (currentPlayTime / playTimeMax) * 100;
+          document.getElementById("playerSlider").value = percent;
+        }
+      }, 1000);
+    }
+
+    function togglePlayback() {
+      if (!playerActive) return;
+      isPlaying = !isPlaying;
+      updatePlayIcons();
+      playCue.action();
+      if (isPlaying) {
+        announceAndSpeak("Reproducción reanudada");
+      } else {
+        announceAndSpeak("Reproducción pausada");
+      }
+    }
+
+    function updatePlayIcons() {
+      const playIcon = document.getElementById("playIcon");
+      const pauseIcon = document.getElementById("pauseIcon");
+      const btn = document.getElementById("playerPlayBtn");
+      
+      if (isPlaying) {
+        playIcon.style.display = "none";
+        pauseIcon.style.display = "block";
+        btn.setAttribute("aria-label", "Pausar audiolibro");
+      } else {
+        playIcon.style.display = "block";
+        pauseIcon.style.display = "none";
+        btn.setAttribute("aria-label", "Reproducir audiolibro");
+      }
+    }
+
+    function rewindAudio() {
+      currentPlayTime -= 15;
+      if (currentPlayTime < 0) currentPlayTime = 0;
+      document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+      playCue.action();
+      announceAndSpeak("Retroceder 15 segundos");
+    }
+
+    function forwardAudio() {
+      currentPlayTime += 15;
+      if (currentPlayTime > playTimeMax) currentPlayTime = playTimeMax;
+      document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+      playCue.action();
+      announceAndSpeak("Adelantar 15 segundos");
+    }
+
+    function seekAudio(percentValue) {
+      currentPlayTime = (percentValue / 100) * playTimeMax;
+      document.getElementById("currentTimeLabel").innerText = formatPlayTime(currentPlayTime);
+      announceAndSpeak(`Posicionando tiempo a ${formatPlayTime(currentPlayTime)}`);
+    }
+
+    function closePlayer() {
+      isPlaying = false;
+      playerActive = false;
+      clearInterval(playbackInterval);
+      document.getElementById("playerDock").classList.remove("active");
+      playCue.action();
+      announceAndSpeak("Reproductor cerrado.");
+    }
+
+    // --- RECONOCIMIENTO DE VOZ NATIVO (Baja Visión & Ceguera) ---
+    function startVoiceRecognition() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        playCue.error();
+        announceAndSpeak("El dictado por voz no está soportado en este navegador. Inténtalo en Google Chrome.");
+        return;
+      }
+      
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      
+      const voiceBtn = document.getElementById("voiceBtn");
+      voiceBtn.classList.add("recording");
+      playCue.voiceStart();
+      announceAndSpeak("Dicta tu búsqueda ahora.");
+
+      recognition.onresult = function(event) {
+        const voiceQuery = event.results[0][0].transcript;
+        document.getElementById("searchBox").value = voiceQuery;
+        voiceBtn.classList.remove("recording");
+        playCue.success();
+        announceAndSpeak(`Entendido: ${voiceQuery}. Iniciando búsqueda.`);
+        renderBooks(voiceQuery);
+      };
+
+      recognition.onerror = function() {
+        voiceBtn.classList.remove("recording");
+        playCue.error();
+        announceAndSpeak("No logré entender el dictado. Por favor, intenta de nuevo.");
+      };
+
+      recognition.onend = function() {
+        voiceBtn.classList.remove("recording");
+      };
+
+      recognition.start();
+    }
+
+    // --- RENDERIZADO DE RESULTADOS DE BÚSQUEDA ---
+    function renderBooks(query = "", genreFilter = "") {
+      const resultsGrid = document.getElementById("resultsGrid");
+      resultsGrid.innerHTML = "";
+      
+      let filtered = mockBooks;
+      if (query !== "") {
+        filtered = filtered.filter(b => 
+          b.title.toLowerCase().includes(query.toLowerCase()) || 
+          b.author.toLowerCase().includes(query.toLowerCase())
+        );
+      }
+      if (genreFilter !== "") {
+        filtered = filtered.filter(b => b.genre === genreFilter);
+      }
+
+      document.getElementById("results-count").innerText = `${filtered.length} libros encontrados`;
+
+      if (filtered.length === 0) {
+        resultsGrid.innerHTML = `<div style="grid-column: 1/-1; padding: 2rem; font-size:1.3rem; font-weight:bold; color:var(--text-secondary);">No se encontraron libros. Escribe otra palabra clave.</div>`;
+        playCue.error();
+        return;
+      }
+
+      filtered.forEach((book) => {
+        const card = document.createElement("button");
+        card.className = "book-card";
+        card.setAttribute("role", "option");
+        card.setAttribute("aria-label", `${book.title}, escrito por ${book.author}. ${book.desc}`);
+        card.onclick = () => loadAudiobook(book);
+        
+        // Foco de sonido
+        card.onfocus = () => {
+          playCue.focus();
+        };
+
+        card.innerHTML = `
+          <div class="book-title">${book.title}</div>
+          <div class="book-meta">👤 ${book.author} | 📁 ${book.genre}</div>
+          <div class="book-desc">${book.desc}</div>
+        `;
+        resultsGrid.appendChild(card);
+      });
+    }
+
+    // Filtros de navegación
+    function filterGenre(genreName) {
+      document.getElementById("searchBox").value = "";
+      renderBooks("", genreName);
+      playCue.success();
+      announceAndSpeak(`Mostrando libros del género: ${genreName}`);
+    }
+
+    function loadMockPage(pageName) {
+      playCue.success();
+      announceAndSpeak(`Abriendo sección: ${pageName}`);
+      if (pageName === 'Mis Audiolibros') {
+        renderBooks();
+      } else {
+        const resultsGrid = document.getElementById("resultsGrid");
+        resultsGrid.innerHTML = `<div style="grid-column: 1/-1; padding: 3rem 1rem; font-size:1.4rem; font-weight:bold; color:var(--accent-orange);">Sección de ${pageName} simulada en la maqueta.</div>`;
+      }
+    }
+
+    function triggerSearch() {
+      const q = document.getElementById("searchBox").value.trim();
+      renderBooks(q);
+      playCue.success();
+      announceAndSpeak(`Resultados para la búsqueda: ${q || 'Todos los libros'}`);
+    }
+
+    function logoutSession() {
+      playCue.action();
+      announceAndSpeak("Sesión cerrada correctamente.");
+    }
+
+    // --- VENTANA DE AYUDA (MODAL ACCESIBLE) ---
+    function toggleHelpModal(show) {
+      const modal = document.getElementById("helpModal");
+      playCue.action();
+      if (show) {
+        modal.classList.add("active");
+        modal.querySelector("button").focus(); // Mover foco al cerrar botón dentro del modal
+        announceAndSpeak("Ventana de atajos abierta. Presiona Tabulador para explorar.");
+      } else {
+        modal.classList.remove("active");
+        document.querySelector(".shortcuts-help-btn").focus(); // Devolver foco
+        announceAndSpeak("Ventana de ayuda cerrada.");
+      }
+    }
+
+    // --- ACCESIBILIDAD Y MANEJO DEL TECLADO ---
+    document.addEventListener("keydown", function(e) {
+      // Atajos directos sin estar enfocado en inputs
+      const activeEl = document.activeElement;
+      const isInput = activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA';
+
+      // Cerrar todo con ESC
+      if (e.key === "Escape") {
+        if (document.getElementById("helpModal").classList.contains("active")) {
+          toggleHelpModal(false);
+        } else if (playerActive) {
+          closePlayer();
+        }
+      }
+
+      // Atajo general para enfocar buscador: Shift + S o tecla S (cuando no se escribe)
+      if ((e.shiftKey && e.key.toLowerCase() === 's') || (e.key.toLowerCase() === 's' && !isInput)) {
+        e.preventDefault();
+        const box = document.getElementById("searchBox");
+        box.focus();
+        playCue.focus();
+        announceAndSpeak("Buscador enfocado. Escribe tu búsqueda.");
+      }
+
+      // Teclas numéricas rápidas de menú
+      if (!isInput) {
+        if (e.key === "1") {
+          e.preventDefault();
+          loadMockPage('Perfil');
+        } else if (e.key === "2") {
+          e.preventDefault();
+          loadMockPage('Mis Audiolibros');
+        } else if (e.key === "3") {
+          e.preventDefault();
+          loadMockPage('Usuarios');
+        } else if (e.key === "4" || e.key.toLowerCase() === 'g') {
+          e.preventDefault();
+          document.querySelector(".genre-btn").focus();
+          announceAndSpeak("Sección de géneros enfocada. Usa tabulador.");
+        } else if (e.key === "?" || e.key.toLowerCase() === "h") {
+          e.preventDefault();
+          announceAndSpeak("Atajos disponibles: 1 para perfil, 2 para mis audiolibros, 3 para usuarios, 4 para géneros, S para buscar, Espacio para pausar y Esc para cerrar.");
+        }
+      }
+
+      // Atajo de espacio para pausar
+      if (e.key === " " && playerActive && !isInput) {
+        e.preventDefault();
+        togglePlayback();
+      }
+
+      // Flechas para adelantar/retroceder en reproductor
+      if (playerActive && !isInput) {
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          forwardAudio();
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          rewindAudio();
+        }
+      }
+    });
+
+    // Sonido sutil al pasar foco por cualquier elemento interactivo del teclado
+    document.addEventListener("focusin", function(e) {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'INPUT') {
+        playCue.focus();
+      }
+    });
+
+    // --- CARGA INICIAL ---
+    window.addEventListener("DOMContentLoaded", () => {
+      renderBooks(); // Cargar catálogo inicial
+      setTimeout(() => {
+        announceAndSpeak("Invision. Sistema de audio activado. Presiona letra Hache o el signo de pregunta para escuchar los atajos de teclado.");
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
