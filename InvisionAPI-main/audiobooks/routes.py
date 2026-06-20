@@ -31,7 +31,7 @@ from crud import (
     get_unique_genres,
     get_books_by_genre,
 )
-from models import Usuario, Audiolibro, SesionAcceso, Categoria, Clasificacion
+from models import Usuario, Audiolibro, SesionAcceso, Categoria, Clasificacion, UserRole
 from schemas import UserUpdate, UserPasswordUpdate, UserResponse, RoleInfo, AddRoleToUser, UserCreate, UserBaseResponse, AdminUserUpdate, AudiobookCreateUpdate
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, container_client
 import re
@@ -746,3 +746,46 @@ async def delete_admin_audiolibro(id: int, db: Session = Depends(get_db), token:
     db.delete(libro)
     db.commit()
     return
+
+
+@router.delete("/users/{user_id}/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_role_from_user(user_id: int, role_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    user_info = decode_access_token(token)
+    if "Admin" not in user_info.get("roles", []):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    db.query(UserRole).filter(UserRole.user_id == user_id, UserRole.role_id == role_id).delete()
+    db.commit()
+    return
+
+
+@router.put("/users/{user_id}/admin")
+async def admin_update_user(user_id: int, payload: AdminUserUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    user_info = decode_access_token(token)
+    if "Admin" not in user_info.get("roles", []):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    if payload.email is not None:
+        user.email = payload.email
+    if payload.username is not None:
+        user.username = payload.username
+    if payload.first_name is not None:
+        user.first_name = payload.first_name
+    if payload.last_name is not None:
+        user.last_name = payload.last_name
+    if payload.phone_number is not None:
+        user.phone_number = payload.phone_number
+        
+    db.commit()
+    db.refresh(user)
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name
+    }

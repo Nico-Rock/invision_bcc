@@ -500,3 +500,25 @@ def test_audiolibros_crud_admin_flow(client, admin_token):
     # 4. Delete
     resp = client.delete(f"/admin/audiolibros/{book_id}", headers=headers)
     assert resp.status_code == 204
+
+
+def test_delete_user_role_admin(client, admin_token, test_user):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    # Assign a role first (e.g. role_id 2)
+    client.post("/users/add_roles", json={"user_id": test_user["id"], "role_id": 2}, headers=headers)
+    
+    # Delete role association
+    response = client.delete(f"/users/{test_user['id']}/roles/2", headers=headers)
+    assert response.status_code == 204
+
+
+def test_update_user_admin(client, admin_token, test_user):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    update_payload = {
+        "email": "newadminupdate@example.com",
+        "username": "newusernameadmin"
+    }
+    response = client.put(f"/users/{test_user['id']}/admin", json=update_payload, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["email"] == "newadminupdate@example.com"
+    assert response.json()["username"] == "newusernameadmin"
