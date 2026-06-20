@@ -460,3 +460,43 @@ def test_get_categorias_success(client, admin_token):
     response = client.get("/admin/categorias", headers=headers)
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+def test_audiolibros_crud_admin_flow(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    # 1. List
+    resp = client.get("/admin/audiolibros", headers=headers)
+    assert resp.status_code == 200
+    
+    # 2. Create
+    create_payload = {
+        "nombre": "Libro Manual",
+        "descripcion": "Manual desc",
+        "genero": "Literatura",
+        "autor": "Autor Manual",
+        "categoria_id": None,
+        "clasificaciones": ["BCC"]
+    }
+    resp = client.post("/admin/audiolibros", json=create_payload, headers=headers)
+    assert resp.status_code == 201
+    new_book = resp.json()
+    assert new_book["nombre"] == "Libro Manual"
+    book_id = new_book["id"]
+    
+    # 3. Update
+    update_payload = {
+        "nombre": "Libro Manual Editado",
+        "descripcion": "Manual desc updated",
+        "genero": "Literatura",
+        "autor": "Autor Manual Editado",
+        "categoria_id": None,
+        "clasificaciones": ["BCC", "Editado"]
+    }
+    resp = client.put(f"/admin/audiolibros/{book_id}", json=update_payload, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["nombre"] == "Libro Manual Editado"
+    
+    # 4. Delete
+    resp = client.delete(f"/admin/audiolibros/{book_id}", headers=headers)
+    assert resp.status_code == 204

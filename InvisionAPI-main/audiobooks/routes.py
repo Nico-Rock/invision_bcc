@@ -32,7 +32,7 @@ from crud import (
     get_books_by_genre,
 )
 from models import Usuario, Audiolibro, SesionAcceso, Categoria, Clasificacion
-from schemas import UserUpdate, UserPasswordUpdate, UserResponse, RoleInfo, AddRoleToUser, UserCreate, UserBaseResponse
+from schemas import UserUpdate, UserPasswordUpdate, UserResponse, RoleInfo, AddRoleToUser, UserCreate, UserBaseResponse, AdminUserUpdate, AudiobookCreateUpdate
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, container_client
 import re
 from urllib.parse import unquote
@@ -638,3 +638,111 @@ async def get_categorias(db: Session = Depends(get_db), token: str = Depends(oau
     decode_access_token(token)
     categorias = db.query(Categoria).all()
     return [{"id": c.id, "nombre": c.nombre} for c in categorias]
+
+
+@router.get("/admin/audiolibros")
+async def list_admin_audiolibros(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    user_info = decode_access_token(token)
+    if "Admin" not in user_info.get("roles", []):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    libros = db.query(Audiolibro).all()
+    return [
+        {
+            "id": b.id,
+            "nombre": b.nombre,
+            "descripcion": b.descripcion,
+            "genero": b.genero,
+            "autor": b.autor,
+            "categoria_id": b.categoria_id,
+            "categoria": b.categoria.nombre if b.categoria else None,
+            "clasificaciones": [c.nombre for c in b.clasificaciones]
+        }
+        for b in libros
+    ]
+
+
+@router.post("/admin/audiolibros", status_code=status.HTTP_201_CREATED)
+async def create_admin_audiolibro(payload: AudiobookCreateUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    user_info = decode_access_token(token)
+    if "Admin" not in user_info.get("roles", []):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    libro = Audiolibro(
+        nombre=payload.nombre,
+        descripcion=payload.descripcion,
+        genero=payload.genero,
+        autor=payload.autor,
+        categoria_id=payload.categoria_id
+    )
+    db.add(libro)
+    db.commit()
+    db.refresh(libro)
+
+    # Vincular clasificaciones
+    for cl_nombre in payload.clasificaciones:
+        cl = db.query(Clasificacion).filter(Clasificacion.nombre == cl_nombre).first()
+        if not cl and cl_nombre:
+            cl = Clasificacion(nombre=cl_nombre)
+            db.add(cl)
+            db.commit()
+            db.refresh(cl)
+        if cl:
+            libro.clasificaciones.append(cl)
+    db.commit()
+    
+    return {
+        "id": libro.id,
+        "nombre": libro.nombre,
+        "descripcion": libro.descripcion,
+        "genero": libro.genero,
+        "autor": libro.autor,
+        "categoria_id": libro.categoria_id
+    }
+
+
+@router.put("/admin/audiolibros/{id}")
+async def update_admin_audiolibro(id: int, payload: AudiobookCreateUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    user_info = decode_access_token(token)
+    if "Admin" not in user_info.get("roles", []):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    libro = db.query(Audiolibro).filter(Audiolibro.id == id).first()
+    if not libro:
+        raise HTTPException(status_code=404, detail="Audiolibro no encontrado")
+    
+    libro.nombre = payload.nombre
+    libro.descripcion = payload.descripcion
+    libro.genero = payload.genero
+    libro.autor = payload.autor
+    libro.categoria_id = payload.categoria_id
+    
+    # Actualizar clasificaciones
+    libro.clasificaciones.clear()
+    for cl_nombre in payload.clasificaciones:
+        cl = db.query(Clasificacion).filter(Clasificacion.nombre == cl_nombre).first()
+        if not cl and cl_nombre:
+            cl = Clasificacion(nombre=cl_nombre)
+            db.add(cl)
+            db.commit()
+            db.refresh(cl)
+        if cl:
+            libro.clasificaciones.append(cl)
+    
+    db.commit()
+    return {"id": libro.id, "nombre": libro.nombre, "descripcion": libro.descripcion}
+
+
+@router.delete("/admin/audiolibros/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_admin_audiolibro(id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    user_info = decode_access_token(token)
+    if "Admin" not in user_info.get("roles", []):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    libro = db.query(Audiolibro).filter(Audiolibro.id == id).first()
+    if not libro:
+        raise HTTPException(status_code=404, detail="Audiolibro no encontrado")
+    
+    db.delete(libro)
+    db.commit()
+    return
