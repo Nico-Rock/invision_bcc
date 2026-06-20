@@ -502,23 +502,45 @@ def test_audiolibros_crud_admin_flow(client, admin_token):
     assert resp.status_code == 204
 
 
-def test_delete_user_role_admin(client, admin_token, test_user):
+def test_delete_user_role_admin(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    # Create fresh temporary user
+    user_data = {
+        "email": "role_temp@example.com",
+        "username": "roletemp",
+        "password": "testpassword"
+    }
+    create_resp = client.post("/users/", json=user_data, headers=headers)
+    assert create_resp.status_code == 201
+    temp_user_id = create_resp.json()["id"]
+
     # Assign a role first (e.g. role_id 2)
-    client.post("/users/add_roles", json={"user_id": test_user["id"], "role_id": 2}, headers=headers)
+    client.post("/users/add_roles", json={"user_id": temp_user_id, "role_id": 2}, headers=headers)
     
     # Delete role association
-    response = client.delete(f"/users/{test_user['id']}/roles/2", headers=headers)
+    response = client.delete(f"/users/{temp_user_id}/roles/2", headers=headers)
     assert response.status_code == 204
 
 
-def test_update_user_admin(client, admin_token, test_user):
+def test_update_user_admin(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Create fresh temporary user
+    user_data = {
+        "email": "update_temp@example.com",
+        "username": "updatetemp",
+        "password": "testpassword"
+    }
+    create_resp = client.post("/users/", json=user_data, headers=headers)
+    assert create_resp.status_code == 201
+    temp_user_id = create_resp.json()["id"]
+
     update_payload = {
         "email": "newadminupdate@example.com",
         "username": "newusernameadmin"
     }
-    response = client.put(f"/users/{test_user['id']}/admin", json=update_payload, headers=headers)
+    response = client.put(f"/users/{temp_user_id}/admin", json=update_payload, headers=headers)
     assert response.status_code == 200
     assert response.json()["email"] == "newadminupdate@example.com"
     assert response.json()["username"] == "newusernameadmin"
