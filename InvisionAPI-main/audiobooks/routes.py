@@ -631,3 +631,10 @@ async def logout(
     db.commit()
     
     return {"message": "Sesión cerrada correctamente"}
+
+
+@router.get("/admin/categorias")
+async def get_categorias(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    decode_access_token(token)
+    categorias = db.query(Categoria).all()
+    return [{"id": c.id, "nombre": c.nombre} for c in categorias]

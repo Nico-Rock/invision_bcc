@@ -448,3 +448,15 @@ def test_importar_lote_endpoint(mock_ingest, client, admin_token):
     response = client.post("/admin/importar-lote", json=payload, headers=headers)
     assert response.status_code == 200
     assert response.json()["message"] == "Importación iniciada en segundo plano"
+
+
+def test_get_categorias_unauthorized(client):
+    response = client.get("/admin/categorias")
+    assert response.status_code == 401
+
+
+def test_get_categorias_success(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = client.get("/admin/categorias", headers=headers)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
