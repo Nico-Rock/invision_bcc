@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  test-api:
+    build:
+      context: .
+      dockerfile: ./audiobooks/Dockerfile
+    container_name: invision_app_test
+    volumes:
+      - ./audiobooks:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - test_network
+    restart: on-failure:5
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  test-nginx:
+    image: nginx:latest
+    container_name: test_nginx
+    volumes:
+      - ./nginx_test.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - test-api
+    networks:
+      - test_network
+    restart: always
+
+networks:
+  test_network:

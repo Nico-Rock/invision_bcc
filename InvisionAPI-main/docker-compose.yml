@@ -1,0 +1,50 @@
+
+
+services:
+  invision-api:
+    build:
+      context: .
+      dockerfile: ./audiobooks/Dockerfile
+    container_name: invision_app
+    volumes:
+      - ./audiobooks:/app  # Monta el código fuente
+    ports:
+      - "8000:8000"
+    # environment:
+    #   - DATABASE_URL=postgresql://postgres:password@db:5432/mydatabase
+    #   - PYTHONUNBUFFERED=1
+    # depends_on:
+    #   - db
+    networks:
+      - app_network
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: on-failure:10
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--root-path", "/invision-api", "--reload-dir", "/app"]
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx_dev.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      
+    depends_on:
+      - invision-api
+    ports:
+      - "443:443"
+      - "80:80"
+    restart: always
+    networks:
+      - app_network
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+
+networks:
+  app_network:
