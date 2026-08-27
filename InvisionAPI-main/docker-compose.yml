@@ -10,9 +10,8 @@ services:
       - ./audiobooks:/app  # Monta el código fuente
     ports:
       - "8000:8000"
-    # environment:
-    #   - DATABASE_URL=postgresql://postgres:password@db:5432/mydatabase
-    #   - PYTHONUNBUFFERED=1
+    env_file:
+      - ../.env  # config.py no resuelve bien la ruta del .env dentro del contenedor; se inyecta así
     # depends_on:
     #   - db
     networks:

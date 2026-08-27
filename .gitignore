@@ -7,3 +7,4 @@ __pycache__/
 *.db
 *.zip
 .DS_Store
+_ops_upload/
