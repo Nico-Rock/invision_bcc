@@ -162,6 +162,57 @@ def generate_audio_sas_url(blob_name):
         return None
 
 
+def crear_libro(payload, db_info):
+    """Crea un audiolibro en la base. Devuelve (status_code, dict).
+
+    El campo `mensaje` es el texto que el frontend anuncia por voz: escribirlo
+    como se lee en voz alta.
+    """
+    nombre = (payload.get("nombre") or "").strip()
+    if not nombre:
+        return 400, {"ok": False, "mensaje": "El nombre del libro es obligatorio"}
+
+    conn = db_info["conn"]
+    es_sqlite = db_info["type"] == "sqlite"
+    ph = "?" if es_sqlite else "%s"  # sqlite3 usa ?, pymssql usa %s
+    cursor = conn.cursor()
+
+    cursor.execute(
+        f"SELECT id FROM audiolibros WHERE LOWER(nombre) = LOWER({ph})", (nombre,)
+    )
+    if cursor.fetchone():
+        return 409, {
+            "ok": False,
+            "mensaje": f"Ya existe un libro llamado {nombre}. Revisá el catálogo.",
+        }
+
+    cursor.execute(
+        f"INSERT INTO audiolibros (nombre, descripcion, genero, autor, categoria_id) "
+        f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
+        (
+            nombre,
+            payload.get("descripcion"),
+            payload.get("genero"),
+            payload.get("autor"),
+            payload.get("categoria_id"),
+        ),
+    )
+
+    if es_sqlite:
+        nuevo_id = cursor.lastrowid
+    else:
+        cursor.execute("SELECT SCOPE_IDENTITY()")
+        nuevo_id = int(cursor.fetchone()[0])
+
+    conn.commit()
+    return 201, {
+        "ok": True,
+        "id": nuevo_id,
+        "nombre": nombre,
+        "mensaje": f"Libro {nombre} creado. Ahora seleccioná los archivos de audio.",
+    }
+
+
 class AdminApiHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         static_dir = os.path.join(os.path.dirname(__file__), "static")
