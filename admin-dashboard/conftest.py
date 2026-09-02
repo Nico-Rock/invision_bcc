@@ -14,13 +14,18 @@ class FakeBlobClient:
     def exists(self):
         return self.name in self.store
 
-    def upload_blob(self, data, overwrite=False, content_type=None, length=None):
+    def upload_blob(self, data, overwrite=False, content_settings=None, length=None,
+                    **kwargs):
+        # Igual que el SDK real: el content-type SOLO se toma de `content_settings`.
+        # Los kwargs que el SDK no conoce (p. ej. `content_type=`) se ignoran en
+        # silencio, así que acá también -> el blob queda sin content-type y el
+        # test lo caza, en vez de pasar por un fake más permisivo que la realidad.
         if self.name in self.store and not overwrite:
             raise FileExistsError(self.name)
         contenido = data.read() if hasattr(data, "read") else data
         self.store[self.name] = {
             "content": contenido,
-            "content_type": content_type,
+            "content_type": getattr(content_settings, "content_type", None),
             "length": length,
         }
 

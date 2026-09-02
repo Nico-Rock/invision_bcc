@@ -34,10 +34,13 @@ blob_cache = {
 }
 
 try:
-    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+    from azure.storage.blob import (
+        BlobServiceClient, generate_blob_sas, BlobSasPermissions, ContentSettings
+    )
     AZURE_SDK_AVAILABLE = True
 except ImportError:
     AZURE_SDK_AVAILABLE = False
+    ContentSettings = None
 
 
 try:
@@ -263,8 +266,14 @@ def subir_pista(nombre, archivo, stream, length, container):
         }
 
     try:
+        # OJO: el content-type va en `content_settings`. Un `content_type=` suelto
+        # no es un kwarg del SDK: cae en **kwargs, se ignora sin avisar y el MP3
+        # queda como application/octet-stream.
         blob_client.upload_blob(
-            stream, length=length, overwrite=False, content_type="audio/mpeg"
+            stream,
+            length=length,
+            overwrite=False,
+            content_settings=ContentSettings(content_type="audio/mpeg"),
         )
     except Exception as e:
         # `mensaje` se lee por voz: va sin jerga. El detalle técnico queda aparte
