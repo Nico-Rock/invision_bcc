@@ -35,6 +35,7 @@ Plataforma de audiolibros accesible diseñada para usuarios con discapacidad vis
 | 09 | Admin Panel | [09-admin-panel.md](09-admin-panel.md) | Producción | 85% |
 | 10 | Accesibilidad | [10-accesibilidad.md](10-accesibilidad.md) | Producción | 90% |
 | 11 | Infra & Config | [11-infra-config.md](11-infra-config.md) | Dev-ready | 60% |
+| 12 | Admin Dashboard (panel operativo local) | [12-admin-dashboard.md](12-admin-dashboard.md) | Solo lectura, en desarrollo | 40% |
 
 ---
 
@@ -57,6 +58,14 @@ FRONTEND (React 19 + Vite)
 │   ├── ContentManagement.jsx ──── CRUD /admin/audiolibros, /admin/categorias
 │   └── AuditLogs.jsx ─────────── GET  /admin/auditoria/sesiones/
 └── A11yBar.jsx ────────────────── (local state: contraste, texto, earcons)
+
+ADMIN DASHBOARD (Python http.server, standalone — módulo 12)
+│                                  Independiente de InvisionAPI-main
+├── /api/overview, /api/access-logs, /api/users ── lectura directa a DB
+├── /api/books, /api/stream-sas ──────────────── lectura directa a Blob
+└── (planeado) /api/admin/crear-libro,
+    /api/admin/subir-pista ──────────────────── escritura DB + Blob,
+                                                  ver 12-admin-dashboard.md
 
 BACKEND (FastAPI)
 │

@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invision | Panel Administrativo, Auditoría y Visor Estructural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #090d16;
+      --bg-surface: #111827;
+      --bg-surface-hover: #192237;
+      --bg-elevated: #1f293d;
+      --accent-blue: #38bdf8;
+      --accent-indigo: #6366f1;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(56, 189, 248, 0.4);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.25);
+      --shadow-elevated: 0 12px 36px rgba(0, 0, 0, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Layout */
+    .app-container {
+      display: flex;
+      flex: 1;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem 1rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    }
+
+    .brand-text h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .nav-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      flex: 1;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent-blue);
+      border-color: rgba(56, 189, 248, 0.2);
+    }
+
+    .nav-icon {
+      font-size: 1.1rem;
+    }
+
+    .status-badge-box {
+      padding: 1rem;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--accent-emerald);
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-emerald);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-emerald);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      padding: 2rem 2.5rem;
+      overflow-y: auto;
+      max-width: 1400px;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+    }
+
+    .page-title h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+
+    .page-title p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      outline: none;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--accent-blue);
+      color: #0b0f19;
+    }
+
+    .btn-primary:hover {
+      background: #7dd3fc;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-surface-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-subtle);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .kpi-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .kpi-icon {
+      font-size: 1.25rem;
+      opacity: 0.8;
+    }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 0.35rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .kpi-sub {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    /* Cards and Panels */
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+
+    th {
+      padding: 0.75rem 1rem;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    tr:hover td {
+      background: var(--bg-surface-hover);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.6rem;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    .badge-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-info {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    /* Search & Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .search-input {
+      flex: 1;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 1rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    /* Book Cards Grid */
+    .books-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .book-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+    }
+
+    .book-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .book-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .book-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .tracks-accordion {
+      margin-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      padding-top: 0.75rem;
+    }
+
+    .track-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .track-row:last-child {
+      border-bottom: none;
+    }
+
+    .play-btn {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: var(--radius-full);
+      padding: 0.2rem 0.6rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .play-btn:hover {
+      background: var(--accent-blue);
+      color: #0b0f19;
+    }
+
+    /* Fixed Audio Player Bar */
+    .player-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 0.75rem 2rem;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      min-width: 250px;
+    }
+
+    .player-track-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .player-tag {
+      font-size: 0.7rem;
+      color: var(--accent-blue);
+    }
+
+    audio {
+      flex: 1;
+      max-width: 600px;
+      height: 36px;
+    }
+
+    /* Section Views */
+    .view-section {
+      display: none;
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .governance-card {
+      background: linear-gradient(135deg, rgba(31, 41, 61, 0.6), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .governance-item {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .gov-num {
+      width: 28px;
+      height: 28px;
+      background: var(--accent-blue);
+      color: #090d16;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">📚</div>
+      <div class="brand-text">
+        <h1>Invision Admin</h1>
+        <span>BCC • Operaciones</span>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a class="nav-item active" onclick="switchTab('overview')">
+        <span class="nav-icon">📊</span> Resumen Ejecutivo
+      </a>
+      <a class="nav-item" onclick="switchTab('logs')">
+        <span class="nav-icon">📜</span> Registros de Acceso
+      </a>
+      <a class="nav-item" onclick="switchTab('books')">
+        <span class="nav-icon">🎧</span> Explorador de Audios
+      </a>
+      <a class="nav-item" onclick="switchTab('users')">
+        <span class="nav-icon">👥</span> Usuarios y Soporte
+      </a>
+      <a class="nav-item" onclick="switchTab('governance')">
+        <span class="nav-icon">🛡️</span> Gobernanza y Reglas
+      </a>
+    </nav>
+
+    <div class="status-badge-box">
+      <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span>Azure Storage Activo</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.72rem; line-height: 1.4;">
+        Modo: <strong>Solo Lectura</strong><br>
+        BCC Producción Blindada
+      </p>
+    </div>
+  </aside>
+
+  <!-- Main View Area -->
+  <main class="main-content">
+    
+    <!-- Top Header -->
+    <header class="header-bar">
+      <div class="page-title">
+        <h2 id="section-title">Resumen Ejecutivo</h2>
+        <p id="section-subtitle">Monitoreo de infraestructura, catálogo y accesos en tiempo real</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="refreshData()">🔄 Refrescar Datos</button>
+        <a href="https://biblioteca-invision.com/login" target="_blank" class="btn btn-primary">🌐 Sitio Oficial (Prod) ↗</a>
+      </div>
+    </header>
+
+    <!-- TAB 1: OVERVIEW -->
+    <section id="view-overview" class="view-section active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Audiolibros Indexados</span>
+            <span class="kpi-icon">📚</span>
+          </div>
+          <div class="kpi-value" id="kpi-total-books" style="color: var(--accent-blue);">--</div>
+          <div class="kpi-sub">Títulos organizados en Azure Blob</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Pistas de Audio (.mp3)</span>
+            <span class="kpi-icon">🎵</span>
+          </div>
+          <div class="kpi-value" id="kpi-total-files" style="color: var(--accent-emerald);">--</div>
+          <div class="kpi-sub">Archivos de audio en el contenedor</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Almacenamiento Azure</span>
+            <span class="kpi-icon">☁️</span>
+          </div>
+          <div class="kpi-value" id="kpi-total-storage" style="color: var(--accent-amber);">--</div>
+          <div class="kpi-sub">Cuenta: cuentaprueba (audiolibros)</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Usuarios Registrados</span>
+            <span class="kpi-icon">👥</span>
+          </div>
+          <div class="kpi-value" id="kpi-total-users" style="color: var(--accent-indigo);">--</div>
+          <div class="kpi-sub">Cuentas con acceso en la base de datos</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">⚡ Estado de Servicios y Conectividad</div>
+          <span class="badge badge-success">Operativo (100%)</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+          <div style="background: var(--bg-elevated); padding: 1rem; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">MICROSOFT AZURE BLOB</div>
+            <div style="font-weight: 600; margin: 0.25rem 0;">cuentaprueba / audiolibros</div>
+            <span class="badge badge-success">Conectado vía SDK</span>
+          </div>
+          <div style="background: var(--bg-elevated); padding: 1rem; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">FRONTEND PRODUCCIÓN</div>
+            <div style="font-weight: 600; margin: 0.25rem 0;">biblioteca-invision.com</div>
+            <span class="badge badge-info">SSL HTTPS Activo</span>
+          </div>
+          <div style="background: var(--bg-elevated); padding: 1rem; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">BACKEND REST API</div>
+            <div style="font-weight: 600; margin: 0.25rem 0;">api.biblioteca-invision.com</div>
+            <span class="badge badge-info">FastAPI + Streaming</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: AUDIT LOGS -->
+    <section id="view-logs" class="view-section">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">📜 Registro Histórico de Sesiones y Accesos</div>
+          <span class="badge badge-info" id="logs-count-badge">0 registros</span>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+          Auditoría de inicios de sesión capturados por la tabla <code>sesiones_acceso</code>.
+        </p>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Usuario</th>
+                <th>Email</th>
+                <th>Evento</th>
+                <th>Fecha y Hora</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Cargando registros...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: AUDIOBOOKS EXPLORER -->
+    <section id="view-books" class="view-section">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🎧 Explorador Estructural de Audiolibros en Azure Blob</div>
+          <span class="badge badge-info" id="books-count-badge">0 libros</span>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="book-search" class="search-input" placeholder="🔍 Buscar audiolibro por título..." oninput="filterBooks()">
+        </div>
+        <div class="books-grid" id="books-grid-container">
+          <!-- Cargado vía JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: USERS DIRECTORY -->
+    <section id="view-users" class="view-section">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">👥 Directorio de Usuarios y Soporte BCC</div>
+          <span class="badge badge-info" id="users-count-badge">0 usuarios</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Usuario</th>
+                <th>Email</th>
+                <th>Roles</th>
+                <th>Fecha Creación</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <!-- Cargado vía JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: GOVERNANCE -->
+    <section id="view-governance" class="view-section">
+      <div class="governance-card">
+        <h3 style="font-size: 1.3rem; margin-bottom: 0.5rem; color: var(--accent-blue);">🏛️ Mandato y Constitución Operativa de Invision</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6;">
+          Este panel opera bajo el mandato formal acordado para la <strong>Biblioteca Central para Ciegos (BCC)</strong>.
+        </p>
+
+        <div class="governance-item">
+          <div class="gov-num">1</div>
+          <div>
+            <strong style="color: var(--text-primary);">Continuidad y Alta Disponibilidad:</strong>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">Monitoreo constante de la plataforma web y los recursos de Azure Storage.</p>
+          </div>
+        </div>
+
+        <div class="governance-item">
+          <div class="gov-num">2</div>
+          <div>
+            <strong style="color: var(--text-primary);">Custodia de Contenido Accesible:</strong>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">Estandarización de las pistas de audio para asegurar compatibilidad total con el streaming.</p>
+          </div>
+        </div>
+
+        <div class="governance-item">
+          <div class="gov-num">3</div>
+          <div>
+            <strong style="color: var(--text-primary);">Principio de Cero Riesgo en Producción:</strong>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">Ningún cambio a bases de datos o código en producción sin validación formal previa del equipo BCC.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Bottom Floating Audio Preview Player -->
+<div class="player-bar" id="audio-player-bar">
+  <div class="player-info">
+    <div class="brand-icon" style="width: 32px; height: 32px; font-size: 0.9rem;">🎵</div>
+    <div>
+      <div class="player-track-name" id="current-track-name">Reproduciendo...</div>
+      <div class="player-tag">Streaming Directo con Token SAS de Azure (Seguro)</div>
+    </div>
+  </div>
+  <audio id="global-audio-player" controls autoplay></audio>
+  <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem;" onclick="closeAudioPlayer()">✕ Cerrar</button>
+</div>
+
+<script>
+  let cachedBooks = [];
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+
+    const activeNav = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick').includes(tabId));
+    if (activeNav) activeNav.classList.add('active');
+
+    const targetSection = document.getElementById(`view-${tabId}`);
+    if (targetSection) targetSection.classList.add('active');
+
+    // Actualizar títulos
+    const titles = {
+      overview: ['Resumen Ejecutivo', 'Monitoreo de infraestructura, catálogo y accesos en tiempo real'],
+      logs: ['Registros de Acceso y Auditoría', 'Historial de sesiones y eventos de login de usuarios'],
+      books: ['Explorador Estructural de Audiolibros', 'Visualizador de los 13.044 archivos en Azure Blob con reproductor'],
+      users: ['Directorio y Soporte a Usuarios', 'Gestión de cuentas y soporte a beneficiarios de la BCC'],
+      governance: ['Gobernanza y Reglas de Operación', 'Políticas constitucionales de servicio acordadas con la BCC']
+    };
+
+    if (titles[tabId]) {
+      document.getElementById('section-title').textContent = titles[tabId][0];
+      document.getElementById('section-subtitle').textContent = titles[tabId][1];
+    }
+  }
+
+  async function loadOverview() {
+    try {
+      const res = await fetch('/api/overview');
+      const data = await res.json();
+      
+      document.getElementById('kpi-total-books').textContent = Number(data.azure_storage.total_books).toLocaleString();
+      document.getElementById('kpi-total-files').textContent = Number(data.azure_storage.total_files).toLocaleString();
+      document.getElementById('kpi-total-storage').textContent = `${data.azure_storage.total_size_gb} GB`;
+      document.getElementById('kpi-total-users').textContent = data.database.total_users;
+    } catch (e) {
+      console.error("Error cargando overview:", e);
+    }
+  }
+
+  async function loadLogs() {
+    try {
+      const res = await fetch('/api/access-logs');
+      const data = await res.json();
+      
+      document.getElementById('logs-count-badge').textContent = `${data.total} sesiones`;
+      const tbody = document.getElementById('logs-table-body');
+      
+      if (!data.logs || data.logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Sin registros de acceso.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.logs.map(log => `
+        <tr>
+          <td><code style="color: var(--text-muted); font-size: 0.8rem;">#${log.id}</code></td>
+          <td><strong>${log.first_name || ''} ${log.last_name || ''}</strong> (${log.username || 'N/A'})</td>
+          <td>${log.email || 'N/A'}</td>
+          <td><span class="badge ${log.tipo_evento === 'LOGIN' ? 'badge-success' : 'badge-warning'}">${log.tipo_evento}</span></td>
+          <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">${log.timestamp}</td>
+          <td><span class="badge badge-success">Completado</span></td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.error("Error cargando logs:", e);
+    }
+  }
+
+  async function loadBooks() {
+    try {
+      const res = await fetch('/api/books');
+      const data = await res.json();
+      cachedBooks = data.books || [];
+      
+      document.getElementById('books-count-badge').textContent = `${data.total_books} títulos`;
+      renderBooks(cachedBooks);
+    } catch (e) {
+      console.error("Error cargando audiolibros:", e);
+    }
+  }
+
+  function renderBooks(books) {
+    const container = document.getElementById('books-grid-container');
+    if (!books || books.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">No se encontraron audiolibros.</p>';
+      return;
+    }
+
+    container.innerHTML = books.map((b, idx) => `
+      <div class="book-card">
+        <div>
+          <div class="book-title" title="${b.title}">📖 ${b.title}</div>
+          <div class="book-meta">
+            <span>🎵 ${b.total_tracks} pistas</span>
+            <span>💾 ${b.total_size_mb} MB</span>
+          </div>
+        </div>
+
+        <div class="tracks-accordion">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem;">Primeras pistas disponibles:</div>
+          ${b.tracks.slice(0, 3).map(t => `
+            <div class="track-row">
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;" title="${t.file_name}">
+                ${t.file_name}
+              </span>
+              <button class="play-btn" onclick="playAudioTrack('${encodeURIComponent(t.blob_name)}', '${encodeURIComponent(t.file_name)}')">▶ Probar</button>
+            </div>
+          `).join('')}
+          ${b.tracks.length > 3 ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">+ ${b.tracks.length - 3} pistas más...</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function filterBooks() {
+    const query = document.getElementById('book-search').value.toLowerCase();
+    const filtered = cachedBooks.filter(b => b.title.toLowerCase().includes(query));
+    renderBooks(filtered);
+  }
+
+  async function loadUsers() {
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      
+      document.getElementById('users-count-badge').textContent = `${data.total} usuarios`;
+      const tbody = document.getElementById('users-table-body');
+      
+      if (!data.users || data.users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Sin usuarios encontrados.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.users.map(u => `
+        <tr>
+          <td>#${u.id}</td>
+          <td><strong>${u.first_name || ''} ${u.last_name || ''}</strong></td>
+          <td>${u.username}</td>
+          <td>${u.email}</td>
+          <td><span class="badge badge-info">${u.roles || 'Usuario'}</span></td>
+          <td style="font-size: 0.8rem; color: var(--text-muted);">${u.created_at || 'N/A'}</td>
+          <td><span class="badge badge-success">Activo</span></td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.error("Error cargando usuarios:", e);
+    }
+  }
+
+  async function playAudioTrack(encodedBlobName, encodedFileName) {
+    const blobName = decodeURIComponent(encodedBlobName);
+    const fileName = decodeURIComponent(encodedFileName);
+    
+    document.getElementById('audio-player-bar').style.display = 'flex';
+    document.getElementById('current-track-name').textContent = `Cargando: ${fileName}...`;
+
+    try {
+      const res = await fetch(`/api/stream-sas?blob=${encodeURIComponent(blobName)}`);
+      const data = await res.json();
+      
+      if (data.sas_url) {
+        const audio = document.getElementById('global-audio-player');
+        audio.src = data.sas_url;
+        document.getElementById('current-track-name').textContent = fileName;
+        audio.play();
+      } else {
+        alert("Error generando token de audio: " + (data.error || "Desconocido"));
+      }
+    } catch (e) {
+      alert("Error al intentar reproducir audio: " + e.message);
+    }
+  }
+
+  function closeAudioPlayer() {
+    const audio = document.getElementById('global-audio-player');
+    audio.pause();
+    audio.src = "";
+    document.getElementById('audio-player-bar').style.display = 'none';
+  }
+
+  function refreshData() {
+    loadOverview();
+    loadLogs();
+    loadBooks();
+    loadUsers();
+  }
+
+  // Inicializar al cargar
+  window.addEventListener('DOMContentLoaded', () => {
+    refreshData();
+  });
+</script>
+
+</body>
+</html>
