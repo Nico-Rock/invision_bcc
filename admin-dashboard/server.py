@@ -213,6 +213,76 @@ def crear_libro(payload, db_info):
     }
 
 
+MAX_PISTA_BYTES = 500 * 1024 * 1024  # 500 MB, tope defensivo por archivo
+
+
+def _nombre_seguro(valor):
+    """Rechaza valores que puedan escapar del prefijo del blob."""
+    if not valor or any(c in valor for c in ("/", "\\", "..", "\x00")):
+        return False
+    # Un valor de solo puntos ("." o ". ") es un dot-segment: el SDK no lo escapa
+    # en la URL, así que una capa que normalice la ruta lo colapsaría y la pista
+    # terminaría en la raíz del contenedor, fuera de la carpeta del libro.
+    return bool(valor.strip(" ."))
+
+
+def subir_pista(nombre, archivo, stream, length, container):
+    """Sube una pista a Azure Blob como {nombre}/{archivo}. Devuelve (status, dict).
+
+    No pisa audio existente (overwrite=False): si el blob ya está, lo saltea.
+    El stream se pasa tal cual al SDK -> no se carga el MP3 entero en memoria.
+    """
+    nombre = (nombre or "").strip()
+    archivo = (archivo or "").strip()
+
+    if not nombre or not archivo:
+        return 400, {"ok": False, "mensaje": "Faltan datos del libro o del archivo"}
+    if not _nombre_seguro(nombre) or not _nombre_seguro(archivo):
+        return 400, {"ok": False, "mensaje": "El nombre del libro o del archivo no es válido"}
+    if not archivo.lower().endswith(".mp3"):
+        return 400, {
+            "ok": False,
+            "mensaje": f"El archivo {archivo} no es MP3. Solo se aceptan archivos MP3.",
+        }
+    if length <= 0:
+        return 400, {"ok": False, "mensaje": f"El archivo {archivo} está vacío"}
+    if length > MAX_PISTA_BYTES:
+        return 400, {
+            "ok": False,
+            "mensaje": f"El archivo {archivo} es demasiado grande, supera los 500 megabytes",
+        }
+
+    blob_name = f"{nombre}/{archivo}"
+    blob_client = container.get_blob_client(blob_name)
+
+    if blob_client.exists():
+        return 200, {
+            "ok": True,
+            "skipped": True,
+            "mensaje": f"La pista {archivo} ya estaba subida, la salteo",
+        }
+
+    try:
+        blob_client.upload_blob(
+            stream, length=length, overwrite=False, content_type="audio/mpeg"
+        )
+    except Exception as e:
+        # `mensaje` se lee por voz: va sin jerga. El detalle técnico queda aparte
+        # y en la consola del panel, que es donde se diagnostica.
+        print(f"Error subiendo {blob_name}: {type(e).__name__}: {e}")
+        return 500, {
+            "ok": False,
+            "mensaje": f"No se pudo subir la pista {archivo}. Probá de nuevo.",
+            "detalle": type(e).__name__,
+        }
+
+    return 201, {
+        "ok": True,
+        "skipped": False,
+        "mensaje": f"Pista {archivo} subida correctamente",
+    }
+
+
 class AdminApiHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         static_dir = os.path.join(os.path.dirname(__file__), "static")
