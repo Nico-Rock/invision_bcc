@@ -128,3 +128,21 @@ def test_subir_pista_informa_error_de_azure(container):
     # El mensaje se lee por voz: no puede llevar el nombre crudo de la excepción.
     assert "RuntimeError" not in data["mensaje"]
     assert data["detalle"] == "RuntimeError"  # queda aparte, para diagnóstico
+
+
+def test_token_valido_acepta_el_token_configurado(monkeypatch):
+    monkeypatch.setattr(server, "ADMIN_TOKEN", "secreto-de-prueba")
+    assert server._token_valido({"X-Admin-Token": "secreto-de-prueba"}) is True
+
+
+def test_token_valido_rechaza_token_incorrecto_o_ausente(monkeypatch):
+    monkeypatch.setattr(server, "ADMIN_TOKEN", "secreto-de-prueba")
+    assert server._token_valido({"X-Admin-Token": "otro"}) is False
+    assert server._token_valido({}) is False
+
+
+def test_token_valido_rechaza_todo_si_no_hay_token_configurado(monkeypatch):
+    """Sin ADMIN_TOKEN en el entorno se bloquea la escritura, no se abre."""
+    monkeypatch.setattr(server, "ADMIN_TOKEN", "")
+    assert server._token_valido({"X-Admin-Token": ""}) is False
+    assert server._token_valido({"X-Admin-Token": "loquesea"}) is False

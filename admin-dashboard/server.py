@@ -7,6 +7,7 @@ Modo: 100% Solo Lectura (Read-Only)
 
 import os
 import sys
+import hmac
 import json
 import sqlite3
 import datetime
@@ -22,6 +23,7 @@ load_dotenv(dotenv_path=env_path)
 AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "cuentaprueba")
 AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY")
 AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME", "audiolibros")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "InvisionAPI-main", "audiobooks", "invision.db"))
 
 # Cache en memoria para rendimiento de Azure Blob
@@ -163,6 +165,21 @@ def generate_audio_sas_url(blob_name):
     except Exception as e:
         print(f"Error generando SAS token: {e}")
         return None
+
+
+def _token_valido(headers):
+    """Valida el token de administrador de los endpoints de escritura.
+
+    Falla cerrado: sin ADMIN_TOKEN configurado no se autoriza nada.
+    Comparacion en tiempo constante para no filtrar el token caracter a caracter.
+    """
+    if not ADMIN_TOKEN:
+        return False
+    recibido = (headers.get("X-Admin-Token") or "") if headers else ""
+    # Se compara en bytes: http.server decodifica los headers como latin-1, y
+    # compare_digest sobre str con caracteres no ASCII levanta TypeError. En
+    # bytes cualquier header entra sin romper y sigue siendo tiempo constante.
+    return hmac.compare_digest(recibido.encode("utf-8"), ADMIN_TOKEN.encode("utf-8"))
 
 
 def crear_libro(payload, db_info):
@@ -307,10 +324,33 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
         if path.startswith("/api/"):
             self.handle_api(path, query)
         else:
-            # Archivos estáticos
-            if path == "/" or not os.path.exists(os.path.join(self.directory, path.lstrip("/"))):
-                self.path = "/index.html"
+            # Archivos estáticos. /index.html se atiende por _servir_index igual que
+            # "/": servirlo con super() devolvería el archivo crudo, sin el token, y
+            # el panel fallaría en cada escritura sin motivo visible.
+            if (
+                path in ("/", "/index.html")
+                or not os.path.exists(os.path.join(self.directory, path.lstrip("/")))
+            ):
+                self._servir_index()
+                return
             super().do_GET()
+
+    def _servir_index(self):
+        ruta = os.path.join(self.directory, "index.html")
+        with open(ruta, "r", encoding="utf-8") as f:
+            html = f.read()
+        # El token queda disponible para el JS del panel, mismo origen
+        html = html.replace(
+            "</head>",
+            f'<script>window.ADMIN_TOKEN = "{ADMIN_TOKEN}";</script></head>',
+            1,
+        )
+        cuerpo = html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(cuerpo)))
+        self.end_headers()
+        self.wfile.write(cuerpo)
 
     def handle_api(self, path, query):
         response_data = {}
@@ -479,7 +519,6 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
 
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps(response_data, default=str).encode("utf-8"))
 
@@ -497,7 +536,7 @@ def run(port=8888):
     fetch_azure_blob_metadata()
     print("✅ Estructura indexada correctamente.")
 
-    server_address = ("", port)
+    server_address = ("127.0.0.1", port)  # solo localhost: el panel escribe en produccion
     httpd = HTTPServer(server_address, AdminApiHandler)
     try:
         httpd.serve_forever()
