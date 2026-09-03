@@ -310,12 +310,71 @@ def subir_pista(nombre, archivo, stream, length, container):
     }
 
 
+class _BoundedReader:
+    """Limita la lectura de un stream a `limit` bytes.
+
+    Sin esto, el SDK de Azure puede llamar read() sin argumento sobre el socket
+    y quedarse colgado esperando bytes que nunca llegan.
+    """
+
+    def __init__(self, stream, limit):
+        self._stream = stream
+        self._remaining = limit
+
+    def read(self, size=-1):
+        if self._remaining <= 0:
+            return b""
+        if size is None or size < 0:
+            size = self._remaining
+        chunk = self._stream.read(min(size, self._remaining))
+        self._remaining -= len(chunk)
+        return chunk
+
+
+# El panel liga a 127.0.0.1, pero eso no alcanza: un dominio del atacante que
+# resuelva a 127.0.0.1 (DNS rebinding) haria que el navegador del admin cargue
+# el panel y lea el ADMIN_TOKEN inyectado en el HTML. Validar Host si alcanza.
+HOSTS_PERMITIDOS = {"localhost", "127.0.0.1"}
+
+
+def _host_valido(headers):
+    """True solo si el header Host apunta a esta misma maquina.
+
+    Falla cerrado: sin Host (o con uno que no reconocemos) no se atiende nada.
+    """
+    host = (headers.get("Host") or "") if headers else ""
+    # Se descarta el puerto. Un literal IPv6 ("[::1]:8888") no se parte por ":"
+    # y queda fuera de la lista igual: el servidor solo escucha en IPv4.
+    if not host.startswith("[") and ":" in host:
+        host = host.rsplit(":", 1)[0]
+    return host.lower() in HOSTS_PERMITIDOS
+
+
 class AdminApiHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         static_dir = os.path.join(os.path.dirname(__file__), "static")
         super().__init__(*args, directory=static_dir, **kwargs)
 
+    def _send_json(self, status_code, payload):
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(json.dumps(payload, default=str).encode("utf-8"))
+
+    def _host_permitido(self):
+        """Corta la request con 403 si el Host no es local. True si puede seguir."""
+        if _host_valido(self.headers):
+            return True
+        self._send_json(
+            403,
+            {"ok": False, "mensaje": "El panel solo se puede abrir desde esta computadora"},
+        )
+        return False
+
     def do_GET(self):
+        if not self._host_permitido():
+            return
+
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
         query = urllib.parse.parse_qs(parsed_url.query)
@@ -334,6 +393,103 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                 self._servir_index()
                 return
             super().do_GET()
+
+    def _descartar_resto(self, cuerpo):
+        """Consume lo que quede del cuerpo antes de que se cierre la conexion.
+
+        Si el socket se cierra con bytes sin leer, TCP contesta con un RST y el
+        navegador descarta la respuesta que ya habiamos escrito: el admin
+        escucharia un error de red en vez del mensaje que explica que paso.
+        Pasa en todo rechazo temprano (401, 403, 404) porque ahi el cuerpo nunca
+        se lee. Se descarta hasta MAX_PISTA_BYTES: es loopback, cuesta poco, y el
+        tope evita quedarse leyendo un Content-Length inventado para siempre.
+        """
+        descartado = 0
+        try:
+            while descartado < MAX_PISTA_BYTES:
+                pedazo = cuerpo.read(min(65536, MAX_PISTA_BYTES - descartado))
+                if not pedazo:
+                    return
+                descartado += len(pedazo)
+        except OSError:
+            # El cliente corto la conexion: no queda cuerpo que descartar. Si esto
+            # sube, http.server escupe un traceback de dos pantallas por cada
+            # subida abortada y tapa los errores que si importan.
+            return
+
+    def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+        query = urllib.parse.parse_qs(parsed_url.query)
+        # Un Content-Length que no es un numero se trata como cuerpo vacio: un
+        # int() suelto acá levantaria ValueError antes del try y la request
+        # moriria sin respuesta, dejando al panel esperando para siempre.
+        declarado = (self.headers.get("Content-Length") or "0").strip()
+        length = int(declarado) if declarado.isdigit() else 0
+        # Unico lector del cuerpo: nunca lee mas alla del Content-Length, asi que
+        # el descarte final del `finally` no puede colgarse esperando la proxima
+        # request ni releer lo que una rama ya consumio.
+        cuerpo = _BoundedReader(self.rfile, length)
+
+        try:
+            if not self._host_permitido():
+                return
+
+            # Toda escritura exige el token de admin (Task 2.5)
+            if not _token_valido(self.headers):
+                self._send_json(401, {"ok": False, "mensaje": "No estás autorizado para cargar contenido"})
+                return
+
+            if path == "/api/admin/crear-libro":
+                payload = json.loads(cuerpo.read() or b"{}")
+                if not isinstance(payload, dict):
+                    self._send_json(400, {"ok": False, "mensaje": "Los datos del libro no son válidos"})
+                    return
+                # nombre no-string (ej. un numero) haria explotar el .strip() de crear_libro
+                if not isinstance(payload.get("nombre", ""), str):
+                    self._send_json(400, {"ok": False, "mensaje": "El nombre del libro tiene que ser texto"})
+                    return
+                db_info = get_db_connection()
+                if not db_info:
+                    self._send_json(500, {"ok": False, "mensaje": "No hay conexión a la base de datos"})
+                    return
+                try:
+                    status, data = crear_libro(payload, db_info)
+                finally:
+                    db_info["conn"].close()
+                self._send_json(status, data)
+
+            elif path == "/api/admin/subir-pista":
+                if not AZURE_SDK_AVAILABLE or not AZURE_ACCOUNT_KEY:
+                    self._send_json(500, {"ok": False, "mensaje": "Azure no está configurado en este servidor"})
+                    return
+                conn_str = (
+                    f"DefaultEndpointsProtocol=https;AccountName={AZURE_ACCOUNT_NAME};"
+                    f"AccountKey={AZURE_ACCOUNT_KEY};EndpointSuffix=core.windows.net"
+                )
+                container = BlobServiceClient.from_connection_string(conn_str).get_container_client(
+                    AZURE_CONTAINER_NAME
+                )
+                status, data = subir_pista(
+                    query.get("nombre", [""])[0],
+                    query.get("archivo", [""])[0],
+                    cuerpo,
+                    length,
+                    container,
+                )
+                self._send_json(status, data)
+
+            else:
+                self._send_json(404, {"ok": False, "mensaje": f"Endpoint {path} no encontrado"})
+
+        except Exception as e:
+            print(f"Error en POST {path}: {type(e).__name__}: {e}")
+            try:
+                self._send_json(500, {"ok": False, "mensaje": "Error del servidor al procesar la carga", "detalle": type(e).__name__})
+            except OSError:
+                pass  # el cliente ya se fue: no hay a quien avisarle
+        finally:
+            self._descartar_resto(cuerpo)
 
     def _servir_index(self):
         ruta = os.path.join(self.directory, "index.html")
@@ -495,6 +651,21 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                     "cached_at": meta.get("last_fetched").isoformat() if meta.get("last_fetched") else None
                 }
 
+            elif path == "/api/categorias":
+                db_info = get_db_connection()
+                categorias = []
+                if db_info:
+                    conn = db_info["conn"]
+                    if db_info["type"] == "azure_sql":
+                        cursor = conn.cursor(as_dict=True)
+                        cursor.execute("SELECT id, nombre FROM categorias ORDER BY nombre ASC")
+                        categorias = cursor.fetchall()
+                    else:
+                        rows = conn.execute("SELECT id, nombre FROM categorias ORDER BY nombre ASC").fetchall()
+                        categorias = [dict(r) for r in rows]
+                    conn.close()
+                response_data = {"categorias": categorias, "total": len(categorias)}
+
             elif path == "/api/stream-sas":
                 # Generar enlace SAS temporal para previsualizar audio
                 blob_name = query.get("blob", [""])[0]
@@ -517,10 +688,7 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
             status_code = 500
             response_data = {"error": str(e)}
 
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(json.dumps(response_data, default=str).encode("utf-8"))
+        self._send_json(status_code, response_data)
 
 
 def run(port=8888):
