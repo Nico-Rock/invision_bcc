@@ -1114,6 +1114,21 @@
 
 ---
 
+## Hallazgos incorporados durante la ejecución (ya resueltos en el código)
+
+Estos no estaban en el plan original — salieron de la revisión de código y del testing, y ya están implementados y commiteados:
+
+- **`SCOPE_IDENTITY()` en batch separado devolvía NULL** con pymssql → ninguna creación habría funcionado en producción. Resuelto pidiendo el id con `OUTPUT INSERTED.id` dentro del mismo INSERT.
+- **`content_type=` suelto no es parámetro de `upload_blob`**: caía en `**kwargs` y se descartaba en silencio. Va en `content_settings`. El test lo pasaba porque el fake era más permisivo que el SDK real — el fake se corrigió para reflejar la realidad.
+- **Task 2.5 completa** (localhost + token + inyección del token en la página + validación de `Host` contra DNS rebinding).
+- **`/index.html` servía el panel sin el token** (solo `/` lo inyectaba), lo que habría dejado toda escritura fallando con 401 sin motivo audible.
+- **Un POST rechazado sin leer su cuerpo provocaba un RST de TCP** y el cliente perdía la respuesta: el admin escuchaba un error de red en vez del motivo real. Se descarta el cuerpo pendiente antes de cerrar.
+- **`Content-Length` malformado colgaba el panel para siempre** (servidor de un solo hilo). Ahora se trata como cuerpo vacío.
+- **Una subida cortada a mitad publicaba un MP3 truncado y devolvía 201.** Es el peor fallo posible acá: silencioso, y el corte recién aparece cuando alguien escucha el capítulo. Ahora se verifica el tamaño real contra el declarado, se borra el blob incompleto y se devuelve un error hablable.
+- **Test de persistencia agregado**: los tests originales no habrían detectado la falta de un `conn.commit()`, porque consultaban la misma conexión que hizo el INSERT.
+
+---
+
 ## Deuda descubierta durante la ejecución (registrada, no resuelta acá)
 
 - **3946 de 4000 blobs existentes tienen `content-type: application/octet-stream`** en vez de `audio/mpeg`, por el bug de `content_type=` vs `content_settings` que arrastraba `_ops_upload/upload_books.py`. El script ya quedó corregido, así que las cargas nuevas salen bien. **Impacto real acotado:** la app principal reproduce correcto igual, porque la API fuerza el header en la respuesta de streaming (`InvisionAPI-main/audiobooks/routes.py:431`); el path afectado es el preview del propio panel, que sirve SAS directo al blob. Se arregla sin re-subir nada con `blob_client.set_http_headers(ContentSettings(content_type="audio/mpeg"))` — es operación de metadata, sin costo de transferencia.
@@ -1122,6 +1137,8 @@
 - **No hay constraint UNIQUE en `audiolibros.nombre`** en ninguno de los dos esquemas. La detección de duplicados vive solo en el código del panel, así que el pipeline de `_ops_upload/` escribiendo en paralelo la saltea por completo.
 - **El conftest no replica la foreign key** de `categoria_id` que sí tiene el esquema real, así que un `categoria_id` inválido pasa los tests y sería un 500 en producción.
 - **`static/index.html` usa `innerHTML` sin escapar en 6 lugares.** Las tareas 5 y 6 renderizan `data.mensaje`, que interpola el nombre del libro crudo. Con el modelo de amenaza actual es self-XSS de bajo valor, pero conviene no propagar el patrón.
+- **`GET /api/stream-sas` emite un SAS de lectura para cualquier blob sin exigir token.** Preexistente. Ahora queda detrás de la guarda de `Host` y del binding a localhost, pero sigue sin autenticación propia a diferencia de los endpoints de escritura.
+- **`subir_pista` valida forma, no pertenencia:** no verifica que `nombre` exista como fila en `audiolibros`. Como el prefijo del blob tiene que matchear exacto el nombre de la fila, se pueden crear carpetas huérfanas que el reproductor nunca encuentra. El frontend siempre pasa el nombre que devolvió `crear-libro`, así que en el flujo normal no ocurre — pero un POST directo sí lo permite.
 
 ---
 
