@@ -3,6 +3,8 @@
 Nada acá toca Azure ni Azure SQL: contenedor falso en memoria y SQLite temporal.
 """
 import sqlite3
+from types import SimpleNamespace
+
 import pytest
 
 
@@ -28,6 +30,16 @@ class FakeBlobClient:
             "content_type": getattr(content_settings, "content_type", None),
             "length": length,
         }
+
+    def get_blob_properties(self):
+        # `size` es lo REALMENTE escrito, no el largo declarado: si el cliente
+        # cortó a mitad, los dos difieren y ahi esta la gracia de este fake.
+        if self.name not in self.store:
+            raise FileNotFoundError(self.name)
+        return SimpleNamespace(size=len(self.store[self.name]["content"]))
+
+    def delete_blob(self):
+        self.store.pop(self.name, None)
 
 
 class FakeContainer:

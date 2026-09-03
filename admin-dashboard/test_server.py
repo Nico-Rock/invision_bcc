@@ -138,6 +138,32 @@ def test_subir_pista_informa_error_de_azure(container):
     assert data["detalle"] == "RuntimeError"  # queda aparte, para diagnóstico
 
 
+def test_subir_pista_no_deja_un_mp3_truncado(container):
+    """Si el cliente corta a mitad, el blob no puede quedar publicado.
+
+    Es el peor fallo posible acá: un MP3 truncado se sube "bien", nadie lo nota,
+    y recien aparece cuando un usuario ciego escucha un capitulo que se corta.
+    Mejor fallar ruidoso y que la pista se pueda reintentar.
+    """
+    # Declara 100 bytes pero el stream entrega 10: simula una conexion cortada
+    status, data = server.subir_pista(
+        "Libro", "01.mp3", io.BytesIO(b"0123456789"), 100, container
+    )
+    assert status == 500
+    assert data["ok"] is False
+    assert "RuntimeError" not in data["mensaje"]  # se lee por voz
+    assert "Libro/01.mp3" not in container.store  # no queda basura publicada
+
+
+def test_subir_pista_acepta_el_tamano_exacto(container):
+    """Control: con el largo correcto la guarda de truncamiento no molesta."""
+    status, data = server.subir_pista(
+        "Libro", "01.mp3", io.BytesIO(b"0123456789"), 10, container
+    )
+    assert status == 201
+    assert container.store["Libro/01.mp3"]["content"] == b"0123456789"
+
+
 def test_token_valido_acepta_el_token_configurado(monkeypatch):
     monkeypatch.setattr(server, "ADMIN_TOKEN", "secreto-de-prueba")
     assert server._token_valido({"X-Admin-Token": "secreto-de-prueba"}) is True

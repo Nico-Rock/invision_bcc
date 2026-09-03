@@ -303,6 +303,27 @@ def subir_pista(nombre, archivo, stream, length, container):
             "detalle": type(e).__name__,
         }
 
+    # Verificar que subio entera. Si el cliente corta a mitad, el SDK puede llegar
+    # a publicar un blob mas corto que el declarado: un MP3 truncado se ve como una
+    # carga exitosa y el corte recien aparece cuando alguien escucha el capitulo.
+    # Mejor fallar ruidoso y borrar, asi la pista se puede reintentar.
+    try:
+        subido = blob_client.get_blob_properties().size
+    except Exception as e:
+        print(f"No se pudo verificar el tamaño de {blob_name}: {type(e).__name__}: {e}")
+        subido = None
+
+    if subido is not None and subido != length:
+        try:
+            blob_client.delete_blob()
+        except Exception as e:
+            print(f"Quedó un blob incompleto en {blob_name}: {type(e).__name__}: {e}")
+        return 500, {
+            "ok": False,
+            "mensaje": f"La pista {archivo} se cortó a la mitad y no quedó guardada. Probá de nuevo.",
+            "detalle": f"esperado {length} bytes, subido {subido}",
+        }
+
     return 201, {
         "ok": True,
         "skipped": False,
