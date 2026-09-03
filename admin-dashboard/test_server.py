@@ -1,6 +1,27 @@
 import io
+import sqlite3
 
 import server
+
+
+def test_crear_libro_persiste_para_otra_conexion(db_info, tmp_path):
+    """El commit tiene que ser real: otra conexion debe ver la fila.
+
+    Los demas tests consultan la MISMA conexion que hizo el INSERT, donde una
+    escritura sin commitear igual se ve. Sin este test, borrar el conn.commit()
+    no rompe nada y la carga del bibliotecario se perderia en silencio.
+    """
+    server.crear_libro({"nombre": "Persistente"}, db_info)
+    otra = sqlite3.connect(tmp_path / "test.db")
+    try:
+        assert (
+            otra.execute(
+                "SELECT COUNT(*) FROM audiolibros WHERE nombre = 'Persistente'"
+            ).fetchone()[0]
+            == 1
+        )
+    finally:
+        otra.close()
 
 
 def test_crear_libro_exitoso(db_info):

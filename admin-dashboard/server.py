@@ -189,8 +189,13 @@ def crear_libro(payload, db_info):
             "mensaje": f"Ya existe un libro llamado {nombre}. Revisá el catálogo.",
         }
 
+    # En Azure SQL el id se pide con OUTPUT dentro del mismo INSERT: pymssql manda
+    # cada execute() como un batch separado, y SCOPE_IDENTITY() en un batch aparte
+    # es otro scope -> devuelve NULL y la creacion falla siempre.
+    salida = "" if es_sqlite else "OUTPUT INSERTED.id "
     cursor.execute(
         f"INSERT INTO audiolibros (nombre, descripcion, genero, autor, categoria_id) "
+        f"{salida}"
         f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
         (
             nombre,
@@ -201,11 +206,7 @@ def crear_libro(payload, db_info):
         ),
     )
 
-    if es_sqlite:
-        nuevo_id = cursor.lastrowid
-    else:
-        cursor.execute("SELECT SCOPE_IDENTITY()")
-        nuevo_id = int(cursor.fetchone()[0])
+    nuevo_id = cursor.lastrowid if es_sqlite else int(cursor.fetchone()[0])
 
     conn.commit()
     return 201, {
