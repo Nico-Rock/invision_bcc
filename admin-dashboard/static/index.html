@@ -559,9 +559,19 @@
       font-size: 0.85rem;
       flex-shrink: 0;
     }
+
+    /* Visible solo para lectores de pantalla: no usar display:none, que las
+       saca del arbol de accesibilidad y las vuelve mudas. */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
   </style>
 </head>
 <body>
+
+<div id="a11y-anuncios" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
 
 <div class="app-container">
   <!-- Sidebar -->
@@ -807,6 +817,9 @@
   <audio id="global-audio-player" controls autoplay></audio>
   <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem;" onclick="closeAudioPlayer()">✕ Cerrar</button>
 </div>
+
+<!-- Primero las primitivas de accesibilidad: el resto del panel las usa -->
+<script src="/a11y.js"></script>
 
 <script>
   let cachedBooks = [];
