@@ -190,8 +190,13 @@
               "mensaje": f"Ya existe un libro llamado {nombre}. Revisá el catálogo.",
           }
 
+      # En Azure SQL el id se pide con OUTPUT dentro del mismo INSERT: pymssql manda
+      # cada execute() como un batch separado, y SCOPE_IDENTITY() en un batch aparte
+      # es otro scope -> devuelve NULL y la creacion falla siempre.
+      salida = "" if es_sqlite else "OUTPUT INSERTED.id "
       cursor.execute(
           f"INSERT INTO audiolibros (nombre, descripcion, genero, autor, categoria_id) "
+          f"{salida}"
           f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
           (
               nombre,
@@ -202,11 +207,7 @@
           ),
       )
 
-      if es_sqlite:
-          nuevo_id = cursor.lastrowid
-      else:
-          cursor.execute("SELECT SCOPE_IDENTITY()")
-          nuevo_id = int(cursor.fetchone()[0])
+      nuevo_id = cursor.lastrowid if es_sqlite else int(cursor.fetchone()[0])
 
       conn.commit()
       return 201, {
@@ -366,8 +367,13 @@
           }
 
       try:
+          # OJO: content_type= suelto NO es parametro de upload_blob -> cae en **kwargs
+          # y se descarta en silencio. El content-type va en content_settings.
           blob_client.upload_blob(
-              stream, length=length, overwrite=False, content_type="audio/mpeg"
+              stream,
+              length=length,
+              overwrite=False,
+              content_settings=ContentSettings(content_type="audio/mpeg"),
           )
       except Exception as e:
           return 500, {
@@ -388,6 +394,115 @@
 
 - [ ] **Step 5: Commit**
   Run: `git add admin-dashboard/server.py admin-dashboard/test_server.py && git commit -m "feat(admin-dashboard): subir_pista con streaming, validaciones y skip de existentes"`
+
+---
+
+## Task 2.5: Seguridad — escuchar solo en localhost y exigir token en escritura
+
+**Files:**
+- Modify: `admin-dashboard/server.py`
+- Modify: `admin-dashboard/test_server.py`
+- Modify: `.env` (agregar `ADMIN_TOKEN`, NO commitear — está en `.gitignore`)
+
+**Por qué esta tarea existe (no estaba en el plan original):** la revisión de código de Task 1 encontró que el panel liga a `("", port)` — **todas las interfaces**, no localhost — con `Access-Control-Allow-Origin: *` y **cero autenticación**. Hoy eso ya expone `/api/users` (emails y teléfonos de usuarios de la biblioteca) a cualquiera en la misma red. La Task 3 convierte esa exposición de lectura en **escritura a la Azure SQL de producción**. Es preexistente, pero Task 3 es el momento en que se vuelve grave, así que se cierra antes.
+
+**Interfaces:**
+- Produce: `_token_valido(headers) -> bool`, aplicado a los endpoints de escritura en Task 3.
+
+- [ ] **Step 1: Escribir los tests que fallan**
+  Agregar a `admin-dashboard/test_server.py`:
+  ```python
+  def test_token_valido_acepta_el_token_configurado(monkeypatch):
+      monkeypatch.setattr(server, "ADMIN_TOKEN", "secreto-de-prueba")
+      assert server._token_valido({"X-Admin-Token": "secreto-de-prueba"}) is True
+
+
+  def test_token_valido_rechaza_token_incorrecto_o_ausente(monkeypatch):
+      monkeypatch.setattr(server, "ADMIN_TOKEN", "secreto-de-prueba")
+      assert server._token_valido({"X-Admin-Token": "otro"}) is False
+      assert server._token_valido({}) is False
+
+
+  def test_token_valido_rechaza_todo_si_no_hay_token_configurado(monkeypatch):
+      """Sin ADMIN_TOKEN en el entorno se bloquea la escritura, no se abre."""
+      monkeypatch.setattr(server, "ADMIN_TOKEN", "")
+      assert server._token_valido({"X-Admin-Token": ""}) is False
+      assert server._token_valido({"X-Admin-Token": "loquesea"}) is False
+  ```
+
+- [ ] **Step 2: Correr para verificar que fallan**
+  Run: `cd /Users/nico/Documents/VibeCode/proyectos/activos/Invision/admin-dashboard && /usr/local/bin/python3 -m pytest test_server.py -k token -v`
+  Expected: FAIL con `AttributeError: module 'server' has no attribute '_token_valido'`.
+
+- [ ] **Step 3: Implementar el chequeo de token**
+  Agregar cerca de las otras constantes de configuración en `server.py`:
+  ```python
+  ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+  ```
+  Y junto a los helpers:
+  ```python
+  import hmac
+
+
+  def _token_valido(headers):
+      """Valida el token de administrador de los endpoints de escritura.
+
+      Falla cerrado: sin ADMIN_TOKEN configurado no se autoriza nada.
+      Comparacion en tiempo constante para no filtrar el token carácter a carácter.
+      """
+      if not ADMIN_TOKEN:
+          return False
+      recibido = (headers.get("X-Admin-Token") or "") if headers else ""
+      return hmac.compare_digest(recibido, ADMIN_TOKEN)
+  ```
+
+- [ ] **Step 4: Ligar solo a localhost y sacar el CORS abierto**
+  En `run()`, cambiar el binding:
+  ```python
+      server_address = ("127.0.0.1", port)  # solo localhost: el panel escribe en produccion
+  ```
+  En `_send_json()` y en `handle_api()`, **eliminar** la línea:
+  ```python
+          self.send_header("Access-Control-Allow-Origin", "*")
+  ```
+  (El frontend se sirve desde el mismo origen, así que no necesita CORS.)
+
+- [ ] **Step 5: Inyectar el token en la página servida**
+  El token no se le pide al usuario — hacerle tipear 43 caracteres a alguien que no ve la pantalla sería inaceptable. El servidor lo inserta en el HTML al servirlo. Esto sigue protegiendo contra CSRF: un sitio malicioso puede *enviar* requests a localhost, pero la same-origin policy le impide *leer* la respuesta del panel, así que no puede robar el token.
+
+  En `do_GET`, antes de delegar a `super().do_GET()` para `index.html`, servir el HTML con el token inyectado:
+  ```python
+      def _servir_index(self):
+          ruta = os.path.join(self.directory, "index.html")
+          with open(ruta, "r", encoding="utf-8") as f:
+              html = f.read()
+          # El token queda disponible para el JS del panel, mismo origen
+          html = html.replace(
+              "</head>",
+              f'<script>window.ADMIN_TOKEN = "{ADMIN_TOKEN}";</script></head>',
+              1,
+          )
+          cuerpo = html.encode("utf-8")
+          self.send_response(200)
+          self.send_header("Content-Type", "text/html; charset=utf-8")
+          self.send_header("Content-Length", str(len(cuerpo)))
+          self.end_headers()
+          self.wfile.write(cuerpo)
+  ```
+  Y en `do_GET`, donde hoy hace `self.path = "/index.html"`, llamar a `self._servir_index()` y `return` en su lugar.
+
+  **Verificar que `index.html` tiene un `</head>`** antes de implementar; si no lo tiene, elegir otro punto de inserción.
+
+- [ ] **Step 6: Generar el token y agregarlo al `.env`**
+  Run: `/usr/local/bin/python3 -c "import secrets; print('ADMIN_TOKEN=' + secrets.token_urlsafe(32))"`
+  Agregar esa línea al `.env` de la raíz del proyecto. **NO commitear** (`.env` está en `.gitignore`).
+
+- [ ] **Step 7: Correr todos los tests**
+  Run: `cd /Users/nico/Documents/VibeCode/proyectos/activos/Invision/admin-dashboard && /usr/local/bin/python3 -m pytest test_server.py -v`
+  Expected: PASS, 13 tests.
+
+- [ ] **Step 8: Commit**
+  Run: `git add admin-dashboard/server.py admin-dashboard/test_server.py && git commit -m "feat(admin-dashboard): escuchar solo en localhost y exigir token de admin"`
 
 ---
 
@@ -454,7 +569,6 @@
       def _send_json(self, status_code, payload):
           self.send_response(status_code)
           self.send_header("Content-Type", "application/json; charset=utf-8")
-          self.send_header("Access-Control-Allow-Origin", "*")
           self.end_headers()
           self.wfile.write(json.dumps(payload, default=str).encode("utf-8"))
   ```
@@ -472,9 +586,21 @@
           query = urllib.parse.parse_qs(parsed_url.query)
           length = int(self.headers.get("Content-Length") or 0)
 
+          # Toda escritura exige el token de admin (ver Task 2.5)
+          if not _token_valido(self.headers):
+              self._send_json(401, {"ok": False, "mensaje": "No estás autorizado para cargar contenido"})
+              return
+
           try:
               if path == "/api/admin/crear-libro":
                   payload = json.loads(self.rfile.read(length) or b"{}")
+                  if not isinstance(payload, dict):
+                      self._send_json(400, {"ok": False, "mensaje": "Los datos del libro no son válidos"})
+                      return
+                  # nombre no-string (ej. un numero) haria explotar el .strip() de crear_libro
+                  if not isinstance(payload.get("nombre", ""), str):
+                      self._send_json(400, {"ok": False, "mensaje": "El nombre del libro tiene que ser texto"})
+                      return
                   db_info = get_db_connection()
                   if not db_info:
                       self._send_json(500, {"ok": False, "mensaje": "No hay conexión a la base de datos"})
@@ -734,7 +860,10 @@
     try {
       const r = await fetch('/api/admin/crear-libro', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': window.ADMIN_TOKEN || '',  // lo inyecta el server (Task 2.5)
+        },
         body: JSON.stringify({
           nombre,
           autor: document.getElementById('campo-autor').value.trim(),
@@ -857,7 +986,10 @@
                 `&archivo=${encodeURIComponent(file.name)}`;
     const r = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Admin-Token': window.ADMIN_TOKEN || '',  // lo inyecta el server (Task 2.5)
+      },
       body: file,
     });
     return { ok: r.ok, data: await r.json() };
@@ -982,9 +1114,20 @@
 
 ---
 
+## Deuda descubierta durante la ejecución (registrada, no resuelta acá)
+
+- **3946 de 4000 blobs existentes tienen `content-type: application/octet-stream`** en vez de `audio/mpeg`, por el bug de `content_type=` vs `content_settings` que arrastraba `_ops_upload/upload_books.py`. El script ya quedó corregido, así que las cargas nuevas salen bien. **Impacto real acotado:** la app principal reproduce correcto igual, porque la API fuerza el header en la respuesta de streaming (`InvisionAPI-main/audiobooks/routes.py:431`); el path afectado es el preview del propio panel, que sirve SAS directo al blob. Se arregla sin re-subir nada con `blob_client.set_http_headers(ContentSettings(content_type="audio/mpeg"))` — es operación de metadata, sin costo de transferencia.
+- **`_ops_upload/` está en `.gitignore`**, así que el fix del script vive solo en disco y no está versionado. Si se pierde ese directorio, se pierde la corrección.
+- **Casi-duplicados que la detección no atrapa:** nombres con doble espacio interno (`"Actos  Humanos"`) o punto final (`"Actos Humanos."`) crean filas duplicadas. Además la collation por defecto de Azure SQL es case-insensitive pero **accent-sensitive**, así que `"Ácido"` vs `"Acido"` tampoco se detecta. Para alguien que no puede barrer el catálogo visualmente son prácticamente indetectables, y el panel no tiene borrado. Fix parcial de una línea: `nombre = " ".join((payload.get("nombre") or "").split())`.
+- **No hay constraint UNIQUE en `audiolibros.nombre`** en ninguno de los dos esquemas. La detección de duplicados vive solo en el código del panel, así que el pipeline de `_ops_upload/` escribiendo en paralelo la saltea por completo.
+- **El conftest no replica la foreign key** de `categoria_id` que sí tiene el esquema real, así que un `categoria_id` inválido pasa los tests y sería un 500 en producción.
+- **`static/index.html` usa `innerHTML` sin escapar en 6 lugares.** Las tareas 5 y 6 renderizan `data.mensaje`, que interpola el nombre del libro crudo. Con el modelo de amenaza actual es self-XSS de bajo valor, pero conviene no propagar el patrón.
+
+---
+
 ## Fuera de alcance (no hacer en este plan)
 
 - **Importación masiva de los ~700 desde el CSV.** El CSV es `;`-delimitado y está en **latin-1/cp1252** (se ve como `G�NERO` al leerlo como UTF-8) — necesita su propio diseño de encoding, dedup y reporte por fila. Este plan construye la carga de **un** libro; el bulk se apoya después sobre los mismos endpoints.
-- **Autenticación del panel.** Hoy no tiene ninguna: cualquiera con acceso al puerto puede escribir. Aceptable mientras corra en local, **bloqueante antes de exponerlo**. Ver gaps en el módulo 12.
+- **Autenticación de verdad (multiusuario, sesiones, roles).** La Task 2.5 resuelve el caso actual — localhost + token compartido — que alcanza mientras el operador sea uno solo en su propia máquina. Cuando el bibliotecario lo use en remoto va a hacer falta login real, y ahí conviene apoyarse en el RBAC que ya existe en `InvisionAPI-main` en vez de inventar otro.
 - **Clasificaciones (M:M) y campo editorial.** Descartados por YAGNI — ver nota de alcance en el design doc §3.1.
 - **SharePoint real, Celery, tracking de jobs.** Ver [08-ingesta-masiva.md](../../specs/08-ingesta-masiva.md).
