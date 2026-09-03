@@ -567,6 +567,34 @@
       padding: 0; margin: -1px; overflow: hidden;
       clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
+
+    /* Formulario de carga: los labels van en su propia linea y los campos
+       ocupan el ancho, para que se lea igual de claro con lupa o zoom alto. */
+    #form-libro label {
+      display: block;
+      margin: 1rem 0 0.35rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    #form-libro .search-input {
+      display: block;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    #form-libro button {
+      margin-top: 1.5rem;
+    }
+
+    /* Foco siempre visible: sin esto el operador con resto visual pierde de
+       vista donde esta parado al tabular. */
+    #view-carga :focus-visible,
+    .nav-item:focus-visible {
+      outline: 2px solid var(--accent-blue);
+      outline-offset: 2px;
+    }
   </style>
 </head>
 <body>
@@ -599,6 +627,12 @@
       </a>
       <a class="nav-item" onclick="switchTab('governance')">
         <span class="nav-icon">🛡️</span> Gobernanza y Reglas
+      </a>
+      <!-- role/tabindex: un <a> sin href no entra en el orden de tabulacion ni
+           se anuncia como control. Sin esto la seccion es inalcanzable con
+           teclado, que es la unica forma en que se opera este panel. -->
+      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('carga')">
+        <span class="nav-icon">📤</span> Cargar Audiolibro
       </a>
     </nav>
 
@@ -802,6 +836,35 @@
       </div>
     </section>
 
+    <!-- TAB 6: CARGA DE CONTENIDO -->
+    <section id="view-carga" class="view-section">
+      <form id="form-libro" class="governance-card" novalidate>
+        <h3>Paso 1: Datos del libro</h3>
+
+        <label for="campo-nombre">Nombre del libro (obligatorio)</label>
+        <input type="text" id="campo-nombre" name="nombre" required
+               aria-required="true" autocomplete="off" class="search-input">
+
+        <label for="campo-autor">Autor</label>
+        <input type="text" id="campo-autor" name="autor" autocomplete="off" class="search-input">
+
+        <label for="campo-genero">Género</label>
+        <input type="text" id="campo-genero" name="genero" autocomplete="off" class="search-input">
+
+        <label for="campo-categoria">Categoría</label>
+        <select id="campo-categoria" name="categoria_id" class="search-input">
+          <option value="">Sin categoría</option>
+        </select>
+
+        <label for="campo-descripcion">Descripción (opcional)</label>
+        <textarea id="campo-descripcion" name="descripcion" rows="3" class="search-input"></textarea>
+
+        <button type="submit" id="btn-crear-libro" class="btn btn-primary">Crear libro y continuar</button>
+      </form>
+
+      <div id="paso-archivos" hidden></div>
+    </section>
+
   </main>
 </div>
 
@@ -840,12 +903,19 @@
       logs: ['Registros de Acceso y Auditoría', 'Historial de sesiones y eventos de login de usuarios'],
       books: ['Explorador Estructural de Audiolibros', 'Visualizador de los 13.044 archivos en Azure Blob con reproductor'],
       users: ['Directorio y Soporte a Usuarios', 'Gestión de cuentas y soporte a beneficiarios de la BCC'],
-      governance: ['Gobernanza y Reglas de Operación', 'Políticas constitucionales de servicio acordadas con la BCC']
+      governance: ['Gobernanza y Reglas de Operación', 'Políticas constitucionales de servicio acordadas con la BCC'],
+      carga: ['Cargar Audiolibro', 'Alta de un título nuevo y subida de sus pistas de audio']
     };
 
     if (titles[tabId]) {
       document.getElementById('section-title').textContent = titles[tabId][0];
       document.getElementById('section-subtitle').textContent = titles[tabId][1];
+    }
+
+    // OJO: el parametro de esta funcion se llama `tabId`, no `tab`.
+    if (tabId === 'carga') {
+      document.getElementById('campo-nombre').focus();
+      A11y.anunciar('Cargar audiolibro. Paso 1, escribí el nombre del libro.');
     }
   }
 
@@ -1015,6 +1085,9 @@
     refreshData();
   });
 </script>
+
+<!-- Despues del formulario: carga.js engancha los listeners al cargar -->
+<script src="/carga.js"></script>
 
 </body>
 </html>
