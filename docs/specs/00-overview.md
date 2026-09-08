@@ -35,7 +35,8 @@ Plataforma de audiolibros accesible diseñada para usuarios con discapacidad vis
 | 09 | Admin Panel | [09-admin-panel.md](09-admin-panel.md) | Producción | 85% |
 | 10 | Accesibilidad | [10-accesibilidad.md](10-accesibilidad.md) | Producción | 90% |
 | 11 | Infra & Config | [11-infra-config.md](11-infra-config.md) | Dev-ready | 60% |
-| 12 | Admin Dashboard (panel operativo local) | [12-admin-dashboard.md](12-admin-dashboard.md) | Solo lectura, en desarrollo | 40% |
+| 12 | Admin Dashboard (panel operativo local) | [12-admin-dashboard.md](12-admin-dashboard.md) | Backend de carga listo, frontend parcial | 70% |
+| 13 | Divergencia modelo ↔ producción | [13-divergencia-esquema-produccion.md](13-divergencia-esquema-produccion.md) | **Bloqueante — pendiente governance board** | — |
 
 ---
 
@@ -89,6 +90,7 @@ MODELOS DE DATOS
 
 | Severidad | Problema | Ubicación |
 |-----------|----------|-----------|
+| CRITICO | Modelo ORM y esquema de producción divergen (falta `categoria_id`, sobra `editorial`, no existen `categorias`/`clasificaciones`/`sesiones_acceso`) | `models.py` vs Azure SQL — ver [13](13-divergencia-esquema-produccion.md) |
 | CRITICO | Credenciales SQL Server y Azure hardcodeadas en código | `config.py` |
 | CRITICO | CORS acepta cualquier origen | `main.py` |
 | ALTO | SharePoint transfer es mock (sube dummy content) | `sharepoint.py` |
