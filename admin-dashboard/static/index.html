@@ -612,25 +612,28 @@
       </div>
     </div>
 
+    <!-- role/tabindex en TODOS los items: un <a> sin href no entra en el orden
+         de tabulacion ni se anuncia como control. Sin esto la seccion es
+         inalcanzable con teclado, que es la unica forma en que se opera este
+         panel. El handler de Enter/Espacio vive en carga.js y engancha por
+         `.nav-item[role="button"]`, asi que el role tambien es lo que los
+         vuelve activables. -->
     <nav class="nav-menu">
-      <a class="nav-item active" onclick="switchTab('overview')">
+      <a class="nav-item active" role="button" tabindex="0" onclick="switchTab('overview')">
         <span class="nav-icon">📊</span> Resumen Ejecutivo
       </a>
-      <a class="nav-item" onclick="switchTab('logs')">
+      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('logs')">
         <span class="nav-icon">📜</span> Registros de Acceso
       </a>
-      <a class="nav-item" onclick="switchTab('books')">
+      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('books')">
         <span class="nav-icon">🎧</span> Explorador de Audios
       </a>
-      <a class="nav-item" onclick="switchTab('users')">
+      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('users')">
         <span class="nav-icon">👥</span> Usuarios y Soporte
       </a>
-      <a class="nav-item" onclick="switchTab('governance')">
+      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('governance')">
         <span class="nav-icon">🛡️</span> Gobernanza y Reglas
       </a>
-      <!-- role/tabindex: un <a> sin href no entra en el orden de tabulacion ni
-           se anuncia como control. Sin esto la seccion es inalcanzable con
-           teclado, que es la unica forma en que se opera este panel. -->
       <a class="nav-item" role="button" tabindex="0" onclick="switchTab('carga')">
         <span class="nav-icon">📤</span> Cargar Audiolibro
       </a>

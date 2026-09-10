@@ -83,8 +83,9 @@ document.getElementById('campo-nombre').addEventListener('keydown', (ev) => {
   }
 });
 
-// El item de navegacion es un <a> sin href: el teclado no lo activa por si
-// solo. Sin esto la seccion solo se alcanza con el mouse.
+// Los items de navegacion son <a> sin href: el teclado no los activa por si
+// solos. Sin esto las secciones solo se alcanzan con el mouse. El selector
+// cubre los seis items del menu, que llevan todos role="button".
 document.querySelectorAll('.nav-item[role="button"]').forEach(item => {
   item.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter' || ev.key === ' ') {
