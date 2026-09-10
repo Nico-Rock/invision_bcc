@@ -1,6 +1,6 @@
 # 12 — Admin Dashboard (Panel Operativo Local)
 
-> Estado: 40% | Solo lectura, en desarrollo
+> Estado: 70% | Carga de contenido construida y probada, **sin desplegar** (bloqueada por [13](13-divergencia-esquema-produccion.md))
 
 ---
 
@@ -54,14 +54,17 @@ Se conecta directo a Azure Blob Storage y a la base de datos (Azure SQL en produ
 | Explorador de audios | Si | No | Catálogo puede divergir de la tabla `audiolibros` (ver 2.3) |
 | Usuarios y soporte | Si | No | Solo lectura, sin gestión de roles |
 | Gobernanza (estático) | Si | N/A | — |
-| Carga de contenido (crear libro + subir pistas) | No | No | Diseñado, no implementado — ver [2026-09-02-carga-contenido-accesible-design.md](superpowers/specs/2026-09-02-carga-contenido-accesible-design.md) |
+| Carga de contenido — backend (`crear_libro`, `subir_pista`, endpoints POST) | Si | Si (34) | **Sin desplegar**: bloqueado por [13](13-divergencia-esquema-produccion.md) |
+| Carga de contenido — frontend (pasos 1 a 3, accesible) | Si | Manual pendiente | El formulario cambia según la decisión del board |
+| Seguridad de escritura (localhost, token, guarda de `Host`) | Si | Si | — |
 
 **Gaps principales:**
-- 100% solo lectura — no hay ningún camino de escritura hoy (es deliberado, por diseño original del panel)
-- Cero accesibilidad: sin `aria-*`, sin roles semánticos, sin TTS, sin earcons, sin soporte de teclado más allá del tab order del navegador — verificado, no hay una sola ocurrencia en el HTML
-- Sin autenticación propia — depende de que el acceso a la URL/puerto esté restringido por otro medio (red local, VPN)
-- Sin tests, ni backend ni frontend
-- No está trackeado en `docs/specs/00-overview.md` hasta esta revisión
+- **Bloqueante:** el esquema de producción no coincide con el modelo, así que la carga no se puede desplegar — ver [13-divergencia-esquema-produccion.md](13-divergencia-esquema-produccion.md)
+- Verificación manual con lector de pantalla real (VoiceOver/NVDA) todavía no hecha
+- El resto de las secciones (overview, logs, books, users) sigue sin accesibilidad: solo la de carga y la navegación fueron tratadas
+- Los items de navegación no exponen cuál está activo (`aria-current`): se llega a todos con teclado, pero no se anuncia dónde está uno parado
+- Autenticación de un solo token compartido: alcanza para operación local, insuficiente si se expone en remoto
+- `GET /api/stream-sas` emite un SAS de lectura para cualquier blob sin exigir token (preexistente)
 
 ---
 

@@ -97,7 +97,7 @@ MODELOS DE DATOS
 | ALTO | Géneros hardcodeados en frontend ("Biografías", "Literatura") | `App.jsx` |
 | MEDIO | Sin refresh tokens (re-login cada 24h) | Auth flow |
 | MEDIO | Sin paginación en audit logs | `AuditLogs.jsx` |
-| BAJO | Regex frágil para detectar capítulos | `crud.py` / `routes.py` |
+| BAJO | Regex de capítulos matchea el "3" de "mp3": **todos** los capítulos reciben `indice = 3`. Hoy es benigno porque `indice` solo se usa para ordenar y el sort estable cae en orden por nombre, que es el correcto. Rompería apenas algo dependa del número real. | `crud.py:349` (y mismo patrón en `crud.py:291`) |
 
 ---
 
