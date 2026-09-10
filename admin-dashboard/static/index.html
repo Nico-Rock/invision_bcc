@@ -568,9 +568,18 @@
       clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
 
+    /* El display de .btn (inline-flex) le gana al [hidden] de la hoja del
+       navegador, asi que sin esta regla un boton marcado hidden se seguiria
+       viendo y se podria clickear. Con teclado y lector de pantalla ya queda
+       fuera (hidden lo saca del arbol), pero la pantalla mentiria. */
+    [hidden] {
+      display: none !important;
+    }
+
     /* Formulario de carga: los labels van en su propia linea y los campos
        ocupan el ancho, para que se lea igual de claro con lupa o zoom alto. */
-    #form-libro label {
+    #form-libro label,
+    #paso-archivos label {
       display: block;
       margin: 1rem 0 0.35rem;
       font-size: 0.85rem;
@@ -578,14 +587,42 @@
       color: var(--text-secondary);
     }
 
-    #form-libro .search-input {
+    #form-libro .search-input,
+    #paso-archivos .search-input {
       display: block;
       width: 100%;
       font-family: inherit;
     }
 
-    #form-libro button {
+    #form-libro button,
+    #paso-archivos button {
       margin-top: 1.5rem;
+    }
+
+    #paso-archivos p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      margin-top: 0.75rem;
+    }
+
+    /* El numero de cada item ES el orden de reproduccion: se muestra siempre. */
+    #lista-pistas {
+      margin: 0.5rem 0 0 1.5rem;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      line-height: 1.7;
+    }
+
+    #zona-reintento {
+      border: 1px solid var(--accent-blue);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem 1.25rem;
+      margin-top: 1rem;
+    }
+
+    #zona-reintento button {
+      margin: 1rem 0.5rem 0 0;
     }
 
     /* Foco siempre visible: sin esto el operador con resto visual pierde de
