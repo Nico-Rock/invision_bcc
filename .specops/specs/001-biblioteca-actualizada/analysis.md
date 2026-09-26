@@ -24,6 +24,6 @@ Chequeos de consistencia hechos:
 
 | Rol | Nombre | Decisión | Fecha |
 |---|---|---|---|
-| Dueño técnico | Nico | _pendiente_ | |
+| Dueño técnico | Nico | **Aprobado**, con la condición de R36: la copia local es solo para la demo y el PR debe dejar la app apuntando a los datos reales | 2026-09-26 |
 
 Los artefactos a revisar son `constitution.md` (v1.0.0), `spec.md`, `plan.md`, `tasks.md` y este análisis.

@@ -139,6 +139,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 ## 3. Restricciones (Constraints)
 - **R27.** Ninguna operación de esta entrega escribe en producción sin aprobación registrada. Todo lo que puede escribir en producción arranca en simulación.
 - **R28.** Toda interfaz nueva o modificada cumple WCAG 2.1 AA y se opera entera con teclado (P14).
+- **R36.** La copia local del catálogo (Historia 5) es **exclusivamente para la demo y el desarrollo**. Nada de lo que se integre por PR cambia a qué datos apuntan la app y el panel en su despliegue: con la configuración real, ambos leen los datos reales de producción. La copia local no puede activarse por accidente: requiere una configuración explícita de demo.
 - **R29.** El proceso de carga tolera archivos de audio de cientos de MB y lotes de cientos de libros sin agotar la memoria del equipo que lo ejecuta (P11).
 
 ## 4. Decisiones previas (Prior decisions)
@@ -222,6 +223,7 @@ CUANDO la indexación de audio falla
 - **V19 (R24).** Test: un libro con pistas `Pista 1 … Pista 20` devuelve los índices 1 a 20 en orden.
 - **V20 (R25).** El frontend no contiene nombres de género fijos en el código y muestra los que devuelve la API.
 - **V21 (R26).** El Resumen muestra las horas de audio y los socios activos, con los cálculos documentados.
+- **V28 (R36).** Revisión del diff del PR: ninguna configuración versionada apunta a la base local; sin la variable explícita de demo, la API y el panel usan la base real (test de la resolución de configuración).
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
 ## Casos borde
