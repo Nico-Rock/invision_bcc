@@ -504,7 +504,8 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                     "ok": True,
                     "mensaje": "Actualizando el catálogo de audio" if lanzado
                     else "El catálogo de audio ya se está actualizando",
-                    "indice_audio": INDICE_AUDIO.estado(),
+                    # Endpoint con token: acá sí va el detalle del error
+                    "indice_audio": INDICE_AUDIO.estado(detalle=True),
                 })
 
             elif path == "/api/admin/subir-pista":

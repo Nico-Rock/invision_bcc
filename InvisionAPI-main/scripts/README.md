@@ -34,3 +34,13 @@ cd frontend && npm run dev   # http://localhost:3000
 Las cuentas demo son `admin@invision.com` y `user@invision.com`, y **solo existen en la base local**. Su contraseña de demo no se versiona; pídesela a Nico.
 
 **Volver a los datos reales:** borrar el contenedor (`docker rm -f invision_local`) y arrancar la API sin `-e DATABASE_URL`. Con eso usa Azure SQL, como en el despliegue.
+
+## Credencial de solo lectura (T32 de 001)
+
+`snapshot_catalogo.py` se niega a correr con la credencial de escritura de la API:
+
+- exige `SQL_RO_USERNAME` y `SQL_RO_PASSWORD` en el entorno de quien lo corre (nunca en archivos versionados);
+- falla si `SQL_RO_USERNAME` es igual a `SQL_USERNAME`;
+- a producción solo le manda exactamente `CONSULTA_CATALOGO` (lista blanca): cualquier otra sentencia se rechaza antes de salir.
+
+Mientras la BCC no apruebe el login de solo lectura ([propuesta](../../aprobaciones/2026-09-29_login_solo_lectura.md)), la copia del catálogo **no se puede volver a correr**. La copia local que existe hoy sigue sirviendo para la demo.

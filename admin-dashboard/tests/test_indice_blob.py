@@ -52,7 +52,7 @@ def test_fallo_sin_indice_previo_queda_en_error_y_no_finge_exito():
     indice = IndiceBlob(listar=listar)
     indice.refrescar()
 
-    estado = indice.estado()
+    estado = indice.estado(detalle=True)
     assert estado["estado"] == "error"
     assert "Unable to stream download" in estado["error"]
     assert estado["ultimo_ok"] is None
@@ -128,4 +128,32 @@ def test_error_largo_se_resume_en_una_linea():
 
     indice = IndiceBlob(listar=listar)
     indice.refrescar()
-    assert indice.estado()["error"] == "PermissionError: AuthenticationFailed"
+    assert indice.estado(detalle=True)["error"] == "PermissionError: AuthenticationFailed"
+
+
+def test_pistas_en_orden_de_capitulo_no_alfabetico():
+    """Mismo orden que la API (T19 de 001): N en el reproductor va de la pista 1
+    a la 2, no a la 10. Las pistas sin número van al final, por nombre."""
+    nombres = ["Pista 10.mp3", "Pista 2.mp3", "Intro.mp3", "Pista 1.mp3", "Pista 11.mp3"]
+    indice = IndiceBlob(listar=lambda: [blob(f"LIBRO/{n}") for n in nombres])
+    indice.refrescar()
+
+    pistas = [t["file_name"] for t in indice.datos()["books"]["LIBRO"]["tracks"]]
+    assert pistas == ["Pista 1.mp3", "Pista 2.mp3", "Pista 10.mp3", "Pista 11.mp3", "Intro.mp3"]
+
+
+def test_estado_publico_no_expone_el_mensaje_interno():
+    """R45 de 001 (CWE-209): los endpoints sin token muestran un texto genérico;
+    el detalle (nombre de cuenta, XML de Azure) queda para el endpoint con token."""
+    def listar():
+        raise ConnectionError("AuthenticationFailed: cuenta cuentaprueba, firma inválida")
+
+    indice = IndiceBlob(listar=listar)
+    indice.refrescar()
+
+    publico = indice.estado()
+    assert publico["estado"] == "error"
+    assert "cuentaprueba" not in (publico["error"] or "")
+    assert "AuthenticationFailed" not in (publico["error"] or "")
+    assert publico["error"]  # igual dice algo legible
+    assert "cuentaprueba" in indice.estado(detalle=True)["error"]

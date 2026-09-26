@@ -6,10 +6,12 @@ Principios que lo gobiernan (constitución P10):
 - un refresco que falla (aunque sea a mitad) no pisa el último índice válido.
 """
 import datetime
+import re
 import threading
 
 TTL_SEGUNDOS = 600
 REINTENTO_TRAS_ERROR_SEGUNDOS = 60
+MENSAJE_ERROR_PUBLICO = "No se pudo consultar el almacenamiento de audio. El detalle quedó en el registro del servidor."
 
 
 def _vacio():
@@ -20,6 +22,17 @@ def _vacio():
         "total_size_gb": 0,
         "last_fetched": None,
     }
+
+
+def _clave_capitulo(pista):
+    """Orden de capítulo, igual que la API (InvisionAPI-main/audiobooks/crud.py,
+    `ordenar_capitulos`): por el último número del nombre sin extensión; los que
+    no tienen número van al final, por nombre. Alfabético daba 1, 10, 11, 2."""
+    base = pista["file_name"].rsplit(".", 1)[0]
+    numeros = re.findall(r"\d+", base)
+    if numeros:
+        return (0, int(numeros[-1]), pista["file_name"])
+    return (1, 0, pista["file_name"])
 
 
 def _construir(blobs):
@@ -53,7 +66,7 @@ def _construir(blobs):
 
     for info in libros.values():
         info["total_size_mb"] = round(info["total_size_bytes"] / (1024 * 1024), 2)
-        info["tracks"].sort(key=lambda t: t["file_name"])
+        info["tracks"].sort(key=_clave_capitulo)
 
     return {
         "books": libros,
@@ -76,12 +89,17 @@ class IndiceBlob:
         self._error = None
         self._ultimo_intento = None
 
-    def estado(self):
+    def estado(self, detalle=False):
+        """Estado del índice. Sin `detalle` el error es un texto genérico: los
+        endpoints sin token no exponen el mensaje de Azure (R45 de 001, CWE-209)."""
         with self._lock:
             ultimo = self._datos["last_fetched"]
+            error = self._error
+            if error and not detalle:
+                error = MENSAJE_ERROR_PUBLICO
             return {
                 "estado": self._estado,
-                "error": self._error,
+                "error": error,
                 "ultimo_ok": ultimo.isoformat() if ultimo else None,
             }
 

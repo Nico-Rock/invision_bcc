@@ -15,11 +15,14 @@ Garantías (spec 001, R21, R22, R36):
 """
 import argparse
 import os
-import re
 import sqlite3
 import sys
 
-_SOLO_SELECT = re.compile(r"^\s*SELECT\b[^;]*;?\s*$", re.IGNORECASE | re.DOTALL)
+# Lista blanca, no patrón (T32 de 001): un regex de "empieza con SELECT" dejaba
+# pasar "SELECT 1 DELETE FROM ..." (T-SQL admite dos sentencias sin ';') y
+# "SELECT ... INTO nueva". Solo se ejecuta exactamente esta consulta.
+CONSULTA_CATALOGO = "SELECT id, nombre, descripcion, genero, autor FROM audiolibros ORDER BY id"
+CONSULTAS_PERMITIDAS = frozenset({CONSULTA_CATALOGO})
 
 
 class _CursorSoloLectura:
@@ -27,7 +30,7 @@ class _CursorSoloLectura:
         self._cursor = cursor
 
     def execute(self, sql, params=None):
-        if not _SOLO_SELECT.match(sql):
+        if sql.strip() not in CONSULTAS_PERMITIDAS:
             raise PermissionError(f"Sentencia no permitida contra producción: {sql[:60]!r}")
         if params is None:
             return self._cursor.execute(sql)
@@ -58,7 +61,7 @@ def validar_destino(ruta):
 def copiar_catalogo(conn_prod, ruta_destino):
     """Reemplaza las fichas locales por las de producción. Devuelve cuántas copió."""
     cursor = SoloLectura(conn_prod).cursor()
-    cursor.execute("SELECT id, nombre, descripcion, genero, autor FROM audiolibros ORDER BY id")
+    cursor.execute(CONSULTA_CATALOGO)
     filas = [tuple(f) for f in cursor.fetchall()]
 
     local = sqlite3.connect(ruta_destino)
@@ -75,17 +78,41 @@ def copiar_catalogo(conn_prod, ruta_destino):
     return len(filas)
 
 
+def credencial_solo_lectura():
+    """Usuario y clave de un login de SOLO LECTURA (R43 de 001, defensa en la
+    capa que la hace cumplir: la base, no el script).
+
+    Se niega a usar la credencial de escritura de la API (SQL_USERNAME). Crear
+    ese login en Azure SQL es un cambio en producción: va por el PR de
+    aprobación `aprobaciones/2026-09-29_login_solo_lectura.md` (P12).
+    """
+    usuario = os.environ.get("SQL_RO_USERNAME")
+    clave = os.environ.get("SQL_RO_PASSWORD")
+    if not usuario or not clave:
+        raise SystemExit(
+            "Faltan SQL_RO_USERNAME y SQL_RO_PASSWORD: la copia del catálogo solo "
+            "corre con un login de solo lectura (ver aprobaciones/2026-09-29_login_solo_lectura.md)."
+        )
+    if usuario == os.environ.get("SQL_USERNAME"):
+        raise SystemExit(
+            "SQL_RO_USERNAME es la misma credencial de escritura de la API: "
+            "la copia del catálogo no corre con permisos de escritura."
+        )
+    return usuario, clave
+
+
 def _conectar_produccion():
     import pymssql
     from dotenv import load_dotenv
 
     raiz = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     load_dotenv(os.path.join(raiz, ".env"))
+    usuario, clave = credencial_solo_lectura()
     servidor = os.environ["SQL_SERVER"].replace("tcp:", "").split(",")[0]
     return pymssql.connect(
         server=servidor,
-        user=os.environ["SQL_USERNAME"],
-        password=os.environ["SQL_PASSWORD"],
+        user=usuario,
+        password=clave,
         database=os.environ["SQL_DATABASE"],
         login_timeout=10,
     )

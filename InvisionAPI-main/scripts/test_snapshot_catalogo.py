@@ -93,3 +93,46 @@ def test_destino_debe_ser_sqlite_local(tmp_path):
         snap.validar_destino("mssql+pyodbc://prod")
     with pytest.raises(ValueError):
         snap.validar_destino(str(tmp_path / "no_existe.db"))
+
+
+# --- T32 (R43 de 001): guarda sin evasión y credencial de solo lectura -------
+
+@pytest.mark.parametrize("sql", [
+    "SELECT 1 DELETE FROM audiolibros",                      # T-SQL: dos sentencias sin ';'
+    "SELECT id INTO copia FROM audiolibros",                 # SELECT que crea una tabla
+    "SELECT id FROM audiolibros\nUPDATE usuarios SET x = 1",
+    "select * from usuarios",                                # lectura fuera de la lista
+])
+def test_la_guarda_rechaza_evasiones_sin_punto_y_coma(sql):
+    cursor = snap.SoloLectura(_ConnProd([])).cursor()
+    with pytest.raises(PermissionError):
+        cursor.execute(sql)
+
+
+def test_la_guarda_deja_pasar_la_consulta_del_catalogo():
+    conn = _ConnProd([])
+    snap.SoloLectura(conn).cursor().execute(snap.CONSULTA_CATALOGO)
+    assert conn.cur.consultas == [snap.CONSULTA_CATALOGO]
+
+
+def test_exige_credencial_de_solo_lectura(monkeypatch):
+    for var in ("SQL_RO_USERNAME", "SQL_RO_PASSWORD"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("SQL_USERNAME", "admin_escritura")
+    with pytest.raises(SystemExit, match="SQL_RO_USERNAME"):
+        snap.credencial_solo_lectura()
+
+
+def test_rechaza_la_credencial_de_escritura_disfrazada(monkeypatch):
+    monkeypatch.setenv("SQL_USERNAME", "admin_escritura")
+    monkeypatch.setenv("SQL_RO_USERNAME", "admin_escritura")
+    monkeypatch.setenv("SQL_RO_PASSWORD", "x")
+    with pytest.raises(SystemExit, match="escritura"):
+        snap.credencial_solo_lectura()
+
+
+def test_acepta_la_credencial_de_lectura(monkeypatch):
+    monkeypatch.setenv("SQL_USERNAME", "admin_escritura")
+    monkeypatch.setenv("SQL_RO_USERNAME", "invision_lectura")
+    monkeypatch.setenv("SQL_RO_PASSWORD", "x")
+    assert snap.credencial_solo_lectura() == ("invision_lectura", "x")
