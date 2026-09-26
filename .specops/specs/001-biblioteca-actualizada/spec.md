@@ -96,6 +96,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - **R23.** Los listados de usuarios no fallan por completo porque una fila tenga un correo que el validador de entrada rechazaría. La validación de formato de correo aplica a la entrada, no a la salida.
 - **R24.** El número de capítulo de cada pista se obtiene del nombre del archivo sin confundirlo con la extensión, y el orden resultante es el correcto para nombres como `Pista 1 … Pista 20`. **No es benigno** (corrección del 2026-09-26): con el índice repetido, el orden cae a orden alfabético (`Pista 1, Pista 10 … Pista 2`) y la app muestra "Capítulo 1 de 1".
 - **R39.** El catálogo del frontend muestra el autor real de cada libro. Hallado el 2026-09-26: la búsqueda entrega el autor en otro campo y la app mostraba "Autor Desconocido" en todos los libros.
+- **R42.** En el sitio, **todo** el texto escala con A+ y A-, incluidos los botones de género y las tarjetas del catálogo. Hallado en la auditoría del 2026-09-26: 17 botones quedaban fijos en 13,3 px, el tamaño por defecto del navegador para los botones.
 - **R25.** Los géneros que muestra el frontend salen del catálogo, no de una lista fija en el código (P2).
 
 **Criterios de aceptación**
@@ -234,6 +235,7 @@ CUANDO la indexación de audio falla
 - **V31 (R39).** En la app local con la copia del catálogo, "A CARA DESCUBIERTA" muestra "SIDNEY SHELDON".
 - **V32 (R40).** En el navegador: A+ lleva el texto de 16 a 18 px y se anuncia; se topa en 28 y en 12; el alto contraste pone fondo negro con texto blanco o amarillo y oculta el faro; con las señales apagadas no suena ningún earcon; al recargar se conservan las tres preferencias; a 28 px no hay scroll horizontal.
 - **V33 (R41).** En el navegador: el primer Tab enfoca "Saltar al contenido principal"; las teclas 1 a 6 cambian de sección, la anuncian y la marcan con `aria-current`; escribir "3" en un campo del formulario no cambia de sección; ? abre la ayuda con el foco adentro, y Esc la cierra devolviendo el foco; con el reproductor abierto, Espacio pausa y la flecha derecha adelanta 15 s; con las señales apagadas, el foco no suena; el botón de micrófono existe y, si el navegador no soporta dictado, lo anuncia.
+- **V34 (R28, R42).** Auditoría automática con axe-core (WCAG 2.0, 2.1 y 2.2, niveles A y AA): 0 violaciones en las 6 secciones del panel, en alto contraste y en el catálogo del sitio; con A+ al máximo, ningún texto del sitio queda en su tamaño original.
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
 ## Casos borde

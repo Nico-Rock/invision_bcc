@@ -359,6 +359,11 @@
       overflow-x: auto;
     }
 
+    .table-container:focus-visible {
+      outline: var(--focus-ring-outline);
+      outline-offset: 2px;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -1094,7 +1099,7 @@
         <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
           Auditoría de inicios de sesión capturados por la tabla <code>sesiones_acceso</code>.
         </p>
-        <div class="table-container">
+        <div class="table-container" tabindex="0" role="region" aria-label="Tabla de registros de acceso">
           <table>
             <thead>
               <tr>
@@ -1140,7 +1145,7 @@
           <div class="panel-title">👥 Directorio de Usuarios y Soporte BCC</div>
           <span class="badge badge-info" id="users-count-badge">0 usuarios</span>
         </div>
-        <div class="table-container">
+        <div class="table-container" tabindex="0" role="region" aria-label="Tabla de usuarios">
           <table>
             <thead>
               <tr>

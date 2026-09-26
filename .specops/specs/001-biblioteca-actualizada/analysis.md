@@ -19,6 +19,9 @@
 | A9 | MEDIUM | Datos de producción | Hay fichas de prueba en el catálogo de producción que ven los socios: "A PRUEBA", "A PRUEBAA", "A PRUEBAAA", "A PRUEBAAAA" (sin género). | Se suma a la reconciliación y a la decisión D5 del PRD: la BCC aprueba borrarlas por PR. |
 | A10 | LOW | API `crud.search_audio` | Cada búsqueda lista las 13.099 pistas de Blob desde Azure. Como solo devuelve libros con audio, el catálogo de la app muestra 481 títulos escuchables de 538 fichas. | La cifra es útil para la demo. El costo por búsqueda queda como deuda fuera del spec 001: podría reusar un índice como el del panel. |
 
+| A11 | LOW | `frontend` (lint) | `npx eslint src` ya tenía 12 errores y 2 advertencias antes de esta rama, en los componentes de administración del sitio (p. ej. `isAdminUser` sin uso). | Deuda registrada. La verificación de T20 (`npm run lint`) se ajusta a lintear solo los archivos que toca, hasta que se limpie. |
+| A12 | HIGH | Sitio, R25/T20, WCAG 2.4.7 | El filtro de géneros real (17 botones de la API) vive dentro de un contenedor `sr-only`: es invisible, pero recibe foco con Tab. La barra lateral visible muestra 2 categorías fijas que no filtran nada real. Quien tiene baja visión y usa el teclado pierde el foco de vista. axe no lo detecta. | T20 pasa a incluir mostrar esos géneros de forma visible y sacar los botones enfocables del contenedor oculto. Prioridad antes del despliegue del sitio. |
+
 **Bloqueantes (CRITICAL/HIGH): 0.**
 
 Chequeos de consistencia hechos:

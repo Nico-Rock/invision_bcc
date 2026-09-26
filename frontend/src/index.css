@@ -51,6 +51,13 @@ body.high-contrast {
   padding: 0;
 }
 
+/* Los controles de formulario no heredan la tipografía por defecto: sin esto
+   los botones sin tamaño propio (p. ej. los géneros) quedaban fijos en 13,3 px
+   y no crecían con "Aumentar Texto A+" (spec 001, R42). */
+button, input, select, textarea {
+  font: inherit;
+}
+
 body {
   font-family: 'Atkinson Hyperlegible', sans-serif;
   background-color: var(--bg-primary);

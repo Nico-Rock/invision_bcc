@@ -159,6 +159,15 @@
 - **Commit message:** `fix(T16): la navegacion anuncia la seccion actual [R20]`
 - **Acceptance:** al cambiar de sección, solo el ítem activo tiene `aria-current="page"`.
 
+### T29 [Story P2] — Correcciones de la auditoría de accesibilidad (panel y sitio)
+- **Satisfies:** R28, R42
+- **Depends on:** T28
+- **Parallel:** sequential
+- **Files:** `admin-dashboard/static/index.html`, `frontend/src/index.css`
+- **Verification command:** axe-core en el navegador (V34) + medición de escalado con A+
+- **Commit message:** `fix(T29): correcciones de la auditoria axe y escalado de botones del sitio [R28, R42]`
+- **Acceptance:** V34.
+
 ### T28 [Story P2] — Ayudas al usuario del mockup accesible en el panel
 - **Satisfies:** R41, R20, R28
 - **Depends on:** T27
@@ -231,9 +240,9 @@
 - **Depends on:** T17
 - **Parallel:** sequential
 - **Files:** `frontend/src/App.jsx`
-- **Verification command:** `cd frontend && npm run lint && npm run build && ! grep -n "Filtrando Biografías" src/App.jsx`
+- **Verification command:** `cd frontend && npx eslint src/App.jsx src/pages/Home.jsx && npm run build && ! grep -n "Filtrando Biografías" src/App.jsx` (lint acotado por A11)
 - **Commit message:** `fix(T20): generos del menu lateral desde /genres [R25]`
-- **Acceptance:** V20: no quedan nombres de género fijos; el menú anuncia el género elegido y filtra; con la API caída muestra un estado accesible.
+- **Acceptance:** V20: no quedan nombres de género fijos; el menú visible muestra los géneros de la API, anuncia el elegido y filtra; ningún botón enfocable queda dentro de un contenedor `sr-only` (hallazgo A12, WCAG 2.4.7); con la API caída muestra un estado accesible.
 
 ### T26 [Story P2] — Autor real en el catálogo del frontend
 - **Satisfies:** R39
@@ -285,7 +294,7 @@
 - R9 → T7 · R10 → T9 · R11 → T8 · R12 → T4, T9
 - R13 → T11, T12 · R14 → T11 · R15 → T11, T12 · R16 → T11, T21
 - R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16, T28 · R41 → T28 · R37 → T24 · R40 → T27
-- R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R39 → T26 · R26 → T22
+- R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R39 → T26 · R42 → T29 · R26 → T22
 - R27 → T11 · R28 → T14, T15, T23 · R29 → T11
 - R30 → T9, T13 · R31 → T9 · R32 → T10 · R33 → T5, T6, T15 · R34 → T11, T21 · R35 → T10
 
@@ -303,3 +312,4 @@
 | T19 | Pass | `pytest test_database.py test_routes.py` (33 passed; 1 falla previa A7); app: "Capítulo 1 de 20" reproduciendo 0:33 / 21:01 | 0 | Claude Code (2026-09-26) |
 | T27 | Pass | navegador: A+ 16→18 px anunciado, tope 28 y piso 12, sin scroll horizontal a 28 px, preferencias persisten al recargar; barrido de contraste de todos los textos visibles: 0 bajo AA en estándar y en alto contraste (se corrigieron 2 etiquetas, 5 botones sobre amarillo, `--accent-emerald` 3,77→5,48 y `--text-muted` 4,16→4,97 en hover) | 0 | Claude Code (2026-09-26) |
 | T28 | Pass | navegador: 1er Tab = "Saltar al contenido principal"; bienvenida anunciada; 1-6 cambian sección con anuncio y aria-current; "3" en un campo o Ctrl+1 no navegan; H/? abre la ayuda (modal centrado, foco adentro, foco devuelto al cerrar); S enfoca el buscador; Espacio real reproduce/pausa con anuncio; flecha derecha +15 s; Esc cierra el reproductor; sonido de foco: 1 oscilador con señales, 0 sin señales. Cubre T16 (aria-current). | 0 | Claude Code (2026-09-26) |
+| T29 | Pass | axe-core 4.10 (WCAG 2.0/2.1/2.2 A+AA): panel 0 violaciones en 6 secciones y en alto contraste (antes 1 seria: tabla de usuarios sin acceso por teclado); sitio 0 violaciones; con A+ al máximo, 74 de 74 textos del catálogo escalan (antes 17 botones fijos en 13,3 px), sin scroll horizontal | 0 | Claude Code (2026-09-26) |
