@@ -32,6 +32,11 @@ Para decir que lanzamos una biblioteca actualizada, primero hay que cerrar tres 
 - **Informe de reconciliación.** Una lista de los 42 libros sin audio y las 24 carpetas sin ficha, con la coincidencia probable de cada una, para que la BCC decida caso por caso. No cambia nada por su cuenta.
 - **Carga por lotes segura.** La bibliotecaria entrega una planilla con los libros del lote. La herramienta revisa el lote completo antes de subir nada y explica cada problema en lenguaje claro. Por defecto solo simula. La carga real exige una aprobación registrada. Si se corta, retoma donde quedó, y nunca deja un libro visible sin su audio.
 
+- **Aprobaciones oficiales.** Toda carga, corrección o cambio en producción se aprueba en un PR del repositorio de Invision que el equipo revisa en sus reuniones. Sin PR aprobado, la herramienta no escribe.
+
+### "En Memoria" — la voz de quien narró
+Muchas grabaciones de la BCC son antiguas, y para algunos narradores pueden ser su último registro en vida. Proponemos que **cada audiolibro registre a su narrador** (o "desconocido", cuando no se sepa) y mantener una lista de las grabaciones cuyo narrador falta identificar, para investigarla con el tiempo. Esto también permite tener dos versiones del mismo título con distinta voz.
+
 ### Prioridad 2 — mejora la operación
 - **Panel accesible para la bibliotecaria.** Revisar un lote y leer la reconciliación desde el panel, con teclado y lector de pantalla.
 - **Correcciones de fondo.** Que un dato raro no vuelva a tumbar una pantalla entera (la causa del incidente del 21/09), que los capítulos se ordenen por su número real y que los géneros salgan del catálogo en vez de estar escritos en el código.
@@ -50,9 +55,10 @@ Para decir que lanzamos una biblioteca actualizada, primero hay que cerrar tres 
 |---|---|---|---|
 | D1 | ¿Adoptamos la estructura actual de producción como la oficial (sin categorías por ahora)? | **Sí** (Opción A del documento 13) | Desbloquea la carga sin tocar la base viva |
 | D2 | ¿Quién de la BCC aprueba cada carga y cada corrección, y cómo queda registrado? | Una persona designada, con aprobación por escrito por lote | Es el mandato de gobernanza: nada en producción sin validación BCC |
-| D3 | ¿Dónde están los ~700 audiolibros y quién arma la planilla de cada lote? | Planilla con el mismo formato del catálogo actual, más la carpeta de audio | Define cuándo puede empezar la carga |
+| D3 | Los ~700 están en SharePoint/OneDrive de la BCC: ¿quién arma la planilla de cada lote? | Planilla con el formato del catálogo actual, más el narrador y la carpeta de audio | Define cuándo puede empezar la carga |
 | D4 | ¿Unificamos los géneros duplicados ("Desarrollo personal" y "Desarrollo personal y bienestar", entre otros) y completamos los 4 libros sin género? | Sí, con la lista que valide la BCC | Hoy un socio que filtra por género no ve todos los libros |
 | D5 | ¿Aprobamos corregir los 24 casos de audio sin ficha que tengan una coincidencia clara? | Sí, revisados uno por uno | Son libros ya grabados que se recuperan de inmediato |
+| D6 | ¿Aprobamos agregar a la base el **estado de publicación** y el **narrador** de cada libro? (cambio que solo agrega datos, reversible) | Sí, por PR | Garantiza que ningún libro se vea sin audio y habilita "En Memoria" |
 
 ## 6. Cómo sabremos que funcionó
 - **0 libros visibles sin audio** después de aplicar la reconciliación aprobada.

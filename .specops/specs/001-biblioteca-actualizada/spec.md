@@ -11,13 +11,13 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 
 **Hoy:** cargar un libro es artesanal, el catálogo tiene huecos que nadie ve y el panel falla al abrirse → **Después:** un proceso de carga por lotes que valida antes de escribir, un catálogo reconciliado y un panel que dice la verdad sobre el estado de la biblioteca.
 
-## 0. Historia
+## 0. Story — Historia
 
 **Antes:** Un socio ciego de la BCC busca por voz un título que le recomendaron, lo encuentra en el catálogo y le da reproducir. No pasa nada: el libro tiene ficha pero no tiene audio (es uno de los 42). No hay forma de saber si es un error suyo o de la biblioteca. Mientras tanto, la bibliotecaria tiene en un disco 700 audiolibros nuevos listos para compartir y ninguna forma segura de subirlos sin pedirle a Nico que escriba SQL a mano, libro por libro. Cuando por fin se suben 4, una fila mal cargada tumba el listado de usuarios del panel durante días.
 
 **Después:** La bibliotecaria prepara una planilla con los títulos del lote. La herramienta de carga la revisa completa antes de tocar nada y le dice, en lenguaje claro y por voz, qué 12 filas tienen problemas y por qué (título demasiado largo, género fuera de la lista, carpeta sin audio, pista cortada). Corrige, vuelve a revisar, y con la aprobación registrada el lote sube. Si se corta internet a la mitad, retoma donde quedó. El socio que buscaba ese título lo encuentra y lo escucha. Y el panel muestra, para el aniversario, cuántos libros hay, cuántas horas de audio y cuántos quedan pendientes de reconciliar.
 
-## 1. Resultados — historias de usuario priorizadas
+## 1. Resultados (Outcomes) — historias de usuario priorizadas
 
 ### Historia 1 [P1 — núcleo MVP] — Panel operativo confiable
 **Como** equipo operativo de Invision, **quiero** que el panel abra siempre y muestre el estado real de la biblioteca, **para** poder operarlo y mostrarlo sin que falle frente al equipo BCC.
@@ -124,7 +124,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 **Como** equipo de Invision, **quiero** cifras reales del año (títulos, horas de audio, socios activos), **para** comunicar el aniversario con datos verificables.
 - **R26.** El Resumen Ejecutivo muestra las horas totales de audio y los socios con actividad de escucha, además de los totales que ya muestra.
 
-## 2. Límites de alcance
+## 2. Límites de alcance (Scope boundaries)
 
 **Dentro del alcance**
 - Panel operativo (`admin-dashboard`), la herramienta de carga por lotes, el informe de reconciliación, la copia local del catálogo, las correcciones puntuales de API y frontend de la Historia 6.
@@ -136,12 +136,12 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - Ingesta real desde SharePoint (hoy es un mock), refresh tokens, el Bibliotecario Digital con IA.
 - Rediseño visual adicional del frontend más allá de R25.
 
-## 3. Restricciones
+## 3. Restricciones (Constraints)
 - **R27.** Ninguna operación de esta entrega escribe en producción sin aprobación registrada. Todo lo que puede escribir en producción arranca en simulación.
 - **R28.** Toda interfaz nueva o modificada cumple WCAG 2.1 AA y se opera entera con teclado (P14).
 - **R29.** El proceso de carga tolera archivos de audio de cientos de MB y lotes de cientos de libros sin agotar la memoria del equipo que lo ejecuta (P11).
 
-## 4. Decisiones previas
+## 4. Decisiones previas (Prior decisions)
 - **El esquema de producción manda** (P13, Opción A del módulo 13, recomendada): la ficha de un audiolibro es `nombre, autor, editorial, genero, descripcion`. Se construye sobre la Opción A; su confirmación formal es la decisión D1 del board (29/09).
 - **Convención de audio:** las pistas viven en Blob bajo `{nombre exacto de la ficha}/{archivo}.mp3`. El nombre de la carpeta debe coincidir exactamente con el campo `nombre`. Esta coincidencia es la que hoy está rota en 42/24 casos.
 - **La API de producción no se usa como intermediaria** para la carga (no tiene los endpoints de admin). El panel y la herramienta de carga escriben directo, con las validaciones de la API replicadas (P7).
@@ -152,7 +152,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - **El usuario admin temporal (id=92)** se mantiene para las cargas; su correo ya se corrigió a un dominio real.
 - **El CSV `Catalogo digital Audioteca 2025(disponibles).csv` ya está cargado** (533 de 536 títulos presentes en producción). No es la fuente de los ~700 pendientes.
 
-## 5. Lógica de decisión
+## 5. Lógica de decisión (Decision logic)
 
 ```
 CUANDO se procesa una fila del manifiesto
@@ -184,7 +184,7 @@ CUANDO la indexación de audio falla
 - **Una fila mala no tumba una colección.** Ningún listado del panel ni de la API falla entero por una fila individual.
 - **El panel nunca reporta éxito si falló.**
 
-## 6. Desglose de tareas (alto nivel)
+## 6. Desglose de tareas (Task breakdown, alto nivel)
 - Resiliencia del panel ante el esquema de producción y la indexación de Blob.
 - Motor de reconciliación catálogo ↔ audio, más su informe.
 - Validador de manifiesto con las reglas de la API.
@@ -195,7 +195,7 @@ CUANDO la indexación de audio falla
 - Registro de aprobaciones en el repositorio y su verificación antes de escribir.
 - Captura del narrador ("En Memoria") y propuesta de migración aditiva (estado de publicación + narrador).
 
-## 7. Criterios de verificación
+## 7. Criterios de verificación (Verification criteria)
 - **V1 (R1).** Contra producción, `/api/overview` responde sin error y marca las métricas sin tabla como no disponibles.
 - **V2 (R2).** Contra producción, Registros de Acceso muestra "esta base no registra sesiones" y no un error SQL.
 - **V3 (R3).** Con credenciales de Blob inválidas, el panel abre en menos de 5 s y reporta el fallo de indexación. No imprime ni muestra "indexado correctamente".
