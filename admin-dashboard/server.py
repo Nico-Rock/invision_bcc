@@ -15,6 +15,8 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import urllib.parse
 from dotenv import load_dotenv
 
+from invision import esquema
+
 # Cargar variables de entorno
 env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
 load_dotenv(dotenv_path=env_path)
@@ -81,6 +83,66 @@ def get_db_connection():
         return {"type": "sqlite", "conn": conn}
 
     return None
+
+
+MOTIVO_SIN_SESIONES = "Esta base no registra sesiones de acceso"
+
+
+def _contar(db_info, tabla):
+    # `tabla` viene de una constante del código, nunca de la request.
+    conn = db_info["conn"]
+    if db_info["type"] == "sqlite":
+        return conn.execute(f"SELECT COUNT(*) FROM {tabla}").fetchone()[0]
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT COUNT(*) FROM {tabla}")
+    return cursor.fetchone()[0]
+
+
+def resumen_base(db_info):
+    """KPIs de la base. Una tabla ausente es una métrica "no disponible", no un error.
+
+    Producción no tiene `sesiones_acceso` (docs/specs/13): antes eso tumbaba el
+    Resumen entero con el error de SQL crudo.
+    """
+    datos = {"total_users": None, "total_access_logs": None, "no_disponible": {}}
+    metricas = (
+        ("total_users", "usuarios", "Esta base no tiene tabla de usuarios"),
+        ("total_access_logs", "sesiones_acceso", MOTIVO_SIN_SESIONES),
+    )
+    for clave, tabla, motivo in metricas:
+        if esquema.tabla_existe(db_info, tabla):
+            datos[clave] = _contar(db_info, tabla)
+        else:
+            datos["no_disponible"][clave] = motivo
+    return datos
+
+
+def registros_acceso(db_info):
+    """Últimos 100 eventos LOGIN/LOGOUT, o `disponible: False` si la base no los registra."""
+    if not esquema.tabla_existe(db_info, "sesiones_acceso"):
+        return {"disponible": False, "motivo": MOTIVO_SIN_SESIONES, "logs": [], "total": 0}
+
+    conn = db_info["conn"]
+    if db_info["type"] == "azure_sql":
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute("""
+            SELECT TOP 100 s.id, s.tipo_evento, CONVERT(VARCHAR, s.timestamp, 120) as timestamp,
+                   u.id as user_id, u.email, u.username, u.first_name, u.last_name
+            FROM sesiones_acceso s
+            LEFT JOIN usuarios u ON s.usuario_id = u.id
+            ORDER BY s.timestamp DESC
+        """)
+        logs = cursor.fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT s.id, s.tipo_evento, s.timestamp, u.id as user_id, u.email, u.username
+            FROM sesiones_acceso s
+            LEFT JOIN usuarios u ON s.usuario_id = u.id
+            ORDER BY s.timestamp DESC
+            LIMIT 100
+        """).fetchall()
+        logs = [dict(r) for r in rows]
+    return {"disponible": True, "logs": logs, "total": len(logs)}
 
 
 def fetch_azure_blob_metadata(force_refresh=False):
@@ -538,27 +600,21 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                 # Estado general y KPIs
                 meta = fetch_azure_blob_metadata(force_refresh=False)
                 db_info = get_db_connection()
-                user_count = 0
-                log_count = 0
-                db_type_label = "SQLite Local (Desconectado de Azure SQL)"
-                db_status = "local_only"
+                base = {"total_users": None, "total_access_logs": None, "no_disponible": {}}
+                db_type_label = "Sin conexión a base de datos"
+                db_status = "offline"
 
                 if db_info:
-                    conn = db_info["conn"]
+                    try:
+                        base = resumen_base(db_info)
+                    finally:
+                        db_info["conn"].close()
                     if db_info["type"] == "azure_sql":
                         db_type_label = "Azure SQL Database (Producción)"
                         db_status = "connected_azure_sql"
-                        cursor = conn.cursor(as_dict=True)
-                        cursor.execute("SELECT COUNT(*) as total FROM usuarios")
-                        user_count = cursor.fetchone()["total"]
-                        cursor.execute("SELECT COUNT(*) as total FROM sesiones_acceso")
-                        log_count = cursor.fetchone()["total"]
-                        conn.close()
                     else:
                         db_type_label = "SQLite Local (Firewall bloquea Azure SQL)"
-                        user_count = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
-                        log_count = conn.execute("SELECT COUNT(*) FROM sesiones_acceso").fetchone()[0]
-                        conn.close()
+                        db_status = "local_only"
 
                 response_data = {
                     "status": "online",
@@ -573,8 +629,9 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                     },
                     "database": {
                         "type": db_type_label,
-                        "total_users": user_count,
-                        "total_access_logs": log_count,
+                        "total_users": base["total_users"],
+                        "total_access_logs": base["total_access_logs"],
+                        "no_disponible": base["no_disponible"],
                         "status": db_status
                     },
                     "production_site": {
@@ -585,33 +642,19 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                 }
 
             elif path == "/api/access-logs":
-                # Registros de acceso
                 db_info = get_db_connection()
-                logs = []
                 if db_info:
-                    conn = db_info["conn"]
-                    if db_info["type"] == "azure_sql":
-                        cursor = conn.cursor(as_dict=True)
-                        cursor.execute("""
-                            SELECT TOP 100 s.id, s.tipo_evento, CONVERT(VARCHAR, s.timestamp, 120) as timestamp, 
-                                   u.id as user_id, u.email, u.username, u.first_name, u.last_name 
-                            FROM sesiones_acceso s
-                            LEFT JOIN usuarios u ON s.usuario_id = u.id
-                            ORDER BY s.timestamp DESC
-                        """)
-                        logs = cursor.fetchall()
-                        conn.close()
-                    else:
-                        rows = conn.execute("""
-                            SELECT s.id, s.tipo_evento, s.timestamp, u.id as user_id, u.email, u.username, u.first_name, u.last_name 
-                            FROM sesiones_acceso s
-                            LEFT JOIN usuarios u ON s.usuario_id = u.id
-                            ORDER BY s.timestamp DESC
-                        """).fetchall()
-                        for r in rows:
-                            logs.append(dict(r))
-                        conn.close()
-                response_data = {"logs": logs, "total": len(logs)}
+                    try:
+                        response_data = registros_acceso(db_info)
+                    finally:
+                        db_info["conn"].close()
+                else:
+                    response_data = {
+                        "disponible": False,
+                        "motivo": "No hay conexión a la base de datos",
+                        "logs": [],
+                        "total": 0,
+                    }
 
             elif path == "/api/users":
                 # Directorio de usuarios y roles
