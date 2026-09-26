@@ -85,6 +85,9 @@ const A11y = (() => {
     exito:  { freqs: [440, 880], onda: 'triangle', dur: 0.18 },
     error:  { freqs: [180],      onda: 'sawtooth', dur: 0.30 },
     accion: { freqs: [659.25],   onda: 'sine',     dur: 0.10 },
+    // Del mockup accesible (R41): clic sutil de foco (C5) y aviso de dictado
+    foco:   { freqs: [523.25],   onda: 'sine',     dur: 0.08 },
+    voz:    { freqs: [880],      onda: 'sine',     dur: 0.15 },
   };
 
   function earcon(tipo) {

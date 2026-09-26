@@ -784,6 +784,73 @@
     body.high-contrast .badge-warning { color: #FFFF00; }
     body.high-contrast .badge-info { color: #00FFFF; }
 
+    /* Ayudas del mockup accesible (R41) */
+    .skip-link {
+      position: absolute;
+      left: 1rem;
+      top: -100px;
+      z-index: 100;
+      background: var(--accent-orange);
+      color: #FFFFFF;
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      top: 1rem;
+      outline: var(--focus-ring-outline);
+    }
+    body.high-contrast .skip-link { color: #000000; }
+
+    .dialogo-ayuda {
+      border: 3px solid var(--accent-orange);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      max-width: min(640px, calc(100vw - 2rem));
+      max-height: calc(100vh - 2rem);
+      overflow: auto;
+      margin: auto; /* el reset global `* { margin: 0 }` anulaba el centrado nativo */
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    .dialogo-ayuda::backdrop { background: rgba(17, 24, 39, 0.7); }
+    .dialogo-ayuda h2 { color: var(--accent-orange); margin-bottom: 1rem; font-size: 1.5rem; }
+    .tabla-atajos { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+    .tabla-atajos th, .tabla-atajos td {
+      text-align: left;
+      padding: 0.6rem 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+    .tabla-atajos th { color: var(--text-secondary); font-size: 0.9rem; }
+    kbd {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-surface);
+      border: 2px solid var(--border);
+      border-bottom-width: 3px;
+      border-radius: 6px;
+      padding: 0.1rem 0.45rem;
+      font-weight: 700;
+    }
+
+    .buscador-con-voz { display: flex; gap: 0.75rem; align-items: stretch; }
+    .buscador-con-voz .search-input { flex: 1; }
+    .btn-dictado {
+      min-width: 3.2rem;
+      border: 2px solid var(--accent-blue);
+      background: var(--bg-primary);
+      color: var(--accent-blue);
+      border-radius: var(--radius-md);
+      font-size: 1.3rem;
+      cursor: pointer;
+    }
+    .btn-dictado:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
+    .btn-dictado.grabando {
+      background: var(--accent-rose);
+      border-color: var(--accent-rose);
+      color: #FFFFFF;
+    }
+
     /* Fondo del faro (R37): identidad del aniversario, 90 % de transparencia.
        Decorativo: aria-hidden, sin eventos de puntero, fuera en alto contraste. */
     .fondo-faro {
@@ -855,6 +922,24 @@
   </svg>
 </div>
 
+<a href="#contenido-principal" class="skip-link">Saltar al contenido principal</a>
+
+<dialog id="ayuda-atajos" class="dialogo-ayuda" aria-labelledby="ayuda-titulo">
+  <h2 id="ayuda-titulo">Atajos de Teclado Disponibles</h2>
+  <table class="tabla-atajos">
+    <thead><tr><th scope="col">Tecla</th><th scope="col">Acción</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>1</kbd> a <kbd>6</kbd></td><td>Ir a Resumen, Registros, Explorador, Usuarios, Gobernanza o Cargar</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Ir al buscador de audios</td></tr>
+      <tr><td><kbd>Espacio</kbd> (con reproductor abierto)</td><td>Reproducir o pausar</td></tr>
+      <tr><td><kbd>←</kbd> / <kbd>→</kbd> (con reproductor abierto)</td><td>Retroceder o adelantar 15 segundos</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cerrar esta ayuda o el reproductor</td></tr>
+      <tr><td><kbd>?</kbd> o <kbd>H</kbd></td><td>Abrir y escuchar esta ayuda</td></tr>
+    </tbody>
+  </table>
+  <button type="button" class="btn btn-primary" style="width: 100%;" onclick="Ayuda.cerrarAyuda()">Entendido</button>
+</dialog>
+
 <header class="a11y-header" role="region" aria-label="Ajustes de accesibilidad visual y auditiva">
   <div class="a11y-title">
     <span aria-hidden="true">♿</span>
@@ -886,22 +971,22 @@
          `.nav-item[role="button"]`, asi que el role tambien es lo que los
          vuelve activables. -->
     <nav class="nav-menu">
-      <a class="nav-item active" role="button" tabindex="0" onclick="switchTab('overview')">
+      <a class="nav-item active" role="button" tabindex="0" aria-current="page" aria-keyshortcuts="1" onclick="switchTab('overview')">
         <span class="nav-icon">📊</span> Resumen Ejecutivo
       </a>
-      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('logs')">
+      <a class="nav-item" role="button" tabindex="0" aria-keyshortcuts="2" onclick="switchTab('logs')">
         <span class="nav-icon">📜</span> Registros de Acceso
       </a>
-      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('books')">
+      <a class="nav-item" role="button" tabindex="0" aria-keyshortcuts="3" onclick="switchTab('books')">
         <span class="nav-icon">🎧</span> Explorador de Audios
       </a>
-      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('users')">
+      <a class="nav-item" role="button" tabindex="0" aria-keyshortcuts="4" onclick="switchTab('users')">
         <span class="nav-icon">👥</span> Usuarios y Soporte
       </a>
-      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('governance')">
+      <a class="nav-item" role="button" tabindex="0" aria-keyshortcuts="5" onclick="switchTab('governance')">
         <span class="nav-icon">🛡️</span> Gobernanza y Reglas
       </a>
-      <a class="nav-item" role="button" tabindex="0" onclick="switchTab('carga')">
+      <a class="nav-item" role="button" tabindex="0" aria-keyshortcuts="6" onclick="switchTab('carga')">
         <span class="nav-icon">📤</span> Cargar Audiolibro
       </a>
     </nav>
@@ -919,7 +1004,7 @@
   </aside>
 
   <!-- Main View Area -->
-  <main class="main-content">
+  <main class="main-content" id="contenido-principal" tabindex="-1">
     
     <!-- Top Header -->
     <header class="header-bar">
@@ -928,6 +1013,7 @@
         <p id="section-subtitle">Monitoreo de infraestructura, catálogo y accesos en tiempo real</p>
       </div>
       <div class="header-actions">
+        <button type="button" class="btn btn-secondary" onclick="Ayuda.abrirAyuda()" aria-keyshortcuts="h Shift+Slash">❓ Ayuda de Atajos</button>
         <button class="btn btn-secondary" onclick="refreshData()">🔄 Refrescar Datos</button>
         <a href="https://biblioteca-invision.com/login" target="_blank" class="btn btn-primary">🌐 Sitio Oficial (Prod) ↗</a>
       </div>
@@ -1036,7 +1122,10 @@
           <span class="badge badge-info" id="books-count-badge">0 libros</span>
         </div>
         <div class="filter-bar">
-          <input type="text" id="book-search" class="search-input" placeholder="🔍 Buscar audiolibro por título..." oninput="filterBooks()">
+          <div class="buscador-con-voz">
+            <input type="text" id="book-search" class="search-input" placeholder="🔍 Buscar audiolibro por título... [S]" aria-label="Buscar audiolibro por título" aria-keyshortcuts="s" oninput="filterBooks()">
+            <button type="button" id="btn-dictado" class="btn-dictado" onclick="Ayuda.dictar()" aria-label="Buscar usando la voz">🎤</button>
+          </div>
         </div>
         <div class="books-grid" id="books-grid-container">
           <!-- Cargado vía JS -->
@@ -1154,6 +1243,8 @@
 <!-- Primero las primitivas de accesibilidad: el resto del panel las usa -->
 <script src="/a11y.js"></script>
 <script>A11y.iniciar();</script>
+<script src="/ayuda.js"></script>
+<script>Ayuda.iniciar();</script>
 
 <script>
   let cachedBooks = [];
@@ -1162,8 +1253,13 @@
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
 
+    // Solo el ítem activo lleva aria-current: el lector anuncia dónde está uno (R20)
+    document.querySelectorAll('.nav-item').forEach(el => el.removeAttribute('aria-current'));
     const activeNav = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick').includes(tabId));
-    if (activeNav) activeNav.classList.add('active');
+    if (activeNav) {
+      activeNav.classList.add('active');
+      activeNav.setAttribute('aria-current', 'page');
+    }
 
     const targetSection = document.getElementById(`view-${tabId}`);
     if (targetSection) targetSection.classList.add('active');
@@ -1172,7 +1268,7 @@
     const titles = {
       overview: ['Resumen Ejecutivo', 'Monitoreo de infraestructura, catálogo y accesos en tiempo real'],
       logs: ['Registros de Acceso y Auditoría', 'Historial de sesiones y eventos de login de usuarios'],
-      books: ['Explorador Estructural de Audiolibros', 'Visualizador de los 13.044 archivos en Azure Blob con reproductor'],
+      books: ['Explorador Estructural de Audiolibros', 'Visualizador de los archivos de audio en Azure Blob, con reproductor'],
       users: ['Directorio y Soporte a Usuarios', 'Gestión de cuentas y soporte a beneficiarios de la BCC'],
       governance: ['Gobernanza y Reglas de Operación', 'Políticas constitucionales de servicio acordadas con la BCC'],
       carga: ['Cargar Audiolibro', 'Alta de un título nuevo y subida de sus pistas de audio']
@@ -1181,7 +1277,13 @@
     if (titles[tabId]) {
       document.getElementById('section-title').textContent = titles[tabId][0];
       document.getElementById('section-subtitle').textContent = titles[tabId][1];
+      // La carga anuncia su propio primer paso más abajo
+      if (tabId !== 'carga') A11y.anunciar(`Sección ${titles[tabId][0]}.`);
     }
+
+    // Registros se recarga al entrar: si la base no los tiene, el aviso se
+    // anuncia ahora que la sección está a la vista.
+    if (tabId === 'logs') loadLogs();
 
     // OJO: el parametro de esta funcion se llama `tabId`, no `tab`.
     if (tabId === 'carga') {
@@ -1285,7 +1387,11 @@
       if (data.disponible === false) {
         badge.textContent = 'No disponible';
         filaMensaje(tbody, data.motivo);
-        A11y.anunciar(`Registros de acceso: ${data.motivo}.`);
+        // Solo si la sección está a la vista: al abrir el panel se cargan todas
+        // y este aviso pisaba la bienvenida.
+        if (document.getElementById('view-logs').classList.contains('active')) {
+          A11y.anunciar(`Registros de acceso: ${data.motivo}.`);
+        }
         return;
       }
 
