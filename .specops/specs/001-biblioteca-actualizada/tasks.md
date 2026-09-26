@@ -186,7 +186,7 @@
 - **Files:** `InvisionAPI-main/audiobooks/database.py`, `InvisionAPI-main/audiobooks/test_database.py`
 - **Verification command:** `docker exec invision_local sh -c "cd /app && python -m pytest test_database.py -q -k acentos"` + V30 con curl
 - **Commit message:** `fix(T25): lower() Unicode en conexiones SQLite locales [R38]`
-- **Acceptance:** V30; el hook solo se registra si el motor es SQLite.
+- **Acceptance:** V30; el hook y `check_same_thread=False` solo se aplican si el motor es SQLite; el streaming local responde 200.
 
 ## Group F — Historia 6 [P2]: deuda estructural (checkpoint)
 

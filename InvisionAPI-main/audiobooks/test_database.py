@@ -100,3 +100,51 @@ def test_acentos_paridad_no_se_aplica_a_otros_motores():
 
     motor_mssql = create_engine("mssql+pyodbc://u:p@servidor/db?driver=x")
     assert habilitar_paridad_sqlite(motor_mssql) is False
+
+
+def test_acentos_motor_sqlite_local_admite_varios_hilos(tmp_path):
+    """FastAPI atiende en hilos distintos: sin esto, cada streaming local daba 500."""
+    import threading
+    from sqlalchemy import text
+    from database import crear_motor
+
+    motor = crear_motor(f"sqlite:///{tmp_path / 'hilos.db'}")
+    conexion = motor.raw_connection()
+    errores = []
+
+    def usar_en_otro_hilo():
+        try:
+            conexion.cursor().execute("SELECT 1")
+        except Exception as e:
+            errores.append(e)
+
+    hilo = threading.Thread(target=usar_en_otro_hilo)
+    hilo.start()
+    hilo.join()
+    conexion.close()
+    assert errores == []
+
+
+# --- T19: número y orden de capítulos, compartido por lista y streaming [R24] ---
+
+def test_capitulos_numero_ignora_extension_y_carpeta():
+    from crud import numero_de_capitulo
+
+    assert numero_de_capitulo("A CARA DESCUBIERTA/A cara descubierta Pista 12.mp3") == 12
+    assert numero_de_capitulo("1984/1984 Pista 5.mp3") == 5          # carpeta con dígitos
+    assert numero_de_capitulo("Harry Potter 2 Pista 7.MP3") == 7      # último número, no el primero
+    assert numero_de_capitulo("Prólogo.mp3") is None
+
+
+def test_capitulos_orden_numerico_no_alfabetico():
+    from crud import ordenar_capitulos
+
+    nombres = [f"LIBRO/Libro Pista {n}.mp3" for n in (1, 10, 11, 2, 20, 3)]
+    assert [numero for numero in map(lambda n: int(n.split()[-1][:-4]), ordenar_capitulos(nombres))] == [1, 2, 3, 10, 11, 20]
+
+
+def test_capitulos_sin_numero_van_al_final_por_nombre():
+    from crud import ordenar_capitulos
+
+    nombres = ["L/Pista 2.mp3", "L/Epílogo.mp3", "L/Pista 1.mp3", "L/Anexo.mp3"]
+    assert ordenar_capitulos(nombres) == ["L/Pista 1.mp3", "L/Pista 2.mp3", "L/Anexo.mp3", "L/Epílogo.mp3"]

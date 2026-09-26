@@ -265,6 +265,31 @@ async def obtener_progreso(db: Session, usuario_id: int, audiolibro_id: int):
         return {"chapter_index": 1, "progreso": 0}
     
     
+def numero_de_capitulo(nombre_blob):
+    """Último número del nombre de archivo, sin carpeta ni extensión.
+
+    "LIBRO/Libro Pista 12.mp3" -> 12. Antes se tomaba el número final CON la
+    extensión (el "3" de "mp3", igual para todas las pistas) o el primero de la
+    ruta (incluida la carpeta), y el orden terminaba siendo alfabético:
+    Pista 1, Pista 10 ... Pista 2.
+    """
+    archivo = nombre_blob.rsplit("/", 1)[-1]
+    base = archivo.rsplit(".", 1)[0]
+    numeros = re.findall(r"\d+", base)
+    return int(numeros[-1]) if numeros else None
+
+
+def ordenar_capitulos(nombres_blob):
+    """Orden único de capítulos, compartido por la lista y el streaming: por número;
+    los que no tienen número van al final, por nombre."""
+    def clave(nombre):
+        numero = numero_de_capitulo(nombre)
+        archivo = nombre.rsplit("/", 1)[-1]
+        return (numero is None, numero or 0, archivo.lower())
+
+    return sorted(nombres_blob, key=clave)
+
+
 async def get_audio_stream(db: Session, audiolibro_id: int, chapter_index: int):
     # Obtener el nombre del audiolibro desde la base de datos
     audiolibro = db.query(Audiolibro).filter_by(id=audiolibro_id).first()
@@ -286,31 +311,17 @@ async def get_audio_stream(db: Session, audiolibro_id: int, chapter_index: int):
         if not chapters:
             raise ValueError(f"No se encontraron capítulos en la carpeta '{folder_name}'.")
 
-        # Extraer el número de capítulo de cada blob usando una expresión regular más flexible
-        def extract_chapter_number(blob_name):
-            match = re.search(r"(\d+)", blob_name)
-            return int(match.group(1)) if match else None
-
-        # Crear una lista de tuplas (nombre_del_blob, número_de_capítulo)
-        chapters_with_numbers = []
-        for blob_name in chapters:
-            chapter_number = extract_chapter_number(blob_name)
-            if chapter_number is not None:
-                chapters_with_numbers.append((blob_name, chapter_number))
-
-        if not chapters_with_numbers:
-            raise ValueError("Los nombres de los capítulos deben contener al menos un número.")
-
-        # Ordenar los capítulos por su número
-        chapters_with_numbers.sort(key=lambda x: x[1])
+        # Mismo orden que la lista de capítulos (audio-by-id): la posición que
+        # elige el usuario es la pista que suena.
+        ordenados = ordenar_capitulos(chapters)
 
         # Validar el índice del capítulo
         selected_chapter_index = chapter_index - 1
-        if selected_chapter_index < 0 or selected_chapter_index >= len(chapters_with_numbers):
-            raise ValueError(f"Capítulo {chapter_index} no encontrado. Solo hay {len(chapters_with_numbers)} capítulos.")
+        if selected_chapter_index < 0 or selected_chapter_index >= len(ordenados):
+            raise ValueError(f"Capítulo {chapter_index} no encontrado. Solo hay {len(ordenados)} capítulos.")
 
         # Obtener el capítulo seleccionado
-        chapter_to_stream = chapters_with_numbers[selected_chapter_index][0]
+        chapter_to_stream = ordenados[selected_chapter_index]
 
         # Descargar el archivo de Azure Blob Storage
         blob_client = container_client.get_blob_client(chapter_to_stream)
@@ -342,16 +353,12 @@ def get_chapters_by_audiobook_id(audiolibro_id: int, db: Session):
     try:
         blobs_list = list(container_client.list_blobs(name_starts_with=f"{folder_name}/"))
 
-        chapters = []
-        for blob in blobs_list:
-            chapter_name_with_extension = blob.name.split("/")[-1]
-            chapter_name = chapter_name_with_extension
-            match = re.search(r"(\d+)$", chapter_name)
-            chapter_index = int(match.group(1)) if match else len(chapters) + 1
-
-            chapters.append({"indice": chapter_index, "nombre": chapter_name})
-
-        chapters.sort(key=lambda x: x["indice"])
+        mp3 = [b.name for b in blobs_list if b.name.lower().endswith(".mp3")]
+        # `indice` es la posición 1..n en el orden compartido con el streaming.
+        chapters = [
+            {"indice": posicion, "nombre": nombre.rsplit("/", 1)[-1]}
+            for posicion, nombre in enumerate(ordenar_capitulos(mp3), start=1)
+        ]
 
         return {"audiolibro": audiolibro.nombre, "capitulos": chapters}
 

@@ -23,8 +23,16 @@ def habilitar_paridad_sqlite(motor):
     return True
 
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-habilitar_paridad_sqlite(engine)
+def crear_motor(url):
+    """Motor de la app. En SQLite (entorno local) se permite usar la conexión
+    desde varios hilos, como hace FastAPI; en SQL Server no se toca nada."""
+    argumentos = {"check_same_thread": False} if url.startswith("sqlite") else {}
+    motor = create_engine(url, connect_args=argumentos)
+    habilitar_paridad_sqlite(motor)
+    return motor
+
+
+engine = crear_motor(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

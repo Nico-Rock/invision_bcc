@@ -80,7 +80,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 
 **Requisitos**
 - **R21.** Existe una forma repetible de copiar el catálogo de producción (fichas y géneros) al entorno local leyendo producción solo con consultas de lectura.
-- **R38.** En el entorno local, la búsqueda y el filtro por género se comportan como en producción: sin distinguir mayúsculas, **incluidas las letras acentuadas** (`POESÍA` = `poesía`). Hallado el 2026-09-26: la base local no pliega mayúsculas acentuadas y dejaba vacíos los géneros con tilde.
+- **R38.** En el entorno local, la búsqueda y el filtro por género se comportan como en producción: sin distinguir mayúsculas, **incluidas las letras acentuadas** (`POESÍA` = `poesía`). Hallado el 2026-09-26: la base local no pliega mayúsculas acentuadas y dejaba vacíos los géneros con tilde. Además, **el streaming de audio funciona igual que en producción**: la base local no admite por defecto que la API la use desde varios hilos, y cada reproducción daba error 500.
 - **R22.** La copia local no incluye datos personales de los socios (correos, nombres, teléfonos, progreso de escucha). El acceso local usa cuentas de demostración creadas para ese fin (P9).
 
 **Criterios de aceptación**
@@ -92,7 +92,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 
 **Requisitos**
 - **R23.** Los listados de usuarios no fallan por completo porque una fila tenga un correo que el validador de entrada rechazaría. La validación de formato de correo aplica a la entrada, no a la salida.
-- **R24.** El número de capítulo de cada pista se obtiene del nombre del archivo sin confundirlo con la extensión, y el orden resultante es el correcto para nombres como `Pista 1 … Pista 20`.
+- **R24.** El número de capítulo de cada pista se obtiene del nombre del archivo sin confundirlo con la extensión, y el orden resultante es el correcto para nombres como `Pista 1 … Pista 20`. **No es benigno** (corrección del 2026-09-26): con el índice repetido, el orden cae a orden alfabético (`Pista 1, Pista 10 … Pista 2`) y la app muestra "Capítulo 1 de 1".
 - **R39.** El catálogo del frontend muestra el autor real de cada libro. Hallado el 2026-09-26: la búsqueda entrega el autor en otro campo y la app mostraba "Autor Desconocido" en todos los libros.
 - **R25.** Los géneros que muestra el frontend salen del catálogo, no de una lista fija en el código (P2).
 
@@ -228,7 +228,7 @@ CUANDO la indexación de audio falla
 - **V21 (R26).** El Resumen muestra las horas de audio y los socios activos, con los cálculos documentados.
 - **V28 (R36).** Revisión del diff del PR: ninguna configuración versionada apunta a la base local; sin la variable explícita de demo, la API y el panel usan la base real (test de la resolución de configuración).
 - **V29 (R37).** El faro se ve detrás del contenido con opacidad 0,1; tiene `aria-hidden`; no aparece en alto contraste; el contraste del texto sobre el fondo se mantiene ≥ 4,5:1.
-- **V30 (R38).** Con la copia local, `GET /books-by-genre/POESÍA` devuelve los mismos 11 libros que producción; en producción no cambia nada (el ajuste solo aplica a conexiones SQLite).
+- **V30 (R38).** Con la copia local, `GET /books-by-genre/POESÍA` devuelve los mismos 11 libros que producción; en producción no cambia nada (el ajuste solo aplica a conexiones SQLite). `GET /stream-audio-simple/...` responde 200 con audio en local.
 - **V31 (R39).** En la app local con la copia del catálogo, "A CARA DESCUBIERTA" muestra "SIDNEY SHELDON".
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
