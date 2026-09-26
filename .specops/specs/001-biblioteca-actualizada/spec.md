@@ -70,6 +70,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - **R18.** El panel permite subir un manifiesto de lote y ver su informe de validación (R10–R12) en una vista accesible, navegable por teclado y con resumen anunciado.
 - **R19.** El panel muestra el informe de reconciliación (R5–R8) en una vista accesible.
 - **R20.** La navegación del panel anuncia en qué sección está uno parado.
+- **R40.** El panel adopta las herramientas de accesibilidad visual del sitio público rediseñado (pedido de Nico, 2026-09-26), con el mismo comportamiento: una barra superior siempre visible con aumentar y disminuir el texto (de 12 a 28 px, de 2 en 2), alto contraste (negro, amarillo y cian) y señales de audio encendidas o apagadas. Cada cambio se anuncia por voz y en la región viva. Las preferencias se recuerdan en el equipo. Todo el panel escala con el tamaño de texto elegido, sin cortes ni superposiciones.
 - **R37.** El panel lleva de fondo la ilustración del faro (identidad del aniversario, pedido de Nico el 2026-09-26) con un 90 % de transparencia. Es puramente decorativa: los lectores de pantalla la ignoran, no reduce el contraste del texto por debajo de WCAG AA y desaparece en el modo de alto contraste.
 
 **Criterios de aceptación**
@@ -230,6 +231,7 @@ CUANDO la indexación de audio falla
 - **V29 (R37).** El faro se ve detrás del contenido con opacidad 0,1; tiene `aria-hidden`; no aparece en alto contraste; el contraste del texto sobre el fondo se mantiene ≥ 4,5:1.
 - **V30 (R38).** Con la copia local, `GET /books-by-genre/POESÍA` devuelve los mismos 11 libros que producción; en producción no cambia nada (el ajuste solo aplica a conexiones SQLite). `GET /stream-audio-simple/...` responde 200 con audio en local.
 - **V31 (R39).** En la app local con la copia del catálogo, "A CARA DESCUBIERTA" muestra "SIDNEY SHELDON".
+- **V32 (R40).** En el navegador: A+ lleva el texto de 16 a 18 px y se anuncia; se topa en 28 y en 12; el alto contraste pone fondo negro con texto blanco o amarillo y oculta el faro; con las señales apagadas no suena ningún earcon; al recargar se conservan las tres preferencias; a 28 px no hay scroll horizontal.
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
 ## Casos borde

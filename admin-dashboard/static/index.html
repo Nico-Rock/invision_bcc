@@ -17,16 +17,18 @@
       --accent-orange: #D34500;
       --accent-orange-hover: #B03A00;
       --accent-blue: #0A58CA;
-      --accent-emerald: #059669;
+      --accent-emerald: #047857; /* 5.5:1 sobre blanco (antes #059669, 3.77:1) */
       --accent-amber: #D97706;
       --accent-rose: #DC2626;
       --text-primary: #111827;
       --text-secondary: #4B5563;
-      --text-muted: #6B7280;
+      --text-muted: #5F6673; /* ≥4.97:1 en blanco, crema y hover (antes #6B7280, 4.16:1 en hover) */
       --border: #E5E7EB;
       --border-focus: rgba(10, 88, 202, 0.4);
       --focus-ring: #00FF66;
       --focus-ring-outline: 4px solid var(--focus-ring);
+      /* Tamaño base del texto: lo ajusta la barra de accesibilidad (R40) */
+      --font-scale: 16px;
       --radius-sm: 10px;
       --radius-md: 10px;
       --radius-lg: 16px;
@@ -705,6 +707,83 @@
       }
     }
 
+    /* Escala de texto global: todo el panel usa rem, así que crece con esto (R40) */
+    html {
+      font-size: var(--font-scale);
+    }
+
+    /* Barra de accesibilidad: misma que el sitio público (frontend/src/index.css) */
+    .a11y-header {
+      position: relative;
+      z-index: 2;
+      background-color: #1F2937;
+      color: #FFFFFF;
+      padding: 0.6rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      border-bottom: 3px solid var(--accent-orange);
+    }
+    .a11y-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .a11y-controls {
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .a11y-btn {
+      background-color: #374151;
+      color: #FFFFFF;
+      border: 2px solid #4B5563;
+      padding: 0.5rem 1rem;
+      font-family: inherit;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .a11y-btn:hover, .a11y-btn:focus-visible {
+      background-color: var(--accent-orange);
+      border-color: #FFFFFF;
+      outline: var(--focus-ring-outline);
+    }
+    body.high-contrast .a11y-header {
+      background-color: #000000;
+      border-bottom-color: #FFFF00;
+    }
+    body.high-contrast .a11y-btn {
+      background-color: #000000;
+      border-color: #FFFFFF;
+    }
+    body.high-contrast .a11y-btn:hover, body.high-contrast .a11y-btn:focus-visible {
+      color: #000000;
+    }
+    /* En alto contraste el naranja pasa a amarillo: el texto blanco encima
+       queda ilegible, así que todo lo que va sobre --accent-orange pasa a negro. */
+    body.high-contrast .btn-primary,
+    body.high-contrast .btn-primary:hover,
+    body.high-contrast .play-btn:hover,
+    body.high-contrast .gov-num,
+    body.high-contrast .brand-icon {
+      color: #000000;
+    }
+    /* Etiquetas de estado: fondos claros fijos -> negro con texto de color */
+    body.high-contrast .badge {
+      background: #000000;
+      border-color: #FFFFFF;
+    }
+    body.high-contrast .badge-success { color: #00FF66; }
+    body.high-contrast .badge-warning { color: #FFFF00; }
+    body.high-contrast .badge-info { color: #00FFFF; }
+
     /* Fondo del faro (R37): identidad del aniversario, 90 % de transparencia.
        Decorativo: aria-hidden, sin eventos de puntero, fuera en alto contraste. */
     .fondo-faro {
@@ -775,6 +854,19 @@
     </g>
   </svg>
 </div>
+
+<header class="a11y-header" role="region" aria-label="Ajustes de accesibilidad visual y auditiva">
+  <div class="a11y-title">
+    <span aria-hidden="true">♿</span>
+    <span>Herramientas de Accesibilidad</span>
+  </div>
+  <div class="a11y-controls">
+    <button type="button" class="a11y-btn" onclick="A11y.ajustarTexto(1)" aria-label="Aumentar tamaño de letra">Aumentar Texto A+</button>
+    <button type="button" class="a11y-btn" onclick="A11y.ajustarTexto(-1)" aria-label="Disminuir tamaño de letra">Disminuir Texto A-</button>
+    <button type="button" class="a11y-btn" id="a11y-btn-contraste" onclick="A11y.alternarContraste()" aria-label="Activar contraste alto">Alto Contraste</button>
+    <button type="button" class="a11y-btn" id="a11y-btn-senales" onclick="A11y.alternarSenales()" aria-label="Desactivar señales de audio">Señales de Audio: ON</button>
+  </div>
+</header>
 
 <div class="app-container">
   <!-- Sidebar -->
@@ -1061,6 +1153,7 @@
 
 <!-- Primero las primitivas de accesibilidad: el resto del panel las usa -->
 <script src="/a11y.js"></script>
+<script>A11y.iniciar();</script>
 
 <script>
   let cachedBooks = [];

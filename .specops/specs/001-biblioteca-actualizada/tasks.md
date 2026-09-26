@@ -159,6 +159,15 @@
 - **Commit message:** `fix(T16): la navegacion anuncia la seccion actual [R20]`
 - **Acceptance:** al cambiar de sección, solo el ítem activo tiene `aria-current="page"`.
 
+### T27 [Story P2] — Barra de accesibilidad visual del sitio en el panel
+- **Satisfies:** R40, R28
+- **Depends on:** none
+- **Parallel:** [P]
+- **Files:** `admin-dashboard/static/index.html`, `admin-dashboard/static/a11y.js`
+- **Verification command:** `node --check admin-dashboard/static/a11y.js` + V32 en el navegador
+- **Commit message:** `feat(T27): barra de accesibilidad visual del sitio en el panel [R40, R28]`
+- **Acceptance:** V32.
+
 ### T24 [Story P2] — Fondo del faro al 90 % de transparencia
 - **Satisfies:** R37
 - **Depends on:** none
@@ -266,7 +275,7 @@
 - R5 → T5, T6 · R6 → T4, T5 · R7 → T5, T6 · R8 → T5
 - R9 → T7 · R10 → T9 · R11 → T8 · R12 → T4, T9
 - R13 → T11, T12 · R14 → T11 · R15 → T11, T12 · R16 → T11, T21
-- R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16 · R37 → T24
+- R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16 · R37 → T24 · R40 → T27
 - R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R39 → T26 · R26 → T22
 - R27 → T11 · R28 → T14, T15, T23 · R29 → T11
 - R30 → T9, T13 · R31 → T9 · R32 → T10 · R33 → T5, T6, T15 · R34 → T11, T21 · R35 → T10
@@ -283,3 +292,4 @@
 | T25 | Pass | `pytest test_database.py -k acentos` (3 passed); POESÍA 11 / NARRATIVA 142 / INFANTIL 52 = prod; stream 206 audio/mpeg | 0 | Claude Code (2026-09-26) |
 | T26 | Pass | `eslint Home.jsx`; navegador: "A CARA DESCUBIERTA" → "SIDNEY SHELDON" | 0 | Claude Code (2026-09-26) |
 | T19 | Pass | `pytest test_database.py test_routes.py` (33 passed; 1 falla previa A7); app: "Capítulo 1 de 20" reproduciendo 0:33 / 21:01 | 0 | Claude Code (2026-09-26) |
+| T27 | Pass | navegador: A+ 16→18 px anunciado, tope 28 y piso 12, sin scroll horizontal a 28 px, preferencias persisten al recargar; barrido de contraste de todos los textos visibles: 0 bajo AA en estándar y en alto contraste (se corrigieron 2 etiquetas, 5 botones sobre amarillo, `--accent-emerald` 3,77→5,48 y `--text-muted` 4,16→4,97 en hover) | 0 | Claude Code (2026-09-26) |
