@@ -1,0 +1,37 @@
+{
+  "app": "panel",
+  "punto_de_control": "P1 y P2 del panel (spec 002, T12 y T19)",
+  "fecha": "2026-09-26T18:34:36Z",
+  "corrido_por": "Claude Code (agente), sesión invision-auditoria; pendiente de repetir por una persona (T28)",
+  "herramienta": "verificacion/a11y/medir.js + recorrido-panel.js + axe-core 4.10.2 fijado en vendor/",
+  "matriz": {
+    "secciones": ["overview", "logs", "books", "users", "governance", "carga"],
+    "modos": ["estandar", "alto_contraste"],
+    "texto_px": [12, 16, 24, 32],
+    "anchos_px": { "1280": "48 combinaciones con axe", "640": "24 combinaciones (texto 16 y 32)", "320": "12 combinaciones (texto 16 y 32, modo estándar)" }
+  },
+  "resultado": {
+    "combinaciones_con_problemas": 0,
+    "axe_wcag22aa_violaciones": 0,
+    "textos_bajo_AAA": 0,
+    "objetivos_bajo_48px": 0,
+    "controles_fuera_de_vista": 0,
+    "scroll_horizontal": false,
+    "regiones_vivas": 2,
+    "enfocables_invisibles": 0,
+    "nombre_accesible_distinto_del_visible": 0
+  },
+  "comparacion_con_linea_base": {
+    "contraste_bajo_AAA_explorador_estandar": "499 → 0",
+    "axe_alto_contraste_explorador": "color-contrast 286 nodos → 0",
+    "texto_maximo": "175 % → 200 %",
+    "regiones_vivas": "2 implícitas (una assertive + role=status) → 2 explícitas (cortés + urgente)",
+    "foco": "anillo verde 1,35:1 sin anillo interior → 4 px + 4 px con anillo interior #111827"
+  },
+  "limites_de_esta_medicion": [
+    "prefers-reduced-motion y forced-colors: se verificó que las reglas están cargadas, no se emularon (sin herramienta de emulación en esta sesión).",
+    "Preferencia de tamaño del navegador distinta de 16 px: se verifica por construcción (calc(100% * factor)), no se cambió la preferencia real.",
+    "Dictado: probado con un reconocedor simulado; falta la prueba con micrófono y parlantes reales.",
+    "Lectores de pantalla reales (VoiceOver, NVDA): pendiente, decisión A2 del PRD."
+  ]
+}

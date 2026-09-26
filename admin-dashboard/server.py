@@ -388,6 +388,12 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
         static_dir = os.path.join(os.path.dirname(__file__), "static")
         super().__init__(*args, directory=static_dir, **kwargs)
 
+    def end_headers(self):
+        # Sin esto el navegador reusa JS viejo con HTML nuevo tras una
+        # actualización: la barra de accesibilidad quedaba con otra lógica.
+        self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def _send_json(self, status_code, payload):
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")

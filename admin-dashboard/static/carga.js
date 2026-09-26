@@ -22,11 +22,10 @@ document.getElementById('form-libro').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const nombre = document.getElementById('campo-nombre').value.trim();
   if (!nombre) {
-    A11y.earcon('error');
-    A11y.anunciar('El nombre del libro es obligatorio');
-    document.getElementById('campo-nombre').focus();
+    marcarErrorNombre('El nombre del libro es obligatorio.');
     return;
   }
+  marcarErrorNombre(null);
 
   const btn = document.getElementById('btn-crear-libro');
   btn.disabled = true;
@@ -52,9 +51,7 @@ document.getElementById('form-libro').addEventListener('submit', async (ev) => {
     const d = await r.json().catch(() => ({}));
 
     if (!r.ok) {
-      A11y.earcon('error');
-      A11y.anunciar(d.mensaje || 'No se pudo crear el libro');
-      document.getElementById('campo-nombre').focus();
+      marcarErrorNombre(conPunto(d.mensaje || 'No se pudo crear el libro'));
       return;
     }
 
@@ -66,7 +63,7 @@ document.getElementById('form-libro').addEventListener('submit', async (ev) => {
     mostrarPasoArchivos(d.mensaje);
   } catch (e) {
     A11y.earcon('error');
-    A11y.anunciar('Error de conexión con el servidor. Revisá que el panel esté corriendo.');
+    A11y.anunciar('Error de conexión con el servidor. Revisá que el panel esté corriendo.', { urgente: true });
     // El foco no puede quedar en el body: sin esto el usuario no sabe donde
     // esta parado ni tiene a que volver despues del error.
     document.getElementById('campo-nombre').focus();
@@ -83,17 +80,27 @@ document.getElementById('campo-nombre').addEventListener('keydown', (ev) => {
   }
 });
 
-// Los items de navegacion son <a> sin href: el teclado no los activa por si
-// solos. Sin esto las secciones solo se alcanzan con el mouse. El selector
-// cubre los seis items del menu, que llevan todos role="button".
-document.querySelectorAll('.nav-item[role="button"]').forEach(item => {
-  item.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      item.click();
-    }
-  });
-});
+// Los items de navegacion son <button> nativos (spec 002): Enter y Espacio
+// ya los activan, no hace falta un manejador propio.
+
+/**
+ * Error del campo nombre (3.3.1): texto visible junto al campo, aria-invalid
+ * y aviso urgente. `null` limpia el error.
+ */
+function marcarErrorNombre(texto) {
+  const campo = document.getElementById('campo-nombre');
+  const error = document.getElementById('error-nombre');
+  if (!texto) {
+    campo.removeAttribute('aria-invalid');
+    if (error) { error.hidden = true; error.textContent = ''; }
+    return;
+  }
+  campo.setAttribute('aria-invalid', 'true');
+  if (error) { error.textContent = texto; error.hidden = false; }
+  A11y.earcon('error');
+  A11y.anunciar(texto, { urgente: true });
+  campo.focus();
+}
 
 /* ===========================================================================
  * Paso 2: eleccion de archivos y subida secuencial de las pistas.
@@ -133,11 +140,12 @@ let filasPistas = [];
  * es aria-live="assertive", y dos regiones vivas con el mismo texto harian
  * que el lector de pantalla lea todo dos veces.
  */
-function anunciarEstado(texto) {
+function anunciarEstado(texto, opciones = {}) {
   const estado = document.getElementById('estado-carga');
   // textContent: parte del texto lo redacta el servidor y no viene escapado
   if (estado) estado.textContent = texto;
-  A11y.anunciar(texto);
+  // Solo errores, validaciones y bloqueos van por el canal urgente (spec 002, D6)
+  A11y.anunciar(texto, opciones);
 }
 
 /**
@@ -322,7 +330,7 @@ function revisarArchivos(ev) {
     filasPistas = dibujarLista([]);
     btn.hidden = true;
     A11y.earcon('error');
-    anunciarEstado(motivo);
+    anunciarEstado(motivo, { urgente: true });
     ev.target.focus();
   };
 
@@ -378,7 +386,7 @@ function revisarArchivos(ev) {
 
   // El earcon distingue "listo" de "mirá esto" antes de que arranque la voz
   A11y.earcon((avisoOrden || rechazados.length) ? 'error' : 'accion');
-  anunciarEstado(partes.join(' '));
+  anunciarEstado(partes.join(' '), { urgente: !!(avisoOrden || rechazados.length) });
   btn.hidden = false;
   btn.disabled = false;
   btn.focus();
@@ -470,7 +478,7 @@ function ofrecerReintento(mensaje, indice, total) {
 
     anunciarEstado(`${conPunto(mensaje)} Pista ${indice} de ${total}. Estás parado en el botón `
       + 'reintentar: presioná Enter para volver a intentarla, o tabulá una vez '
-      + 'para llegar a cancelar la carga.');
+      + 'para llegar a cancelar la carga.', { urgente: true });
     // El foco al boton de reintento: sin esto, quien no ve la pantalla queda
     // sin ningun control al que volver y la carga se le muere ahi.
     btnR.focus();
@@ -567,7 +575,7 @@ async function subirTodo() {
       anunciarEstado(`Carga interrumpida. ${resumenPistas(nuevas, salteadas)} `
         + `${pendientes === 1 ? 'Queda 1 pista' : `Quedan ${pendientes} pistas`} sin subir. `
         + 'Si volvés a presionar subir pistas se retoma: las que ya están no se '
-        + 'vuelven a subir. Estás parado en el botón subir pistas.');
+        + 'vuelven a subir. Estás parado en el botón subir pistas.', { urgente: true });
       btn.focus();
       return;
     }

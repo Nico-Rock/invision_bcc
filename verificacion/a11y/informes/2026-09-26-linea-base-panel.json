@@ -1,0 +1,29 @@
+{
+  "app": "panel",
+  "fecha": "2026-09-26",
+  "commit": "8de28f7",
+  "herramienta": "verificacion/a11y/medir.js + axe-core 4.10.2 (vendor, sha384 dcd63109…88f8)",
+  "ventana": { "ancho": 1280 },
+  "contraste_bajo_AAA_por_seccion": {
+    "estandar": { "overview": 20, "logs": 19, "books": 499, "users": 181, "governance": 16, "carga": 11 },
+    "alto_contraste": { "overview": 0, "logs": 0, "books": 287, "users": 0, "governance": 0, "carga": 0 }
+  },
+  "ejemplos_contraste": [
+    "Saltar al contenido: #FFFFFF sobre #D34500 = 4,54:1",
+    "Invision Admin: #D34500 sobre #FAF6F2 = 4,23:1",
+    "BCC • Operaciones: #5F6673 sobre #FAF6F2 = 5,37:1",
+    "Alto contraste, ▶ Probar: #00FFFF sobre #DBEAFE fijo = 1,03:1"
+  ],
+  "axe_wcag22aa": {
+    "estandar": { "overview": [], "books": [] },
+    "alto_contraste": { "overview": [], "books": ["color-contrast: 286 nodos"] }
+  },
+  "objetivos_bajo_48px": { "por_seccion": 4, "books": 290, "carga": 5 },
+  "regiones_vivas": ["#a11y-anuncios (assertive)", "#estado-indice-audio (role=status, polite implícita)"],
+  "texto_maximo": { "px": 28, "porcentaje_de_16": 175, "controles_fuera_de_vista_a_1280": 0, "scroll_horizontal": false },
+  "foco": "outline #00FF66 sobre blanco = 1,35:1, sin anillo interior; .btn y .search-input con outline:none",
+  "notas": [
+    "El 'axe en 0' del 26/09 se midió con el explorador vacío o en modo estándar: en alto contraste el explorador falla color-contrast en 286 nodos.",
+    "Barrido de contraste AAA: 7:1 texto normal, 4,5:1 texto grande; compone fondos con alfa y el faro a su opacidad."
+  ]
+}

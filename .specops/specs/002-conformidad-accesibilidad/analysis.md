@@ -35,6 +35,6 @@ Chequeos hechos:
 
 | Rol | Nombre | Decisión | Fecha |
 |---|---|---|---|
-| Dueño técnico | Nico | _pendiente_ | |
+| Dueño técnico | Nico | **Aprobado** — "necesito que realices los ajustes que vimos y documentamos" (implementar spec 002 y hallazgos de seguridad de 001; saltar lo que se trabe dejando nota) | 2026-09-26 |
 
 Artefactos a revisar: `constitution.md` v1.2.0 (enmiendas 1.1.0 y 1.2.0 pendientes de ratificación), `spec.md`, `plan.md`, `tasks.md`, este análisis y el PRD `docs/prd/2026-09-29-accesibilidad-verificable-prd.md`.

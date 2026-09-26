@@ -569,3 +569,17 @@ def test_e2e_refrescar_indice_con_token_reindexa(panel, monkeypatch):
     assert status == 202
     assert data["ok"] is True
     assert indice.estado()["estado"] == "listo"
+
+
+def test_e2e_archivos_del_panel_sin_cache(panel):
+    """Tras actualizar el panel, el navegador no debe quedarse con JS viejo
+    mezclado con HTML nuevo (spec 002: la medición del 26/09 lo detectó)."""
+    conn = http.client.HTTPConnection("127.0.0.1", panel["puerto"], timeout=5)
+    try:
+        conn.request("GET", "/a11y.js", headers={"Host": "localhost"})
+        respuesta = conn.getresponse()
+        respuesta.read()
+        assert respuesta.status == 200
+        assert respuesta.getheader("Cache-Control") == "no-cache"
+    finally:
+        conn.close()
