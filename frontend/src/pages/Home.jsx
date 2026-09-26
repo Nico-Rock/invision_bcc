@@ -72,7 +72,7 @@ export const Home = () => {
       const adaptedList = resultsList.map(item => ({
         id: item.id,
         title: item.nombre || item.name || 'Título Desconocido',
-        author: item.autor || 'Autor Desconocido',
+        author: item.autor || item.author || 'Autor Desconocido',
         genre: item.genero || item.genre || 'General',
         description: item.descripcion || item.description || 'Sin descripción disponible',
       }));

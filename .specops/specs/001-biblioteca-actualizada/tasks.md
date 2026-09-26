@@ -217,6 +217,15 @@
 - **Commit message:** `fix(T20): generos del menu lateral desde /genres [R25]`
 - **Acceptance:** V20: no quedan nombres de género fijos; el menú anuncia el género elegido y filtra; con la API caída muestra un estado accesible.
 
+### T26 [Story P2] — Autor real en el catálogo del frontend
+- **Satisfies:** R39
+- **Depends on:** none
+- **Parallel:** [P]
+- **Files:** `frontend/src/pages/Home.jsx`
+- **Verification command:** `cd frontend && npx eslint src/pages/Home.jsx` + V31 en el navegador
+- **Commit message:** `fix(T26): mostrar el autor que devuelve /search [R39]`
+- **Acceptance:** V31.
+
 ## Group G — Historias 3 y 8 [P2]: migración aditiva propuesta (checkpoint)
 
 ### T21 [Story P2] — Migración `publicado` + `narrador` con reversión
@@ -258,7 +267,7 @@
 - R9 → T7 · R10 → T9 · R11 → T8 · R12 → T4, T9
 - R13 → T11, T12 · R14 → T11 · R15 → T11, T12 · R16 → T11, T21
 - R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16 · R37 → T24
-- R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R26 → T22
+- R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R39 → T26 · R26 → T22
 - R27 → T11 · R28 → T14, T15, T23 · R29 → T11
 - R30 → T9, T13 · R31 → T9 · R32 → T10 · R33 → T5, T6, T15 · R34 → T11, T21 · R35 → T10
 

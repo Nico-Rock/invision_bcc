@@ -16,6 +16,9 @@
 | A7 | LOW | API `test_routes.py` | `test_stream_audio_simple_with_mock` ya fallaba antes de esta rama (`TypeError: 'list'...`, verificado con `git stash` el 2026-09-26). No es parte del spec 001. | Registrado como deuda. No se toca ni se comenta (P16). |
 | A8 | MEDIUM | Datos de producción, R8 | Los géneros tienen 17 variantes de mayúsculas y minúsculas para ~10 géneros (`Infantil`/`INFANTIL`, `clásicos de la LITERATURA`...). SQL Server las agrupa y las esconde; el menú de la app las muestra por separado. | Suma evidencia a la decisión D4 del PRD. La reconciliación (T5) las reporta sin distinguir mayúsculas. |
 
+| A9 | MEDIUM | Datos de producción | Hay fichas de prueba en el catálogo de producción que ven los socios: "A PRUEBA", "A PRUEBAA", "A PRUEBAAA", "A PRUEBAAAA" (sin género). | Se suma a la reconciliación y a la decisión D5 del PRD: la BCC aprueba borrarlas por PR. |
+| A10 | LOW | API `crud.search_audio` | Cada búsqueda lista las 13.099 pistas de Blob desde Azure. Como solo devuelve libros con audio, el catálogo de la app muestra 481 títulos escuchables de 538 fichas. | La cifra es útil para la demo. El costo por búsqueda queda como deuda fuera del spec 001: podría reusar un índice como el del panel. |
+
 **Bloqueantes (CRITICAL/HIGH): 0.**
 
 Chequeos de consistencia hechos:
