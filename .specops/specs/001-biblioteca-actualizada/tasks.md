@@ -275,3 +275,11 @@
 
 | Task ID | Status | Verification command | Exit code | Verified by / timestamp |
 |---|---|---|---|---|
+| T1 | Pass | `pytest admin-dashboard/tests/test_esquema.py` (6 passed) | 0 | Claude Code (2026-09-26) |
+| T2 | Pass | `pytest admin-dashboard` (44 passed) + `curl /api/overview` contra prod: 81 usuarios, sesiones "no disponible" | 0 | Claude Code (2026-09-26) |
+| T3 | Pass | `pytest admin-dashboard` (53 passed); puerto abierto en 1,3 s; prod: 520 libros, 257,68 GB; clave inválida → estado=error | 0 | Claude Code (2026-09-26) |
+| T24 | Pass | captura del panel: faro con opacidad 0.1, aria-hidden, `display:none` en alto contraste | 0 | Claude Code (2026-09-26) |
+| T17 | Pass | `pytest InvisionAPI-main/scripts` (5 passed); snapshot real: 538 fichas, solo cuentas demo en usuarios | 0 | Claude Code (2026-09-26) |
+| T25 | Pass | `pytest test_database.py -k acentos` (3 passed); POESÍA 11 / NARRATIVA 142 / INFANTIL 52 = prod; stream 206 audio/mpeg | 0 | Claude Code (2026-09-26) |
+| T26 | Pass | `eslint Home.jsx`; navegador: "A CARA DESCUBIERTA" → "SIDNEY SHELDON" | 0 | Claude Code (2026-09-26) |
+| T19 | Pass | `pytest test_database.py test_routes.py` (33 passed; 1 falla previa A7); app: "Capítulo 1 de 20" reproduciendo 0:33 / 21:01 | 0 | Claude Code (2026-09-26) |
