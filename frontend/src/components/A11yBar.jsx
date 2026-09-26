@@ -1,5 +1,14 @@
 import { useAudio } from '../hooks/useAudio';
 
+// Interruptor (spec 002, D17): texto fijo, aria-pressed y una marca visible.
+// El nombre accesible es siempre lo que se ve, así lo encuentra el control por voz.
+const Interruptor = ({ activo, onClick, children }) => (
+  <button type="button" className="a11y-btn" aria-pressed={activo} onClick={onClick}>
+    {activo && <span className="marca-activa" aria-hidden="true">✓ </span>}
+    {children}
+  </button>
+);
+
 export const A11yBar = () => {
   const {
     adjustTextScale,
@@ -7,67 +16,38 @@ export const A11yBar = () => {
     toggleContrast,
     audioCuesEnabled,
     setAudioCuesEnabled,
+    vozActiva,
+    toggleVoz,
     announceText,
     playCue,
   } = useAudio();
 
   const handleToggleCues = () => {
-    setAudioCuesEnabled((prev) => {
-      const next = !prev;
-      if (next) {
-        setTimeout(() => {
-          playCue('success');
-          announceText('Señales de audio activadas.');
-        }, 50);
-      } else {
-        announceText('Señales de audio desactivadas.');
-      }
-      return next;
-    });
+    const next = !audioCuesEnabled;
+    setAudioCuesEnabled(next);
+    if (next) setTimeout(() => playCue('success'), 50);
+    announceText(next ? 'Señales de audio activadas.' : 'Señales de audio desactivadas.');
   };
 
+  // <section> y no <header>: un header de primer nivel es el banner de la
+  // página y la barra no lo es (R31).
   return (
-    <header 
-      className="a11y-header" 
-      role="region" 
-      aria-label="Ajustes de accesibilidad visual y auditiva"
-    >
-      <div className="a11y-title">
+    <section className="a11y-header" aria-label="Ajustes de accesibilidad visual y auditiva">
+      <p className="a11y-title">
         <span aria-hidden="true">♿</span>
         <span>Herramientas de Accesibilidad</span>
-      </div>
+      </p>
       <div className="a11y-controls">
-        <button 
-          className="a11y-btn" 
-          onClick={() => adjustTextScale(1)} 
-          aria-label="Aumentar tamaño de letra"
-        >
+        <button type="button" className="a11y-btn" onClick={() => adjustTextScale(1)}>
           Aumentar Texto A+
         </button>
-        <button 
-          className="a11y-btn" 
-          onClick={() => adjustTextScale(-1)} 
-          aria-label="Disminuir tamaño de letra"
-        >
+        <button type="button" className="a11y-btn" onClick={() => adjustTextScale(-1)}>
           Disminuir Texto A-
         </button>
-        <button 
-          className="a11y-btn" 
-          id="contrastButton" 
-          onClick={toggleContrast} 
-          aria-label={highContrast ? "Desactivar contraste alto" : "Activar contraste alto"}
-        >
-          {highContrast ? "Modo Estándar" : "Alto Contraste"}
-        </button>
-        <button 
-          className="a11y-btn" 
-          id="audioCuesButton" 
-          onClick={handleToggleCues} 
-          aria-label={audioCuesEnabled ? "Desactivar señales de audio" : "Activar señales de audio"}
-        >
-          Señales de Audio: {audioCuesEnabled ? 'ON' : 'OFF'}
-        </button>
+        <Interruptor activo={highContrast} onClick={toggleContrast}>Alto Contraste</Interruptor>
+        <Interruptor activo={audioCuesEnabled} onClick={handleToggleCues}>Señales de Audio</Interruptor>
+        <Interruptor activo={vozActiva} onClick={toggleVoz}>Lectura en voz</Interruptor>
       </div>
-    </header>
+    </section>
   );
 };

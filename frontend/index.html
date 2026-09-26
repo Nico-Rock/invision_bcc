@@ -5,6 +5,20 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Invision — Biblioteca Central para Ciegos (A11y Premium)</title>
+    <!-- Preferencias antes del primer pintado (spec 002, R37): sin parpadeo de
+         contraste ni de tamaño. Valores acotados: uno corrupto no rompe nada. -->
+    <script>
+      (function () {
+        var html = document.documentElement;
+        try {
+          var px = Number(localStorage.getItem('a11y-font-scale'));
+          px = Number.isFinite(px) && px !== 0 ? Math.min(32, Math.max(12, Math.round(px / 2) * 2)) : 16;
+          html.style.setProperty('--font-factor', String(px / 16));
+          if (px >= 24) html.classList.add('texto-amplio');
+          if (localStorage.getItem('a11y-high-contrast') === 'true') html.classList.add('high-contrast');
+        } catch (e) { /* storage bloqueado: valores por defecto */ }
+      })();
+    </script>
     
     <!-- Google Fonts: Atkinson Hyperlegible -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,8 +29,10 @@
     <!-- Skip Link for Keyboard Accessibility -->
     <a href="#main-content-section" class="skip-link">Saltar al contenido principal</a>
 
-    <!-- REGION VIVA: Feedback del Lector de Pantalla -->
-    <div id="srAnnouncer" class="sr-only" aria-live="assertive"></div>
+    <!-- Dos canales de aviso (spec 002, R4): cortés para estados, urgente
+         solo para errores. Fuera de #root: React no las vuelve a montar. -->
+    <div id="a11y-cortes" class="sr-only" aria-live="polite" aria-relevant="additions"></div>
+    <div id="a11y-urgente" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

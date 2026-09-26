@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useAudio } from '../hooks/useAudio';
 import { API_BASE_URL } from '../config';
@@ -21,9 +21,9 @@ export const AudioPlayer = () => {
     playChapter,
     playCue,
     announceText,
+    chapters,
+    setChapters,
   } = useAudio();
-
-  const [chapters, setChapters] = useState([]);
 
   const fetchChapters = async () => {
     try {
@@ -40,7 +40,6 @@ export const AudioPlayer = () => {
   // Fetch chapters list on book change
   useEffect(() => {
     if (currentBook) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchChapters();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,11 +68,7 @@ export const AudioPlayer = () => {
   };
 
   return (
-    <footer 
-      className="player-dock active" 
-      role="region" 
-      aria-label="Reproductor de audiolibros"
-    >
+    <section className="player-dock active" aria-label="Reproductor de audiolibros">
       {/* Información del libro */}
       <div className="player-info">
         <div 
@@ -81,7 +76,6 @@ export const AudioPlayer = () => {
           id="playerTitle"
           tabIndex="0"
           onFocus={() => playCue('focus')}
-          aria-label={`Audiolibro activo: ${currentBook.title || currentBook.nombre}`}
         >
           {currentBook.title || currentBook.nombre}
         </div>
@@ -101,7 +95,7 @@ export const AudioPlayer = () => {
             aria-label="Capítulo anterior"
             onFocus={() => playCue('focus')}
           >
-            <svg viewBox="0 0 24 24" role="img" aria-label="Anterior"><polygon points="19 20 9 12 19 4 19 20" stroke="currentColor" fill="none" strokeWidth="2.5"></polygon><line x1="5" y1="4" x2="5" y2="20" stroke="currentColor" strokeWidth="2.5"></line></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polygon points="19 20 9 12 19 4 19 20" stroke="currentColor" fill="none" strokeWidth="2.5"></polygon><line x1="5" y1="4" x2="5" y2="20" stroke="currentColor" strokeWidth="2.5"></line></svg>
           </button>
 
           {/* Retroceder 15s */}
@@ -111,7 +105,7 @@ export const AudioPlayer = () => {
             aria-label="Retroceder 15 segundos"
             onFocus={() => playCue('focus')}
           >
-            <svg viewBox="0 0 24 24" role="img" aria-label="Retroceder"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" stroke="currentColor" fill="none" strokeWidth="2.5"></path></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" stroke="currentColor" fill="none" strokeWidth="2.5"></path></svg>
           </button>
           
           {/* Play / Pausa */}
@@ -123,9 +117,9 @@ export const AudioPlayer = () => {
             onFocus={() => playCue('focus')}
           >
             {isPlaying ? (
-              <svg viewBox="0 0 24 24" role="img" aria-label="Pausa"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" strokeWidth="2.5"></line><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" strokeWidth="2.5"></line></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" strokeWidth="2.5"></line><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" strokeWidth="2.5"></line></svg>
             ) : (
-              <svg viewBox="0 0 24 24" role="img" aria-label="Reproducir"><polygon points="5 3 19 12 5 21 5 3" stroke="currentColor" fill="none" strokeWidth="2.5"></polygon></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polygon points="5 3 19 12 5 21 5 3" stroke="currentColor" fill="none" strokeWidth="2.5"></polygon></svg>
             )}
           </button>
 
@@ -136,7 +130,7 @@ export const AudioPlayer = () => {
             aria-label="Adelantar 15 segundos"
             onFocus={() => playCue('focus')}
           >
-            <svg viewBox="0 0 24 24" role="img" aria-label="Adelantar"><path d="M13 17l5-5-5-5M6 17l5-5-5-5" stroke="currentColor" fill="none" strokeWidth="2.5"></path></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 17l5-5-5-5M6 17l5-5-5-5" stroke="currentColor" fill="none" strokeWidth="2.5"></path></svg>
           </button>
 
           {/* Capítulo siguiente */}
@@ -147,7 +141,7 @@ export const AudioPlayer = () => {
             aria-label="Capítulo siguiente"
             onFocus={() => playCue('focus')}
           >
-            <svg viewBox="0 0 24 24" role="img" aria-label="Siguiente"><polygon points="5 4 15 12 5 20 5 4" stroke="currentColor" fill="none" strokeWidth="2.5"></polygon><line x1="19" y1="4" x2="19" y2="20" stroke="currentColor" strokeWidth="2.5"></line></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polygon points="5 4 15 12 5 20 5 4" stroke="currentColor" fill="none" strokeWidth="2.5"></polygon><line x1="19" y1="4" x2="19" y2="20" stroke="currentColor" strokeWidth="2.5"></line></svg>
           </button>
         </div>
 
@@ -182,14 +176,7 @@ export const AudioPlayer = () => {
             value={playbackRate}
             onChange={(e) => changeSpeed(parseFloat(e.target.value))}
             onFocus={() => playCue('focus')}
-            style={{
-              backgroundColor: '#1F2937',
-              color: '#FFFFFF',
-              border: '2px solid #4B5563',
-              borderRadius: '6px',
-              padding: '0.2rem 0.5rem',
-              fontWeight: 'bold',
-            }}
+            className="player-select"
           >
             <option value="0.75">0.75x</option>
             <option value="1.0">1.0x (Normal)</option>
@@ -212,7 +199,7 @@ export const AudioPlayer = () => {
             onChange={(e) => {
               const val = parseFloat(e.target.value);
               setVolume(val);
-              announceText(`Volumen al ${Math.round(val * 100)} por ciento`, false);
+              announceText(`Volumen al ${Math.round(val * 100)} por ciento.`);
             }}
             onFocus={() => playCue('focus')}
             aria-label="Control de volumen"
@@ -223,7 +210,7 @@ export const AudioPlayer = () => {
           />
         </div>
       </div>
-    </footer>
+    </section>
   );
 };
 export default AudioPlayer;

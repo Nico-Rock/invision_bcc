@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
+import { Dialogo } from '../../../components/Dialogo';
 
 export const UserManagement = () => {
   const { authenticatedFetch } = useAuth();
@@ -66,17 +67,7 @@ export const UserManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Modal event handlers for Esc key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (showCreateModal) closeCreateModal();
-        if (showEditModal) closeEditModal();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCreateModal, showEditModal]);
+  // Esc lo maneja el <dialog> nativo (Dialogo): cierra y devuelve el foco.
 
   const openCreateModal = () => {
     setShowCreateModal(true);
@@ -359,14 +350,12 @@ export const UserManagement = () => {
 
       {/* Modal Registrar Usuario */}
       {showCreateModal && (
-        <div 
-          className="modal-overlay active" 
-          role="dialog" 
-          aria-modal="true" 
-          aria-labelledby="create-modal-title"
-          onClick={(e) => { if (e.target.className.includes('modal-overlay')) closeCreateModal(); }}
+        <Dialogo
+          abierto={showCreateModal}
+          tituloId="create-modal-title"
+          className="modal-card modal-angosto"
+          onClose={() => { if (showCreateModal) closeCreateModal(); }}
         >
-          <div className="modal-card" style={{ maxWidth: '450px' }}>
             <h2 id="create-modal-title" className="modal-title">Registrar Nuevo Usuario</h2>
             
             <form onSubmit={handleCreateUser}>
@@ -428,20 +417,17 @@ export const UserManagement = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Dialogo>
       )}
 
       {/* Modal Editar Usuario */}
       {showEditModal && selectedUser && (
-        <div 
-          className="modal-overlay active" 
-          role="dialog" 
-          aria-modal="true" 
-          aria-labelledby="edit-modal-title"
-          onClick={(e) => { if (e.target.className.includes('modal-overlay')) closeEditModal(); }}
+        <Dialogo
+          abierto={showEditModal}
+          tituloId="edit-modal-title"
+          className="modal-card modal-mediano"
+          onClose={() => { if (showEditModal) closeEditModal(); }}
         >
-          <div className="modal-card" style={{ maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 id="edit-modal-title" className="modal-title">Editar Usuario: {selectedUser.username}</h2>
             
             <form onSubmit={handleUpdateUser}>
@@ -560,8 +546,7 @@ export const UserManagement = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Dialogo>
       )}
     </div>
   );

@@ -24,7 +24,7 @@ export const Login = () => {
     } catch (err) {
       const errMsg = err.message || 'Credenciales incorrectas o error en el servidor';
       setError(errMsg);
-      announceText(`Error al iniciar sesión: ${errMsg}`);
+      announceText(`Error al iniciar sesión: ${errMsg}`, { urgente: true });
       playCue('error');
     } finally {
       setLoading(false);
@@ -33,16 +33,13 @@ export const Login = () => {
 
   return (
     <div className="login-container">
-      <main className="login-card" role="main">
+      {/* No es <main>: el <main> de la app ya lo envuelve (R31) */}
+      <div className="login-card">
         <h1 className="brand-title" style={{ fontSize: '3rem', margin: '0 0 0.5rem 0' }}>Invision</h1>
         <p className="login-subtitle">Biblioteca Central para Ciegos</p>
         
         {error && (
-          <div 
-            className="login-error" 
-            role="alert" 
-            aria-live="assertive"
-          >
+          <div className="login-error" id="error-ingreso">
             {error}
           </div>
         )}
@@ -54,6 +51,8 @@ export const Login = () => {
             </label>
             <input
               id="email"
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={error ? 'error-ingreso' : undefined}
               type="email"
               className="form-input"
               value={email}
@@ -71,6 +70,8 @@ export const Login = () => {
             </label>
             <input
               id="password"
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={error ? 'error-ingreso' : undefined}
               type="password"
               className="form-input"
               value={password}
@@ -92,7 +93,7 @@ export const Login = () => {
             {loading ? 'Iniciando sesión...' : 'Ingresar'}
           </button>
         </form>
-      </main>
+      </div>
     </div>
   );
 };

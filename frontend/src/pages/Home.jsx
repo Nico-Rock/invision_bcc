@@ -1,41 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { crearDictado } from '../lib/dictado';
 import { useAuth } from '../hooks/useAuth';
 import { useAudio } from '../hooks/useAudio';
 import { API_BASE_URL } from '../config';
 
-export const Home = () => {
+export const Home = ({ searchInputRef: refExterno }) => {
   const { authenticatedFetch } = useAuth();
-  const { playChapter, announceText, playCue } = useAudio();
+  const { playChapter, announceText, playCue, vozActiva } = useAudio();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  // El género sale de la URL (?genero=): lo elige la barra lateral (R20)
+  const selectedGenre = params.get('genero') || '';
 
   const [books, setBooks] = useState([]);
-  const [genres, setGenres] = useState([]);
-  const [selectedGenre, setSelectedGenre] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
   // Voice search state
-  const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef(null);
+  const [estadoDictado, setEstadoDictado] = useState('inactivo');
+  const dictadoRef = useRef(null);
+  const vozRef = useRef(vozActiva);
+  useEffect(() => { vozRef.current = vozActiva; }, [vozActiva]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  const searchInputRef = useRef(null);
-  const genresBoxRef = useRef(null);
-
-  const fetchGenres = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/genres`);
-      if (response.ok) {
-        const data = await response.json();
-        setGenres(data);
-      }
-    } catch (err) {
-      console.error('Error fetching genres:', err);
-    }
-  };
+  const refInterno = useRef(null);
+  const searchInputRef = refExterno || refInterno;
 
   const fetchBooks = async (query = '', genre = '') => {
     setLoading(true);
@@ -80,7 +74,7 @@ export const Home = () => {
       setBooks(adaptedList);
       setCurrentPage(1);
       
-      const countMsg = `${adaptedList.length} audiolibros encontrados.`;
+      const countMsg = adaptedList.length === 1 ? '1 audiolibro encontrado.' : `${adaptedList.length} audiolibros encontrados.`;
       announceText(countMsg);
       if (adaptedList.length === 0) {
         playCue('error');
@@ -89,38 +83,31 @@ export const Home = () => {
       }
     } catch (err) {
       setError(err.message || 'Error al cargar libros.');
-      announceText(`Error al cargar libros: ${err.message}`);
+      announceText(`Error al cargar libros: ${err.message}`, { urgente: true });
       playCue('error');
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch initial books and genres list
+  // Libros iniciales y cada vez que cambia el género de la URL
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchGenres();
-    fetchBooks('');
+    setSearchQuery('');
+    fetchBooks('', selectedGenre);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  }, [selectedGenre]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setSelectedGenre('');
+    if (selectedGenre) navigate('/');
     fetchBooks(searchQuery);
   };
 
-  const handleGenreSelect = (genre) => {
-    setSelectedGenre(genre);
-    setSearchQuery('');
-    fetchBooks('', genre);
-  };
-
   const handleClearFilters = () => {
-    setSelectedGenre('');
     setSearchQuery('');
-    fetchBooks('');
+    if (selectedGenre) navigate('/');
+    else fetchBooks('');
   };
 
   // Audiobook Play Trigger: Fetch chapters first, then play Chapter 1
@@ -140,53 +127,35 @@ export const Home = () => {
       // Play chapter 1
       await playChapter(book, 1);
     } catch (err) {
-      announceText(`Error: ${err.message}`);
+      announceText(`Error: ${err.message}`, { urgente: true });
       playCue('error');
     }
   };
 
-  // Web Speech API Voice search
+  // Dictado que no capta la voz del propio sitio (R34): primero avisa, espera
+  // a que termine la voz y recién ahí abre el micrófono.
   const startVoiceSearch = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      announceText('El dictado por voz no está soportado en este navegador. Recomiendo usar Google Chrome.');
-      playCue('error');
-      return;
+    if (!dictadoRef.current) {
+      dictadoRef.current = crearDictado({
+        Reconocimiento: window.SpeechRecognition || window.webkitSpeechRecognition || null,
+        vozActiva: () => vozRef.current,
+        anunciar: (texto, op) => {
+          if (op && op.urgente) playCue('error');
+          announceText(texto, op);
+        },
+        alEstado: (estado) => {
+          setEstadoDictado(estado);
+          if (estado === 'escuchando') playCue('voiceStart');
+        },
+        alResultado: (voiceQuery) => {
+          setSearchQuery(voiceQuery);
+          if (selectedGenre) navigate('/');
+          announceText(`Entendido: ${voiceQuery}.`);
+          fetchBooks(voiceQuery);
+        },
+      });
     }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognitionRef.current = recognition;
-
-    recognition.onstart = () => {
-      setIsRecording(true);
-      playCue('voiceStart');
-      announceText('Dicta tu búsqueda ahora.');
-    };
-
-    recognition.onresult = (event) => {
-      const voiceQuery = event.results[0][0].transcript;
-      setSearchQuery(voiceQuery);
-      setSelectedGenre('');
-      setIsRecording(false);
-      announceText(`Buscando: ${voiceQuery}`);
-      fetchBooks(voiceQuery);
-    };
-
-    recognition.onerror = (event) => {
-      setIsRecording(false);
-      console.error('Speech recognition error:', event.error);
-      announceText('No logré entender el dictado. Por favor, intenta de nuevo.');
-      playCue('error');
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
-
-    recognition.start();
+    dictadoRef.current.alternar();
   };
 
   // Client-Side Pagination calculations
@@ -202,7 +171,9 @@ export const Home = () => {
     // Scroll window to results heading
     const header = document.getElementById('results-title-header');
     if (header) {
-      header.scrollIntoView({ behavior: 'smooth' });
+      // Respeta la preferencia de movimiento reducido (R17)
+      const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      header.scrollIntoView({ behavior: reducido ? 'auto' : 'smooth' });
     }
   };
 
@@ -221,23 +192,24 @@ export const Home = () => {
           </span>
           <input
             ref={searchInputRef}
-            type="text"
+            type="search"
             className="search-input"
-            placeholder="Busca tu próximo audiolibro... [S]"
+            placeholder="Busca tu próximo audiolibro… (tecla S)"
             aria-label="Buscar audiolibro por título o autor"
+            aria-keyshortcuts="S"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => playCue('focus')}
           />
           <button
             type="button"
-            className={`btn-voice-search ${isRecording ? 'recording' : ''}`}
+            className={`btn-voice-search ${estadoDictado === 'escuchando' ? 'recording' : ''}`}
             onClick={startVoiceSearch}
-            aria-label={isRecording ? "Grabando voz, presione para cancelar" : "Buscar usando la voz"}
-            title="Buscar usando la voz"
+            aria-pressed={estadoDictado !== 'inactivo'}
             onFocus={() => playCue('focus')}
           >
-            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            <span className="texto-dictado">{estadoDictado === 'inactivo' ? 'Dictar' : 'Detener dictado'}</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           </button>
         </form>
 
@@ -245,10 +217,7 @@ export const Home = () => {
           <button 
             type="button" 
             className="btn-submit-search" 
-            onClick={() => {
-              setSelectedGenre('');
-              fetchBooks(searchQuery);
-            }}
+            onClick={handleSearchSubmit}
             onFocus={() => playCue('focus')}
           >
             Buscar
@@ -256,11 +225,9 @@ export const Home = () => {
           {(searchQuery || selectedGenre) && (
             <button 
               type="button" 
-              className="btn-submit-search" 
-              style={{ backgroundColor: '#4B5563' }}
+              className="btn-submit-search btn-secundario" 
               onClick={handleClearFilters}
               onFocus={() => playCue('focus')}
-              aria-label="Limpiar filtros de búsqueda y mostrar todo"
             >
               Limpiar
             </button>
@@ -274,13 +241,13 @@ export const Home = () => {
           <span>
             {selectedGenre ? `Categoría: ${selectedGenre.toUpperCase()}` : 'Audiolibros Disponibles'}
           </span>
-          <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
+          <span className="results-count">
             {loading ? 'Cargando catálogo...' : `${books.length} libros en catálogo`}
           </span>
         </h2>
 
         {error && (
-          <div role="alert" className="login-error" style={{ margin: '1rem 0' }}>
+          <div className="login-error" style={{ margin: '1rem 0' }}>
             {error}
           </div>
         )}
@@ -296,27 +263,25 @@ export const Home = () => {
             No se encontraron audiolibros que coincidan con la búsqueda.
           </div>
         ) : (
-          <div 
-            className="results-grid" 
-            role="listbox" 
-            aria-label="Resultados de libros"
-          >
+          <ul className="results-grid" aria-label="Resultados de libros">
             {currentBooks.map((book) => (
-              <button
-                key={book.id}
-                className="book-card"
-                role="option"
-                aria-selected="false"
-                aria-label={`${book.title}, de ${book.author}. Género: ${book.genre}. Descripción: ${book.description}`}
-                onClick={() => handlePlayBook(book)}
-                onFocus={() => playCue('focus')}
-              >
-                <div className="book-title">{book.title}</div>
-                <div className="book-meta">👤 {book.author} | 📁 {book.genre}</div>
-                <div className="book-desc">{book.description}</div>
-              </button>
+              <li key={book.id}>
+                <button
+                  type="button"
+                  className="book-card"
+                  onClick={() => handlePlayBook(book)}
+                  onFocus={() => playCue('focus')}
+                >
+                  <span className="book-title">{book.title}</span>
+                  <span className="book-meta">
+                    <span aria-hidden="true">👤 </span>{book.author}
+                    <span aria-hidden="true"> | 📁 </span><span className="sr-only">. Género: </span>{book.genre}
+                  </span>
+                  <span className="book-desc">{book.description}</span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
 
         {/* Paginación */}
@@ -326,19 +291,17 @@ export const Home = () => {
               className="pagination-btn"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              aria-label="Ir a la página anterior"
               onFocus={() => playCue('focus')}
             >
               Página Anterior
             </button>
-            <span className="pagination-info" aria-live="polite">
+            <span className="pagination-info">
               Página {currentPage} de {totalPages}
             </span>
             <button
               className="pagination-btn"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              aria-label="Ir a la página siguiente"
               onFocus={() => playCue('focus')}
             >
               Página Siguiente
@@ -347,14 +310,6 @@ export const Home = () => {
         )}
       </section>
 
-      {/* Dynamic categories selector sidebar mockup helper */}
-      <div className="sr-only">
-        <div ref={genresBoxRef} tabIndex="-1">
-          {genres.map(g => (
-            <button key={g} onClick={() => handleGenreSelect(g)}>{g}</button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };

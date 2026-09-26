@@ -1,23 +1,36 @@
 :root {
-  /* Paleta Blanco y Naranja Accesible (Estándar WCAG AA/AAA) */
+  /* Paleta AAA (spec 002, D1, P17): mismo tono de marca, oscurecido para
+     texto. Todo texto ≥ 7:1 sobre #FFFFFF y #FAF6F2. El naranja de marca
+     #D34500 (4,54:1, no 4,8 como decía el marco) queda solo para lo que no es
+     texto: bordes, líneas e íconos. */
   --bg-primary: #FFFFFF;
   --bg-sidebar: #FAF6F2;
   --bg-card: #FFFFFF;
   --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --accent-orange: #D34500; /* Contraste 4.8:1 */
-  --accent-orange-hover: #B03A00;
-  --accent-blue: #0A58CA;
+  --text-secondary: #47505E;
+  --brand-orange: #D34500;
+  --accent-orange: #8F2F00;
+  --accent-orange-hover: #6B2300;
+  --text-on-accent: #FFFFFF;
+  --accent-blue: #084AAB;
+  --status-ok: #035B42;
+  --status-warn: #784203;
+  --status-error: #9C1919;
   --border-color: #E5E7EB;
-  
-  /* Foco fluorescente de alta visibilidad para baja visión */
+  --border-control: #4A4F59;
+  --barra-bg: #1F2937;
+  --barra-btn-bg: #374151;
+  --barra-btn-borde: #9CA3AF;
+
+  /* Foco: verde fluorescente con anillo interior oscuro (R26, R27) */
   --focus-ring: #00FF66;
+  --focus-ring-inner: #111827;
   --focus-ring-outline: 4px solid var(--focus-ring);
-  
-  /* Tipografía y escalas relativas */
-  --font-scale: 16px;
-  font-size: var(--font-scale);
-  
+
+  /* Texto como proporción del navegador (R21, D4): la barra fija el factor */
+  --font-factor: 1;
+  --objetivo: max(48px, 3rem);
+
   /* Bordes y sombras */
   --radius-lg: 16px;
   --radius-md: 10px;
@@ -27,21 +40,35 @@
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
-/* Alto Contraste Extremo */
-body.high-contrast {
+/* Alto contraste del marco: #000/#FFF/#FFE600, superficies #121212. Error
+   #FF7171 (el #FF3333 del marco da 5,77:1, no llega a AAA). */
+.high-contrast {
   --bg-primary: #000000;
-  --bg-sidebar: #000000;
-  --bg-card: #000000;
+  --bg-sidebar: #121212;
+  --bg-card: #121212;
   --text-primary: #FFFFFF;
-  --text-secondary: #FFFF00;
-  --accent-orange: #FFFF00;
+  --text-secondary: #E0E0E0;
+  --brand-orange: #FFE600;
+  --accent-orange: #FFE600;
   --accent-orange-hover: #FFFFFF;
+  --text-on-accent: #000000;
   --accent-blue: #00FFFF;
+  --status-ok: #00FF66;
+  --status-warn: #FFE600;
+  --status-error: #FF7171;
   --border-color: #FFFFFF;
-  --focus-ring: #FFFF00;
+  --border-control: #FFFFFF;
+  --barra-bg: #000000;
+  --barra-btn-bg: #000000;
+  --barra-btn-borde: #FFFFFF;
+  --focus-ring-inner: #000000;
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: none;
+}
+
+html {
+  font-size: calc(100% * var(--font-factor));
 }
 
 /* Reset */
@@ -62,7 +89,6 @@ body {
   font-family: 'Atkinson Hyperlegible', sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: var(--font-scale);
   line-height: 1.6;
   min-height: 100vh;
   display: flex;
@@ -644,7 +670,6 @@ body {
   height: 8px;
   border-radius: 4px;
   background: #4B5563;
-  outline: none;
   cursor: pointer;
 }
 .progress-slider::-webkit-slider-thumb {
@@ -1116,3 +1141,224 @@ body {
 }
 
 
+
+/* ==========================================================================
+   Capa de accesibilidad del spec 002 (Historia 8). Va al final a propósito:
+   corrige lo anterior sin reescribirlo. Cada bloque cita su requisito.
+   ========================================================================== */
+
+/* Foco único (D8, R26, R27): 4 px separado 4 px, con anillo interior oscuro
+   que da contraste sobre cualquier fondo. Pisa los outline sueltos de arriba. */
+:focus-visible,
+.skip-link:focus,
+.progress-slider:focus-visible {
+  outline: 4px solid var(--focus-ring);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px var(--focus-ring-inner);
+}
+main:focus-visible {
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 8px var(--focus-ring-inner);
+}
+
+/* Objetivos de al menos 48 px (R21, WCAG 2.5.5) */
+button,
+.nav-link,
+.genre-btn,
+.skip-link,
+select,
+.form-input,
+.search-input {
+  min-height: var(--objetivo);
+}
+button {
+  min-width: var(--objetivo);
+}
+
+/* Barra de accesibilidad: tokens, interruptores con marca visible */
+.a11y-header {
+  background-color: var(--barra-bg);
+  border-bottom: 3px solid var(--brand-orange);
+}
+.a11y-btn {
+  background-color: var(--barra-btn-bg);
+  border-color: var(--barra-btn-borde);
+}
+.a11y-btn:hover {
+  background-color: var(--accent-orange);
+  color: var(--text-on-accent);
+}
+.a11y-btn[aria-pressed="true"] {
+  border-width: 3px;
+  border-color: #FFFFFF;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+/* Géneros reales a la vista (R20): enlaces, no un menú oculto */
+.genres-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.genre-btn {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+.genre-btn[aria-current="page"] {
+  color: var(--accent-orange);
+  border-color: var(--brand-orange);
+  box-shadow: inset 6px 0 0 var(--brand-orange);
+}
+.texto-error {
+  color: var(--status-error);
+  font-weight: 700;
+}
+.texto-error::before {
+  content: "✕ ";
+  content: "✕ " / "";
+}
+
+/* Resultados como lista de botones (antes listbox/option mal armado) */
+.results-grid {
+  list-style: none;
+}
+.results-grid > li {
+  display: flex;
+}
+.results-grid .book-card {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.book-title,
+.book-meta,
+.book-desc {
+  display: block;
+}
+.results-count {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+
+/* Dictado con texto visible (el control por voz lo encuentra por nombre) */
+.btn-voice-search {
+  width: auto;
+  gap: 0.4rem;
+  padding: 0 1rem;
+}
+.texto-dictado {
+  font-weight: 700;
+}
+
+.btn-secundario {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 2px solid var(--border-control);
+}
+
+/* Diálogos nativos (R30) */
+.dialogo {
+  border: none;
+  padding: 0;
+  margin: auto;
+  background: transparent;
+  max-width: min(640px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+.dialogo::backdrop {
+  background: rgba(17, 24, 39, 0.75);
+}
+.dialogo .modal-card {
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 3px solid var(--brand-orange);
+}
+.modal-angosto { max-width: 450px; }
+.modal-mediano { max-width: 500px; }
+
+/* Reproductor */
+.player-select {
+  background-color: #1F2937;
+  color: #FFFFFF;
+  border: 2px solid #9CA3AF;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-weight: 700;
+}
+.player-dock {
+  flex-wrap: wrap;
+}
+
+/* Errores: texto, borde y fondo en tokens AAA (antes #DC2626 sobre #FEE2E2, 4,4:1) */
+.login-error {
+  background-color: var(--bg-card);
+  color: var(--status-error);
+  border: 2px solid var(--status-error);
+}
+.form-input[aria-invalid="true"] {
+  border-color: var(--status-error);
+  border-width: 3px;
+}
+
+/* Texto amplio (D5): desde 150 % todo pasa a una columna, igual que en
+   pantallas angostas. Los media queries no reaccionan a A+. */
+.texto-amplio .app-layout {
+  flex-direction: column;
+}
+.texto-amplio .sidebar {
+  width: 100%;
+  height: auto;
+  position: relative;
+}
+.texto-amplio .top-bar,
+.texto-amplio .search-hero,
+.texto-amplio .pagination {
+  flex-wrap: wrap;
+}
+.texto-amplio .results-grid {
+  grid-template-columns: 1fr;
+}
+body,
+.book-title,
+.book-desc,
+.player-book-title {
+  overflow-wrap: anywhere;
+}
+
+/* Movimiento reducido (R17) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .book-card:hover {
+    transform: none;
+  }
+}
+
+/* Texto sobre relleno de acento: blanco en modo estándar, negro sobre el
+   amarillo del alto contraste (antes quedaba blanco sobre #FFFF00). */
+.skip-link,
+.btn-submit-search,
+.btn-submit,
+.player-btn.btn-play-toggle {
+  color: var(--text-on-accent);
+}
+.btn-submit-search.btn-secundario {
+  color: var(--text-primary);
+}
+
+/* Placeholders con token (el gris del navegador da 4,28:1) */
+::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
+}
