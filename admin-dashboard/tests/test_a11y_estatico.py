@@ -184,3 +184,20 @@ def test_r37_preferencias_se_aplican_en_head():
     assert "a11y-logica.js" in cabeza and "aplicarTemprano" in cabeza
     assert cabeza.index("a11y-logica.js") < cabeza.index("<style>")
     assert "body.high-contrast" not in HTML
+
+
+# --- Los botones de accesibilidad nunca quedan mudos -------------------------
+
+def test_scripts_locales_con_version_en_la_url():
+    """Un navegador que reusa un a11y.js viejo con el HTML nuevo deja la barra
+    de accesibilidad sin funcionar y sin avisar (reportado el 26/09 con captura)."""
+    locales = re.findall(r'<script src="(/[^"]+)"', HTML)
+    assert locales, "no se encontraron scripts locales"
+    sin_version = [s for s in locales if "?v=" not in s]
+    assert sin_version == []
+    assert len({s.split("?v=")[1] for s in locales}) == 1, "todos con la misma versión"
+
+
+def test_aviso_visible_si_las_primitivas_no_cargan():
+    assert "typeof A11y === 'undefined'" in HTML
+    assert 'id="aviso-a11y-caido"' in HTML

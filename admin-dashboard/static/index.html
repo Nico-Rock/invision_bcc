@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Invision | Panel Administrativo, Auditoría y Visor Estructural</title>
   <!-- Preferencias antes del primer pintado (R37): sin parpadeo de contraste ni de tamaño -->
-  <script src="/a11y-logica.js"></script>
-  <script>A11yLogica.aplicarTemprano(document.documentElement);</script>
+  <script src="/a11y-logica.js?v=2026-09-26-3"></script>
+  <script>if (typeof A11yLogica !== 'undefined') A11yLogica.aplicarTemprano(document.documentElement);</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -941,6 +941,15 @@
     }
     /* Interruptores (D17): texto fijo, aria-pressed y una marca visible */
     .marca-activa { display: none; }
+    .aviso-a11y-caido {
+      flex-basis: 100%;
+      background: var(--bg-primary);
+      color: var(--status-error);
+      border: 3px solid var(--status-error);
+      border-radius: var(--radius-md);
+      padding: 0.6rem 1rem;
+      font-weight: 700;
+    }
     .a11y-btn[aria-pressed="true"] {
       border-width: 3px;
       border-color: var(--barra-texto);
@@ -1123,6 +1132,9 @@
   <p class="a11y-title">
     <span aria-hidden="true">♿</span>
     <span>Herramientas de Accesibilidad</span>
+  </p>
+  <p id="aviso-a11y-caido" class="aviso-a11y-caido" hidden>
+    Las herramientas de accesibilidad no cargaron. Recargá la página con Control o Comando más Mayúscula más R.
   </p>
   <div class="a11y-controls">
     <button type="button" class="a11y-btn" onclick="A11y.ajustarTexto(1)">Aumentar Texto A+</button>
@@ -1414,11 +1426,22 @@
 </section>
 
 <!-- Primero las primitivas de accesibilidad: el resto del panel las usa -->
-<script src="/a11y.js"></script>
-<script>A11y.iniciar();</script>
-<script src="/dictado.js"></script>
-<script src="/ayuda.js"></script>
-<script>Ayuda.iniciar();</script>
+<script src="/a11y.js?v=2026-09-26-3"></script>
+<script>if (typeof A11y !== 'undefined') A11y.iniciar();</script>
+<script src="/dictado.js?v=2026-09-26-3"></script>
+<script src="/ayuda.js?v=2026-09-26-3"></script>
+<script>if (typeof Ayuda !== 'undefined') Ayuda.iniciar();</script>
+<script>
+  // Si las primitivas no cargaron (archivo viejo en caché, error de red o de
+  // sintaxis), la barra no puede quedar muda: se dice en pantalla y por el
+  // canal urgente, con qué hacer (reportado el 26/09: los botones no hacían nada).
+  if (typeof A11y === 'undefined' || typeof A11yLogica === 'undefined' || typeof Ayuda === 'undefined') {
+    const aviso = document.getElementById('aviso-a11y-caido');
+    aviso.hidden = false;
+    document.getElementById('a11y-urgente').textContent = aviso.textContent;
+    document.querySelectorAll('.a11y-btn').forEach((b) => { b.disabled = true; });
+  }
+</script>
 
 <script>
   let cachedBooks = [];
@@ -1862,7 +1885,7 @@
 </script>
 
 <!-- Despues del formulario: carga.js engancha los listeners al cargar -->
-<script src="/carga.js"></script>
+<script src="/carga.js?v=2026-09-26-3"></script>
 
 </body>
 </html>
