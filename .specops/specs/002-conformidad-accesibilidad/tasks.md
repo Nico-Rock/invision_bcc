@@ -1,7 +1,7 @@
 # Tasks — 002-conformidad-accesibilidad
 
 > Atómicas, ordenadas, verificables. Cada grupo es un punto de control.
-> `PYTEST` = `.venv/bin/python -m pytest admin-dashboard -q` · `NODETEST` = `node --test admin-dashboard/tests/js/` · `MEDIR` = inyectar `verificacion/a11y/medir.js` en la app y correr `await Medir.todo({ app })`.
+> `PYTEST` = `.venv/bin/python -m pytest admin-dashboard -q` · `NODETEST` = `node --test admin-dashboard/tests/js/*.test.js` · `MEDIR` = inyectar `verificacion/a11y/medir.js` en la app y correr `await Medir.todo({ app })`.
 > Commits: `tipo(T#): descripción [R#]`. Todo test nuevo se ve fallar antes de implementar (P5).
 
 **Status:** analyzed  **Date:** 2026-09-26
@@ -295,3 +295,18 @@
 
 | Task ID | Status | Verification command | Exit code | Verified by / timestamp |
 |---|---|---|---|---|
+| T1 | done | MEDIR sobre el panel en 8de28f7 → `informes/2026-09-26-linea-base-panel.json` | 0 | Claude Code, 2026-09-26 |
+| T2 | done | `node --test admin-dashboard/tests/js/*.test.js` (10 casos). Nota: el primer "rojo" no valía (node no acepta una carpeta); el comando correcto usa el glob | 0 | Claude Code, 2026-09-26 |
+| T3 | done | `PYTEST` — 11 casos vistos en rojo por la razón esperada antes de implementar; sin xfail porque se implementó en la misma sesión | 0 | Claude Code, 2026-09-26 |
+| T4–T8 | done | `PYTEST` 68 passed + recorrido 48/48 sin problemas, axe 0 | 0 | Claude Code, 2026-09-26 |
+| T9 | done | `NODETEST` 18 casos. Hallazgo en navegador: "Illegal invocation" al detener (temporizador no envuelto); test que imita al navegador, visto en rojo, corregido | 0 | Claude Code, 2026-09-26 |
+| T10–T11 | done | Teclas reales en el panel: 1–6, S, H/?, Esc, Espacio, ←→, ↑↓, N/P, M; foco devuelto; ayuda retiene el foco (hallazgo: salía a `<body>`, corregido) | 0 | Claude Code, 2026-09-26 |
+| T12 | done | `informes/2026-09-26-panel-p1.json` | 0 | Claude Code, 2026-09-26 |
+| T13–T18 | done | Incluidos en el recorrido (foco 4/4 + anillo interior, 48 px, ResizeObserver del reproductor, reducción de movimiento y forced-colors cargados, regiones y pie). Movimiento y colores forzados: reglas verificadas en CSSOM, no emulados | 0 | Claude Code, 2026-09-26 |
+| T19 | done | Mismo informe de T12 (4 tamaños, 2 modos, 6 secciones, 1280/640/320 px) | 0 | Claude Code, 2026-09-26 |
+| T20–T27 | done | `cd frontend && npm run test:a11y` → 13 passed; lint de archivos tocados limpio; `vite build` ok | 0 | Claude Code, 2026-09-26 |
+| T28 | parcial | README y matriz escritos. Falta: que lo corra alguien que no lo escribió, y la prueba con lectores reales (A2). `test_a11y_navegador.py` no se creó: Playwright para Python no está instalado; el recorrido del panel se corre desde la consola (README §1) | — | pendiente persona |
+| T29 | done | Nota del vault corregida con las cifras de los informes; comentario de contraste del sitio corregido | 0 | Claude Code, 2026-09-26 |
+
+Hallazgos de la prueba no previstos en el spec (corregidos): JS del panel en caché mezclado con HTML nuevo (`Cache-Control: no-cache`); búsqueda del explorador limitada a los primeros 100 libros de 520 (pasa al servidor); pistas en orden alfabético (1, 10, 2); "Audio listo" ante un archivo inexistente; flechas del sitio bloqueadas sobre botones.
+Observación no reproducida: en una pestaña de desarrollo con recarga en caliente se vio un bucle de `GET /audio-by-id` (~3/s); en carga limpia con Playwright no aparece (0 llamadas en 10 s de reproducción).
