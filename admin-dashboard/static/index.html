@@ -818,13 +818,13 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">⚡ Estado de Servicios y Conectividad</div>
-          <span class="badge badge-success">Operativo (100%)</span>
+          <span class="badge badge-info" id="estado-servicios">Verificando…</span>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
           <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-md); border: 2px solid var(--border);">
             <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">MICROSOFT AZURE BLOB</div>
             <div style="font-weight: 700; margin: 0.25rem 0; font-size: 1.05rem;">cuentaprueba / audiolibros</div>
-            <span class="badge badge-success">Conectado vía SDK</span>
+            <span class="badge badge-info" id="estado-indice-audio" role="status">Consultando…</span>
           </div>
           <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-md); border: 2px solid var(--border);">
             <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">FRONTEND PRODUCCIÓN</div>
@@ -1031,14 +1031,58 @@
     }
   }
 
+  // El índice de Blob se arma en segundo plano: mientras tanto el Resumen se
+  // refresca solo, y el estado se muestra tal cual (nunca "listo" si falló).
+  let sondeoIndice = null;
+  let estadoIndiceAnunciado = null;
+
+  function pintarEstadoIndice(indice) {
+    const badge = document.getElementById('estado-indice-audio');
+    const servicios = document.getElementById('estado-servicios');
+    const textos = {
+      vacio: ['Sin indexar todavía', 'badge-info'],
+      indexando: ['Indexando catálogo de audio…', 'badge-info'],
+      listo: ['Catálogo de audio al día', 'badge-success'],
+      error: ['Catálogo de audio no disponible', 'badge-warning'],
+    };
+    const [texto, clase] = textos[indice.estado] || textos.vacio;
+    let detalle = texto;
+    if (indice.estado === 'error' && indice.ultimo_ok) {
+      detalle += ` (mostrando el índice del ${new Date(indice.ultimo_ok).toLocaleString()})`;
+    }
+    badge.className = `badge ${clase}`;
+    badge.textContent = detalle;
+    servicios.className = `badge ${indice.estado === 'error' ? 'badge-warning' : 'badge-success'}`;
+    servicios.textContent = indice.estado === 'error' ? 'Con incidencias' : 'Operativo';
+
+    if (estadoIndiceAnunciado !== null && estadoIndiceAnunciado !== indice.estado
+        && (indice.estado === 'listo' || indice.estado === 'error')) {
+      A11y.anunciar(detalle);
+    }
+    estadoIndiceAnunciado = indice.estado;
+
+    const pendiente = indice.estado === 'indexando' || indice.estado === 'vacio';
+    if (pendiente && !sondeoIndice) {
+      sondeoIndice = setInterval(loadOverview, 3000);
+    } else if (!pendiente && sondeoIndice) {
+      clearInterval(sondeoIndice);
+      sondeoIndice = null;
+    }
+  }
+
   async function loadOverview() {
     try {
       const res = await fetch('/api/overview');
       const data = await res.json();
-      
-      document.getElementById('kpi-total-books').textContent = Number(data.azure_storage.total_books).toLocaleString();
-      document.getElementById('kpi-total-files').textContent = Number(data.azure_storage.total_files).toLocaleString();
-      document.getElementById('kpi-total-storage').textContent = `${data.azure_storage.total_size_gb} GB`;
+
+      const indice = data.indice_audio || { estado: 'vacio' };
+      const sinIndice = indice.estado !== 'listo' && !indice.ultimo_ok;
+      const cifra = (n) => sinIndice ? '…' : Number(n).toLocaleString();
+      document.getElementById('kpi-total-books').textContent = cifra(data.azure_storage.total_books);
+      document.getElementById('kpi-total-files').textContent = cifra(data.azure_storage.total_files);
+      document.getElementById('kpi-total-storage').textContent =
+        sinIndice ? '…' : `${data.azure_storage.total_size_gb} GB`;
+      pintarEstadoIndice(indice);
       const usuarios = data.database.total_users;
       document.getElementById('kpi-total-users').textContent =
         usuarios === null ? 'No disponible' : Number(usuarios).toLocaleString();

@@ -544,3 +544,28 @@ def test_e2e_error_inesperado_no_habla_en_jerga(panel, monkeypatch):
     assert data["ok"] is False
     assert "RuntimeError" not in data["mensaje"]
     assert data["detalle"] == "RuntimeError"
+
+
+# --- T3: refresco del índice de audio [R4] ---
+
+def test_e2e_refrescar_indice_sin_token_da_401(panel, monkeypatch):
+    from invision.indice_blob import IndiceBlob
+
+    llamadas = []
+    monkeypatch.setattr(server, "INDICE_AUDIO", IndiceBlob(listar=lambda: llamadas.append(1) or []))
+    status, data = _pedir(panel["puerto"], "POST", "/api/books/refrescar", "", {})
+    assert status == 401
+    assert llamadas == []
+
+
+def test_e2e_refrescar_indice_con_token_reindexa(panel, monkeypatch):
+    from invision.indice_blob import IndiceBlob
+
+    indice = IndiceBlob(listar=lambda: [])
+    monkeypatch.setattr(server, "INDICE_AUDIO", indice)
+    status, data = _pedir(panel["puerto"], "POST", "/api/books/refrescar", "", _auth())
+    indice.esperar(timeout=2)
+
+    assert status == 202
+    assert data["ok"] is True
+    assert indice.estado()["estado"] == "listo"

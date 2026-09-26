@@ -16,6 +16,7 @@ import urllib.parse
 from dotenv import load_dotenv
 
 from invision import esquema
+from invision.indice_blob import IndiceBlob
 
 # Cargar variables de entorno
 env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -27,15 +28,6 @@ AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY")
 AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME", "audiolibros")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "InvisionAPI-main", "audiobooks", "invision.db"))
-
-# Cache en memoria para rendimiento de Azure Blob
-blob_cache = {
-    "last_fetched": None,
-    "total_blobs": 0,
-    "total_size_bytes": 0,
-    "books": {}, # {book_name: [{"name": blob_name, "size": size, "chapter": int, "title": str}]}
-    "is_loading": False
-}
 
 try:
     from azure.storage.blob import (
@@ -145,70 +137,28 @@ def registros_acceso(db_info):
     return {"disponible": True, "logs": logs, "total": len(logs)}
 
 
-def fetch_azure_blob_metadata(force_refresh=False):
-    global blob_cache
+def _listar_blobs_azure():
     if not AZURE_SDK_AVAILABLE or not AZURE_ACCOUNT_KEY:
-        return {"error": "Azure SDK no disponible o AZURE_ACCOUNT_KEY no configurada"}
+        raise RuntimeError("Azure Blob no está configurado en este servidor")
+    conn_str = (
+        f"DefaultEndpointsProtocol=https;AccountName={AZURE_ACCOUNT_NAME};"
+        f"AccountKey={AZURE_ACCOUNT_KEY};EndpointSuffix=core.windows.net"
+    )
+    container = BlobServiceClient.from_connection_string(conn_str).get_container_client(
+        AZURE_CONTAINER_NAME
+    )
+    return container.list_blobs()
 
-    now = datetime.datetime.now()
-    if not force_refresh and blob_cache["last_fetched"] and (now - blob_cache["last_fetched"]).total_seconds() < 600:
-        return blob_cache
 
-    try:
-        blob_cache["is_loading"] = True
-        conn_str = f"DefaultEndpointsProtocol=https;AccountName={AZURE_ACCOUNT_NAME};AccountKey={AZURE_ACCOUNT_KEY};EndpointSuffix=core.windows.net"
-        service = BlobServiceClient.from_connection_string(conn_str)
-        container = service.get_container_client(AZURE_CONTAINER_NAME)
-        
-        blobs = container.list_blobs()
-        
-        books_map = {}
-        total_size = 0
-        count = 0
+# Índice del catálogo de audio: se construye en segundo plano (P10) y nunca
+# informa éxito si falló (R3). Los handlers leen lo que haya, sin esperar a Azure.
+INDICE_AUDIO = IndiceBlob(listar=_listar_blobs_azure)
 
-        for b in blobs:
-            count += 1
-            total_size += b.size
-            
-            parts = b.name.split("/", 1)
-            if len(parts) == 2:
-                book_name, file_name = parts[0], parts[1]
-            else:
-                book_name, file_name = "Raíz / Sin Clasificar", b.name
-                
-            if book_name not in books_map:
-                books_map[book_name] = {
-                    "title": book_name,
-                    "tracks": [],
-                    "total_size_bytes": 0,
-                    "total_tracks": 0
-                }
-            
-            books_map[book_name]["tracks"].append({
-                "blob_name": b.name,
-                "file_name": file_name,
-                "size_bytes": b.size,
-                "size_mb": round(b.size / (1024 * 1024), 2),
-                "last_modified": b.last_modified.isoformat() if b.last_modified else None
-            })
-            books_map[book_name]["total_size_bytes"] += b.size
-            books_map[book_name]["total_tracks"] += 1
 
-        # Ordenar pistas numéricamente si es posible
-        for b_name, b_info in books_map.items():
-            b_info["total_size_mb"] = round(b_info["total_size_bytes"] / (1024 * 1024), 2)
-            b_info["tracks"].sort(key=lambda x: x["file_name"])
-
-        blob_cache["last_fetched"] = now
-        blob_cache["total_blobs"] = count
-        blob_cache["total_size_bytes"] = total_size
-        blob_cache["total_size_gb"] = round(total_size / (1024 * 1024 * 1024), 2)
-        blob_cache["books"] = books_map
-        blob_cache["is_loading"] = False
-        return blob_cache
-    except Exception as e:
-        blob_cache["is_loading"] = False
-        return {"error": str(e)}
+def fetch_azure_blob_metadata(force_refresh=False):
+    if force_refresh:
+        INDICE_AUDIO.refrescar_en_segundo_plano()
+    return INDICE_AUDIO.obtener()
 
 
 def generate_audio_sas_url(blob_name):
@@ -542,6 +492,15 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                     db_info["conn"].close()
                 self._send_json(status, data)
 
+            elif path == "/api/books/refrescar":
+                lanzado = INDICE_AUDIO.refrescar_en_segundo_plano()
+                self._send_json(202, {
+                    "ok": True,
+                    "mensaje": "Actualizando el catálogo de audio" if lanzado
+                    else "El catálogo de audio ya se está actualizando",
+                    "indice_audio": INDICE_AUDIO.estado(),
+                })
+
             elif path == "/api/admin/subir-pista":
                 if not AZURE_SDK_AVAILABLE or not AZURE_ACCOUNT_KEY:
                     self._send_json(500, {"ok": False, "mensaje": "Azure no está configurado en este servidor"})
@@ -627,6 +586,7 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                         "total_books": len(meta.get("books", {})),
                         "last_synced": meta.get("last_fetched").isoformat() if meta.get("last_fetched") else None
                     },
+                    "indice_audio": INDICE_AUDIO.estado(),
                     "database": {
                         "type": db_type_label,
                         "total_users": base["total_users"],
@@ -712,7 +672,8 @@ class AdminApiHandler(SimpleHTTPRequestHandler):
                     "total_books": len(books_list),
                     "total_storage_gb": meta.get("total_size_gb", 0),
                     "books": books_list[:100], # Paginación inicial de 100
-                    "cached_at": meta.get("last_fetched").isoformat() if meta.get("last_fetched") else None
+                    "cached_at": meta.get("last_fetched").isoformat() if meta.get("last_fetched") else None,
+                    "indice_audio": INDICE_AUDIO.estado(),
                 }
 
             elif path == "/api/categorias":
@@ -763,10 +724,9 @@ def run(port=8888):
     print(f"🚀 Servidor local iniciado en: http://localhost:{port}")
     print("=" * 60)
     
-    # Pre-cargar metadatos de Azure Blob en segundo plano
-    print("⏳ Indexando estructura de Azure Blob Storage...")
-    fetch_azure_blob_metadata()
-    print("✅ Estructura indexada correctamente.")
+    # El índice se construye en segundo plano: el puerto abre ya, sin esperar a Azure (P10).
+    print("⏳ Indexando Azure Blob Storage en segundo plano...")
+    INDICE_AUDIO.refrescar_en_segundo_plano()
 
     server_address = ("127.0.0.1", port)  # solo localhost: el panel escribe en produccion
     httpd = HTTPServer(server_address, AdminApiHandler)
