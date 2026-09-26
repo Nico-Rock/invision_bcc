@@ -146,6 +146,9 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - **R27.** Ninguna operación de esta entrega escribe en producción sin aprobación registrada. Todo lo que puede escribir en producción arranca en simulación.
 - **R28.** Toda interfaz nueva o modificada cumple WCAG 2.1 AA y se opera entera con teclado (P14).
 - **R36.** La copia local del catálogo (Historia 5) es **exclusivamente para la demo y el desarrollo**. Nada de lo que se integre por PR cambia a qué datos apuntan la app y el panel en su despliegue: con la configuración real, ambos leen los datos reales de producción. La copia local no puede activarse por accidente: requiere una configuración explícita de demo.
+- **R43.** La garantía de "solo lectura sobre producción" (R21) la da **la base de datos**, no el programa: la copia usa una credencial que solo tiene permiso de lectura sobre el catálogo. El filtro del programa queda como defensa adicional y no se presenta como garantía (auditoría de seguridad 2026-09-26: el filtro por expresión regular se evade sin `;` en T-SQL).
+- **R44.** El panel nunca arma HTML con datos de la base o de Blob sin escaparlos: títulos de libros, nombres de archivo y datos de usuarios se insertan como texto (CWE-79; hallado en la misma auditoría).
+- **R45.** Los endpoints sin token no exponen mensajes de error internos: el estado del índice de audio se informa como estado, y el detalle queda solo en la consola del servidor (CWE-209).
 - **R29.** El proceso de carga tolera archivos de audio de cientos de MB y lotes de cientos de libros sin agotar la memoria del equipo que lo ejecuta (P11).
 
 ## 4. Decisiones previas (Prior decisions)
@@ -236,6 +239,9 @@ CUANDO la indexación de audio falla
 - **V32 (R40).** En el navegador: A+ lleva el texto de 16 a 18 px y se anuncia; se topa en 28 y en 12; el alto contraste pone fondo negro con texto blanco o amarillo y oculta el faro; con las señales apagadas no suena ningún earcon; al recargar se conservan las tres preferencias; a 28 px no hay scroll horizontal.
 - **V33 (R41).** En el navegador: el primer Tab enfoca "Saltar al contenido principal"; las teclas 1 a 6 cambian de sección, la anuncian y la marcan con `aria-current`; escribir "3" en un campo del formulario no cambia de sección; ? abre la ayuda con el foco adentro, y Esc la cierra devolviendo el foco; con el reproductor abierto, Espacio pausa y la flecha derecha adelanta 15 s; con las señales apagadas, el foco no suena; el botón de micrófono existe y, si el navegador no soporta dictado, lo anuncia.
 - **V34 (R28, R42).** Auditoría automática con axe-core (WCAG 2.0, 2.1 y 2.2, niveles A y AA): 0 violaciones en las 6 secciones del panel, en alto contraste y en el catálogo del sitio; con A+ al máximo, ningún texto del sitio queda en su tamaño original.
+- **V35 (R43).** La conexión de la copia usa una credencial distinta, de solo lectura; un intento de escritura con ella falla en la base. Un test cubre la evasión sin `;` y `SELECT … INTO`.
+- **V36 (R44).** Un título de libro y un nombre de usuario con `<img src=x onerror=…>` se muestran como texto literal y no ejecutan nada (test en el navegador).
+- **V37 (R45).** `GET /api/overview` sin token devuelve `estado: "error"` sin el mensaje; la consola del servidor conserva el detalle.
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
 ## Casos borde

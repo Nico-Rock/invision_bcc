@@ -195,6 +195,35 @@
 - **Commit message:** `feat(T24): fondo decorativo del faro al 90% de transparencia [R37]`
 - **Acceptance:** V29.
 
+## Group S — Seguridad (auditoría del 2026-09-26)
+
+### T30 [Story P1] — Escapar datos en el explorador y en usuarios
+- **Satisfies:** R44
+- **Depends on:** none
+- **Parallel:** [P]
+- **Files:** `admin-dashboard/static/index.html`
+- **Verification command:** `grep -c "innerHTML = .*\${" admin-dashboard/static/index.html` (debe dar 0) + V36 en el navegador
+- **Commit message:** `fix(T30): construir tarjetas y tabla de usuarios con textContent [R44]`
+- **Acceptance:** V36; mismo patrón `celda()` ya usado en registros.
+
+### T31 [Story P1] — Estado del índice sin mensaje interno en endpoints sin token
+- **Satisfies:** R45
+- **Depends on:** none
+- **Parallel:** [P]
+- **Files:** `admin-dashboard/invision/indice_blob.py`, `admin-dashboard/server.py`, `admin-dashboard/tests/test_indice_blob.py`
+- **Verification command:** `.venv/bin/python -m pytest admin-dashboard -q`
+- **Commit message:** `fix(T31): no exponer el error interno del indice sin token [R45]`
+- **Acceptance:** V37.
+
+### T32 [Story P2] — Credencial de solo lectura para la copia del catálogo
+- **Satisfies:** R43
+- **Depends on:** none
+- **Parallel:** [P]
+- **Files:** `InvisionAPI-main/scripts/snapshot_catalogo.py`, `InvisionAPI-main/scripts/test_snapshot_catalogo.py`, `InvisionAPI-main/scripts/README.md`, `aprobaciones/2026-09-29_login_solo_lectura.md`
+- **Verification command:** `.venv/bin/python -m pytest InvisionAPI-main/scripts -q`
+- **Commit message:** `fix(T32): copia del catalogo con credencial de solo lectura [R43]`
+- **Acceptance:** V35. Crear el login en Azure SQL **es un cambio en producción**: va por PR de aprobación (P12). Mientras tanto, el script exige variables `SQL_RO_*` y se niega a usar la credencial de escritura; los tests cubren la evasión sin `;`.
+
 ## Group E — Historia 5 [P2]: catálogo real en local (checkpoint)
 
 ### T17 [Story P2] — Snapshot de lectura prod → SQLite local
@@ -294,7 +323,7 @@
 - R9 → T7 · R10 → T9 · R11 → T8 · R12 → T4, T9
 - R13 → T11, T12 · R14 → T11 · R15 → T11, T12 · R16 → T11, T21
 - R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16, T28 · R41 → T28 · R37 → T24 · R40 → T27
-- R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R39 → T26 · R42 → T29 · R26 → T22
+- R43 → T32 · R44 → T30 · R45 → T31 · R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R39 → T26 · R42 → T29 · R26 → T22
 - R27 → T11 · R28 → T14, T15, T23 · R29 → T11
 - R30 → T9, T13 · R31 → T9 · R32 → T10 · R33 → T5, T6, T15 · R34 → T11, T21 · R35 → T10
 

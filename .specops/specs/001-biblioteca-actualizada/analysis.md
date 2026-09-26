@@ -22,6 +22,12 @@
 | A11 | LOW | `frontend` (lint) | `npx eslint src` ya tenía 12 errores y 2 advertencias antes de esta rama, en los componentes de administración del sitio (p. ej. `isAdminUser` sin uso). | Deuda registrada. La verificación de T20 (`npm run lint`) se ajusta a lintear solo los archivos que toca, hasta que se limpie. |
 | A12 | HIGH | Sitio, R25/T20, WCAG 2.4.7 | El filtro de géneros real (17 botones de la API) vive dentro de un contenedor `sr-only`: es invisible, pero recibe foco con Tab. La barra lateral visible muestra 2 categorías fijas que no filtran nada real. Quien tiene baja visión y usa el teclado pierde el foco de vista. axe no lo detecta. | T20 pasa a incluir mostrar esos géneros de forma visible y sacar los botones enfocables del contenedor oculto. Prioridad antes del despliegue del sitio. |
 
+| A13 | HIGH | T27, T28 (R40, R41) | La revisión de código del 2026-09-26 encontró defectos que axe no detecta: el dictado puede capturar la voz del panel, los atajos dejan el foco en un elemento oculto, hay nombres accesibles distintos del texto visible (WCAG 2.5.3), las flechas capturan el scroll de las tablas, hay un destello blanco antes del alto contraste, los avisos se pisan y cada aviso se escucha dos veces con lector de pantalla. | No se parchean acá: pasan como requisitos al spec 002 (Historia 10, R34–R39; además R19, R26–R28 y R1). T27 y T28 quedan con evidencia de lo que sí cumplen; su corrección se traza en 002. |
+
+| A14 | HIGH | T17 (R21), auditoría de seguridad | La guarda `SoloLectura` se evade sin `;` (T-SQL no lo exige) y con `SELECT … INTO`. El test solo cubría el caso con `;`. No se explota hoy (la consulta es literal), pero se documentaba como garantía. | R43 / T32: credencial de solo lectura en la base; hasta que se apruebe, el script no usa la credencial de escritura. |
+| A15 | HIGH | Panel (previo a esta rama) | XSS almacenado en `renderBooks` y `loadUsers`: `innerHTML` con títulos de Blob y datos de `usuarios` de producción; podría robar el `ADMIN_TOKEN` de la página. | R44 / T30, antes de cualquier uso compartido del panel. |
+| A16 | LOW | T3 (R3) | `indice_audio.error` expone el mensaje interno de Azure sin token. | R45 / T31. |
+
 **Bloqueantes (CRITICAL/HIGH): 0.**
 
 Chequeos de consistencia hechos:
