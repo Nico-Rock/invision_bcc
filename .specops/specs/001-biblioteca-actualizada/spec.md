@@ -70,6 +70,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - **R18.** El panel permite subir un manifiesto de lote y ver su informe de validación (R10–R12) en una vista accesible, navegable por teclado y con resumen anunciado.
 - **R19.** El panel muestra el informe de reconciliación (R5–R8) en una vista accesible.
 - **R20.** La navegación del panel anuncia en qué sección está uno parado.
+- **R37.** El panel lleva de fondo la ilustración del faro (identidad del aniversario, pedido de Nico el 2026-09-26) con un 90 % de transparencia. Es puramente decorativa: los lectores de pantalla la ignoran, no reduce el contraste del texto por debajo de WCAG AA y desaparece en el modo de alto contraste.
 
 **Criterios de aceptación**
 - [ ] Con VoiceOver, una persona puede ir de la navegación a la validación de un manifiesto y escuchar el resumen sin usar el mouse.
@@ -224,6 +225,7 @@ CUANDO la indexación de audio falla
 - **V20 (R25).** El frontend no contiene nombres de género fijos en el código y muestra los que devuelve la API.
 - **V21 (R26).** El Resumen muestra las horas de audio y los socios activos, con los cálculos documentados.
 - **V28 (R36).** Revisión del diff del PR: ninguna configuración versionada apunta a la base local; sin la variable explícita de demo, la API y el panel usan la base real (test de la resolución de configuración).
+- **V29 (R37).** El faro se ve detrás del contenido con opacidad 0,1; tiene `aria-hidden`; no aparece en alto contraste; el contraste del texto sobre el fondo se mantiene ≥ 4,5:1.
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
 ## Casos borde

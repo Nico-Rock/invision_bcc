@@ -704,11 +704,77 @@
         text-align: center;
       }
     }
+
+    /* Fondo del faro (R37): identidad del aniversario, 90 % de transparencia.
+       Decorativo: aria-hidden, sin eventos de puntero, fuera en alto contraste. */
+    .fondo-faro {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.1;
+    }
+    .fondo-faro svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .app-container {
+      position: relative;
+      z-index: 1;
+    }
+    body.high-contrast .fondo-faro {
+      display: none;
+    }
+    @media print {
+      .fondo-faro { display: none; }
+    }
   </style>
 </head>
 <body>
 
 <div id="a11y-anuncios" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
+
+<div class="fondo-faro" aria-hidden="true">
+  <svg viewBox="0 0 1260 700" preserveAspectRatio="xMaxYMax meet" focusable="false">
+    <defs>
+      <linearGradient id="faro-haz" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0" stop-color="#D34500" stop-opacity="0.9"/>
+        <stop offset="0.45" stop-color="#E07A3A" stop-opacity="0.55"/>
+        <stop offset="1" stop-color="#F2B98F" stop-opacity="0"/>
+      </linearGradient>
+      <radialGradient id="faro-luz" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0" stop-color="#D34500"/>
+        <stop offset="0.45" stop-color="#E0691F" stop-opacity="0.8"/>
+        <stop offset="1" stop-color="#F2B98F" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="faro-difuso" x="-20%" y="-60%" width="140%" height="220%">
+        <feGaussianBlur stdDeviation="10"/>
+      </filter>
+    </defs>
+
+    <!-- Haz de luz -->
+    <polygon points="972,180 972,205 620,262 620,122" fill="url(#faro-haz)" filter="url(#faro-difuso)"/>
+    <circle cx="977" cy="192" r="46" fill="url(#faro-luz)" filter="url(#faro-difuso)"/>
+
+    <g fill="none" stroke="#A39A91" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Cúpula y linterna -->
+      <path d="M935 165 C 935 120, 1022 120, 1022 165"/>
+      <path d="M940 168 Q 930 172 930 190 L 930 215 Q 930 222 940 222 L 1015 222 Q 1024 222 1024 214 L 1024 178 Q 1024 168 1012 168 Z"/>
+      <path d="M918 224 Q 910 232 918 242 L 1036 242 Q 1046 234 1036 224 Z"/>
+      <!-- Torre -->
+      <path d="M930 244 C 922 330, 918 420, 912 490 C 908 520, 890 535, 860 540"/>
+      <path d="M1026 244 C 1030 330, 1034 420, 1046 480 C 1054 510, 1075 528, 1106 530"/>
+      <path d="M1028 250 C 1000 300, 950 330, 930 380 C 915 420, 913 460, 912 490"/>
+      <!-- Olas -->
+      <path d="M0 605 C 160 540, 330 530, 520 565 C 640 588, 700 555, 780 530 C 840 515, 880 530, 930 535 C 1000 520, 1030 490, 1050 482 C 1120 478, 1190 510, 1260 540"/>
+      <path d="M410 572 C 470 545, 540 540, 640 565 C 700 550, 760 520, 860 540"/>
+      <path d="M420 572 C 500 600, 560 612, 640 600 C 760 580, 880 560, 930 535"/>
+      <path d="M500 598 C 600 630, 700 630, 800 610 C 900 592, 990 550, 1046 482"/>
+      <path d="M590 628 C 700 660, 800 660, 900 640 C 1000 615, 1100 575, 1180 575 C 1210 575, 1240 578, 1260 582"/>
+    </g>
+  </svg>
+</div>
 
 <div class="app-container">
   <!-- Sidebar -->

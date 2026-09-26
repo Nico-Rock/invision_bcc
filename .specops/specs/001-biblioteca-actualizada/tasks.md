@@ -159,6 +159,15 @@
 - **Commit message:** `fix(T16): la navegacion anuncia la seccion actual [R20]`
 - **Acceptance:** al cambiar de sección, solo el ítem activo tiene `aria-current="page"`.
 
+### T24 [Story P2] — Fondo del faro al 90 % de transparencia
+- **Satisfies:** R37
+- **Depends on:** none
+- **Parallel:** [P]
+- **Files:** `admin-dashboard/static/index.html`
+- **Verification command:** `grep -c 'fondo-faro' admin-dashboard/static/index.html` + captura del panel
+- **Commit message:** `feat(T24): fondo decorativo del faro al 90% de transparencia [R37]`
+- **Acceptance:** V29.
+
 ## Group E — Historia 5 [P2]: catálogo real en local (checkpoint)
 
 ### T17 [Story P2] — Snapshot de lectura prod → SQLite local
@@ -239,7 +248,7 @@
 - R5 → T5, T6 · R6 → T4, T5 · R7 → T5, T6 · R8 → T5
 - R9 → T7 · R10 → T9 · R11 → T8 · R12 → T4, T9
 - R13 → T11, T12 · R14 → T11 · R15 → T11, T12 · R16 → T11, T21
-- R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16
+- R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16 · R37 → T24
 - R21 → T17 · R22 → T17 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R26 → T22
 - R27 → T11 · R28 → T14, T15, T23 · R29 → T11
 - R30 → T9, T13 · R31 → T9 · R32 → T10 · R33 → T5, T6, T15 · R34 → T11, T21 · R35 → T10
