@@ -71,3 +71,32 @@ def test_sesion_acceso_creation():
     finally:
         Base.metadata.drop_all(bind=test_engine)
         db.close()
+
+# --- T25: paridad local con producción ante mayúsculas acentuadas [R38] ---
+
+def test_acentos_filtro_por_genero_sin_distinguir_mayusculas_acentuadas():
+    from sqlalchemy.orm import Session
+    from database import habilitar_paridad_sqlite
+    from crud import get_books_by_genre
+
+    motor = create_engine("sqlite:///:memory:", poolclass=StaticPool,
+                          connect_args={"check_same_thread": False})
+    habilitar_paridad_sqlite(motor)
+    Base.metadata.create_all(bind=motor)
+    with Session(motor) as db:
+        db.add_all([
+            Audiolibro(nombre="Veinte poemas", genero="POESÍA"),
+            Audiolibro(nombre="Otro", genero="Poesía"),
+            Audiolibro(nombre="Ajeno", genero="INFANTIL"),
+        ])
+        db.commit()
+        nombres = {b["nombre"] for b in get_books_by_genre(db, "poesía")}
+
+    assert nombres == {"Veinte poemas", "Otro"}
+
+
+def test_acentos_paridad_no_se_aplica_a_otros_motores():
+    from database import habilitar_paridad_sqlite
+
+    motor_mssql = create_engine("mssql+pyodbc://u:p@servidor/db?driver=x")
+    assert habilitar_paridad_sqlite(motor_mssql) is False

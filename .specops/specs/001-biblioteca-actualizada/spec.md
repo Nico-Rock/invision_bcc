@@ -80,6 +80,7 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 
 **Requisitos**
 - **R21.** Existe una forma repetible de copiar el catálogo de producción (fichas y géneros) al entorno local leyendo producción solo con consultas de lectura.
+- **R38.** En el entorno local, la búsqueda y el filtro por género se comportan como en producción: sin distinguir mayúsculas, **incluidas las letras acentuadas** (`POESÍA` = `poesía`). Hallado el 2026-09-26: la base local no pliega mayúsculas acentuadas y dejaba vacíos los géneros con tilde.
 - **R22.** La copia local no incluye datos personales de los socios (correos, nombres, teléfonos, progreso de escucha). El acceso local usa cuentas de demostración creadas para ese fin (P9).
 
 **Criterios de aceptación**
@@ -226,6 +227,7 @@ CUANDO la indexación de audio falla
 - **V21 (R26).** El Resumen muestra las horas de audio y los socios activos, con los cálculos documentados.
 - **V28 (R36).** Revisión del diff del PR: ninguna configuración versionada apunta a la base local; sin la variable explícita de demo, la API y el panel usan la base real (test de la resolución de configuración).
 - **V29 (R37).** El faro se ve detrás del contenido con opacidad 0,1; tiene `aria-hidden`; no aparece en alto contraste; el contraste del texto sobre el fondo se mantiene ≥ 4,5:1.
+- **V30 (R38).** Con la copia local, `GET /books-by-genre/POESÍA` devuelve los mismos 11 libros que producción; en producción no cambia nada (el ajuste solo aplica a conexiones SQLite).
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
 ## Casos borde

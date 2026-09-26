@@ -56,7 +56,7 @@ Muchas grabaciones de la BCC son antiguas, y para algunos narradores pueden ser 
 | D1 | ¿Adoptamos la estructura actual de producción como la oficial (sin categorías por ahora)? | **Sí** (Opción A del documento 13) | Desbloquea la carga sin tocar la base viva |
 | D2 | ¿Quién de la BCC aprueba cada carga y cada corrección, y cómo queda registrado? | Una persona designada, con aprobación por escrito por lote | Es el mandato de gobernanza: nada en producción sin validación BCC |
 | D3 | Los ~700 están en SharePoint/OneDrive de la BCC: ¿quién arma la planilla de cada lote? | Planilla con el formato del catálogo actual, más el narrador y la carpeta de audio | Define cuándo puede empezar la carga |
-| D4 | ¿Unificamos los géneros duplicados ("Desarrollo personal" y "Desarrollo personal y bienestar", entre otros) y completamos los 4 libros sin género? | Sí, con la lista que valide la BCC | Hoy un socio que filtra por género no ve todos los libros |
+| D4 | ¿Unificamos los géneros? Hoy hay **17 formas escritas para unos 10 géneros** ("Infantil" e "INFANTIL", "Desarrollo personal" y "Desarrollo personal y bienestar", entre otros) y 4 libros sin género. | Sí, con la lista que valide la BCC | Hoy un socio que filtra por género no ve todos los libros |
 | D5 | ¿Aprobamos corregir los 24 casos de audio sin ficha que tengan una coincidencia clara? | Sí, revisados uno por uno | Son libros ya grabados que se recuperan de inmediato |
 | D6 | ¿Aprobamos agregar a la base el **estado de publicación** y el **narrador** de cada libro? (cambio que solo agrega datos, reversible) | Sí, por PR | Garantiza que ningún libro se vea sin audio y habilita "En Memoria" |
 

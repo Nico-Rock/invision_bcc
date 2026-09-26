@@ -179,6 +179,15 @@
 - **Commit message:** `feat(T17): snapshot de solo lectura del catalogo a SQLite local [R21, R22, R36]`
 - **Acceptance:** el modo demo se activa solo con `DATABASE_URL` explícito en el comando (nunca en `.env` ni en archivos versionados), documentado en el README como solo para demo (V28); solo emite `SELECT` a producción (la conexión se abre en modo lectura y se verifica con un test sobre un cursor falso); copia `audiolibros` (nombre, autor, genero, descripcion); no copia `usuarios` ni `progreso_audiolibros`; deja las cuentas demo locales; el frontend en :3000 lista los géneros reales (V17).
 
+### T25 [Story P2] — Paridad local: mayúsculas acentuadas en SQLite
+- **Satisfies:** R38
+- **Depends on:** T17
+- **Parallel:** sequential
+- **Files:** `InvisionAPI-main/audiobooks/database.py`, `InvisionAPI-main/audiobooks/test_database.py`
+- **Verification command:** `docker exec invision_local sh -c "cd /app && python -m pytest test_database.py -q -k acentos"` + V30 con curl
+- **Commit message:** `fix(T25): lower() Unicode en conexiones SQLite locales [R38]`
+- **Acceptance:** V30; el hook solo se registra si el motor es SQLite.
+
 ## Group F — Historia 6 [P2]: deuda estructural (checkpoint)
 
 ### T18 [Story P2] — Correo validado en la entrada, no en la salida
@@ -249,7 +258,7 @@
 - R9 → T7 · R10 → T9 · R11 → T8 · R12 → T4, T9
 - R13 → T11, T12 · R14 → T11 · R15 → T11, T12 · R16 → T11, T21
 - R17 → T13 · R18 → T14 · R19 → T15 · R20 → T16 · R37 → T24
-- R21 → T17 · R22 → T17 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R26 → T22
+- R21 → T17 · R22 → T17 · R38 → T25 · R36 → T17 · R23 → T18 · R24 → T19 · R25 → T20 · R26 → T22
 - R27 → T11 · R28 → T14, T15, T23 · R29 → T11
 - R30 → T9, T13 · R31 → T9 · R32 → T10 · R33 → T5, T6, T15 · R34 → T11, T21 · R35 → T10
 

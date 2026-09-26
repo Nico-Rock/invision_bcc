@@ -13,6 +13,9 @@
 | A5 | LOW | spec V5 | Los conteos de producción (538/520/42/24) van a cambiar con el tiempo. | V5 ya admite "o explica la diferencia, con fecha". |
 | A6 | LOW | T13 | Cambia a propósito el contrato de `crear_libro` (se va la categoría y entran editorial y narrador). Hay tests existentes que se van a ajustar. | Aceptado y trazado a R17. No se comenta ningún test (P16); se reescriben al nuevo contrato. |
 
+| A7 | LOW | API `test_routes.py` | `test_stream_audio_simple_with_mock` ya fallaba antes de esta rama (`TypeError: 'list'...`, verificado con `git stash` el 2026-09-26). No es parte del spec 001. | Registrado como deuda. No se toca ni se comenta (P16). |
+| A8 | MEDIUM | Datos de producción, R8 | Los géneros tienen 17 variantes de mayúsculas y minúsculas para ~10 géneros (`Infantil`/`INFANTIL`, `clásicos de la LITERATURA`...). SQL Server las agrupa y las esconde; el menú de la app las muestra por separado. | Suma evidencia a la decisión D4 del PRD. La reconciliación (T5) las reporta sin distinguir mayúsculas. |
+
 **Bloqueantes (CRITICAL/HIGH): 0.**
 
 Chequeos de consistencia hechos:
