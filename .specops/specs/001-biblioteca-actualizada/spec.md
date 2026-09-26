@@ -1,9 +1,9 @@
 # Spec — 001-biblioteca-actualizada
 
 > QUÉ y POR QUÉ. Sin stack, sin estructura de archivos, sin detalle de implementación.
-> Dudas marcadas inline como [NEEDS-CLARIFY]. Cada requisito tiene un ID estable (R#).
+> Sin dudas abiertas (fase Clarify cerrada el 2026-09-26). Cada requisito tiene un ID estable (R#).
 
-**Status:** draft  **Author:** Nico (vía Claude Code)  **Date:** 2026-09-26  **Target delivery:** demo en la reunión tripartita del 2026-09-29; despliegue a producción solo tras la aprobación BCC (P12)
+**Status:** clarified (2026-09-26; D1 y D2 quedan para el board el 29/09)  **Author:** Nico (vía Claude Code)  **Date:** 2026-09-26  **Target delivery:** demo en la reunión tripartita del 2026-09-29; despliegue a producción solo tras la aprobación BCC (P12)
 
 ## Resumen ejecutivo e intención
 
@@ -49,14 +49,14 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 **Como** operador de la carga, **quiero** cargar un lote de cientos de audiolibros desde una planilla, validado completo antes de escribir nada, **para** incorporar los ~700 títulos pendientes sin repetir los incidentes de los INSERT manuales.
 
 **Requisitos**
-- **R9.** El lote se describe con una planilla (manifiesto): una fila por libro, con título, autor, editorial, género, descripción y la ubicación de su carpeta de audio. No hay títulos escritos en el código.
-- **R10.** Cada fila se valida con las mismas reglas que aplica la API al leer y escribir (P7): campos obligatorios, largos máximos de las columnas de producción (título y autor hasta 255 caracteres, género hasta 100) y género dentro de la lista vigente del catálogo.
-- **R11.** La validación también revisa el audio: la carpeta existe, tiene pistas de audio válidas, ninguna está vacía o truncada y el orden de las pistas se puede determinar sin ambigüedad.
-- **R12.** Un título que ya existe en el catálogo (comparado sin distinguir mayúsculas, tildes ni signos) no se duplica: se informa y se omite.
-- **R13.** La simulación es el modo por defecto: produce el informe completo de qué se crearía, qué se omitiría y qué falla, sin escribir nada. Escribir en producción exige una acción explícita, distinta de la simulación, que queda registrada con quién la aprobó y cuándo (P12).
+- **R9.** El lote se describe con una planilla (manifiesto): una fila por libro, con título, autor, editorial, género, descripción, narrador (opcional) y la ubicación de su carpeta de audio dentro de la carpeta de SharePoint/OneDrive de la BCC sincronizada en el equipo que ejecuta la carga. No hay títulos escritos en el código.
+- **R10.** Cada fila se valida con las mismas reglas que aplica la API al leer y escribir (P7): campos obligatorios, largos máximos de las columnas de producción (título y autor hasta 255 caracteres, género hasta 100). Un género que no existe en el catálogo **se acepta con advertencia** y el informe lo destaca como "género nuevo" para que se revise, también cuando se parece a uno existente (p. ej. difiere solo en tildes o en una palabra).
+- **R11.** La validación también revisa el audio: la carpeta existe, tiene pistas de audio válidas, ninguna está vacía o truncada, **todas están descargadas en el equipo** (no son archivos "solo en la nube" de OneDrive) y el orden de las pistas se puede determinar sin ambigüedad.
+- **R12.** Un libro que ya existe en el catálogo (mismo título **y** mismo autor, comparados sin distinguir mayúsculas, tildes ni signos) no se duplica: se informa y se omite. Un título que ya existe con **otro** autor o narrador es un libro distinto y legítimo: la validación lo marca como "título repetido" y exige un nombre distintivo para su ficha y su carpeta de audio antes de cargarlo (ver R31).
+- **R13.** La simulación es el modo por defecto: produce el informe completo de qué se crearía, qué se omitiría y qué falla, sin escribir nada. Escribir en producción exige una acción explícita, distinta de la simulación, y **una aprobación oficial del lote registrada en el repositorio de Invision** (ver R32). Sin esa aprobación, la ejecución real se rechaza (P12).
 - **R14.** La carga es retomable: si se interrumpe, al volver a ejecutarla continúa donde quedó, sin duplicar fichas ni volver a subir el audio que ya estaba completo.
 - **R15.** Al terminar cada lote queda un informe persistente: fichas creadas, pistas subidas, omitidos, fallos y motivos. Es la evidencia para la BCC.
-- **R16.** Una ficha nunca queda visible para los socios sin su audio completo. Si el audio de un libro falla, ese libro no queda como "ficha sin audio". [NEEDS-CLARIFY: ¿se crea la ficha solo al final, cuando el audio está completo, o se crea antes y se marca como no publicada? Producción no tiene un campo de estado de publicación.]
+- **R16.** Una ficha nunca queda visible para los socios sin su audio completo. Doble garantía: (a) **el audio de un libro se sube completo antes de crear su ficha**, así que un fallo de audio nunca deja una ficha huérfana; y (b) el catálogo incorpora un **estado de publicación explícito** por libro, de modo que un libro puede existir sin estar visible. La parte (b) es un cambio aditivo del esquema de producción: se propone como migración en un PR y solo se aplica con la aprobación BCC (P12). Mientras no se apruebe, la parte (a) sostiene la promesa sola.
 
 **Criterios de aceptación**
 - [ ] Un manifiesto de prueba con filas válidas e inválidas produce, en simulación, un informe que identifica cada fila inválida con su motivo, y no escribe nada.
@@ -97,6 +97,29 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - [ ] Una base de prueba con un usuario de correo `.local` devuelve el listado completo sin error.
 - [ ] Un libro con 20 pistas devuelve los índices 1 a 20 en orden.
 
+### Historia 8 [P2 — mejora] — "En Memoria": la voz de quien narró
+**Como** BCC, **quiero** que cada audiolibro registre quién lo narró, **para** preservar en el tiempo a las personas que prestaron su voz a la biblioteca. Algunas grabaciones son muy antiguas y pueden ser el último registro en vida de su narrador.
+
+**Requisitos**
+- **R30.** Cada audiolibro puede registrar a su narrador. El dato es opcional: una grabación antigua puede tener narrador desconocido, y eso se registra explícitamente como "desconocido", distinto de "sin informar".
+- **R31.** Dos audiolibros pueden compartir título si difieren en autor o narrador. Cada uno tiene un nombre de ficha y una carpeta de audio únicos que los distinguen de forma legible por voz (p. ej. "Título, narrado por X").
+- **R33.** Existe un informe "En Memoria" con los libros sin narrador identificado, para que la BCC pueda investigarlos y completarlos con el tiempo.
+- **R34.** Guardar el narrador requiere un cambio aditivo del esquema de producción, que se propone por PR con la aprobación BCC (P12). Mientras no se apruebe, el narrador informado en el manifiesto queda registrado en el informe del lote para no perderlo.
+
+**Criterios de aceptación**
+- [ ] Un manifiesto con dos filas de igual título y distinto narrador produce dos libros distinguibles, o un rechazo que pide el nombre distintivo.
+- [ ] El informe "En Memoria" lista los libros cuyo narrador es desconocido o no fue informado.
+
+### Historia 9 [P1 — núcleo MVP] — Aprobaciones oficiales en el repositorio
+**Como** equipo tripartito, **quiero** que toda escritura en producción (carga de un lote, corrección de reconciliación, migración de esquema) se apruebe mediante un PR revisable en el repositorio de Invision, **para** tener un registro oficial, fechado y auditable de quién aprobó qué.
+
+**Requisitos**
+- **R32.** Cada operación sobre producción tiene un documento de aprobación versionado en el repositorio: qué se va a hacer (el informe de simulación), quién aprueba por la BCC y cuándo. La aprobación vale cuando su PR se integra a la rama principal.
+- **R35.** La herramienta de carga y la de correcciones verifican, antes de escribir, que exista la aprobación integrada correspondiente a ese lote o corrección exacta. Si el lote cambió después de aprobado, la aprobación deja de valer.
+
+**Criterios de aceptación**
+- [ ] Un intento de ejecución real con una aprobación inexistente, no integrada o de un lote modificado se rechaza con un mensaje claro.
+
 ### Historia 7 [P3 — opcional] — Cifras del aniversario
 **Como** equipo de Invision, **quiero** cifras reales del año (títulos, horas de audio, socios activos), **para** comunicar el aniversario con datos verificables.
 - **R26.** El Resumen Ejecutivo muestra las horas totales de audio y los socios con actividad de escucha, además de los totales que ya muestra.
@@ -119,9 +142,13 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 - **R29.** El proceso de carga tolera archivos de audio de cientos de MB y lotes de cientos de libros sin agotar la memoria del equipo que lo ejecuta (P11).
 
 ## 4. Decisiones previas
-- **El esquema de producción manda** (P13, Opción A del módulo 13, recomendada): la ficha de un audiolibro es `nombre, autor, editorial, genero, descripcion`. [NEEDS-CLARIFY: confirmar la Opción A con el board en la reunión del 29/09.]
+- **El esquema de producción manda** (P13, Opción A del módulo 13, recomendada): la ficha de un audiolibro es `nombre, autor, editorial, genero, descripcion`. Se construye sobre la Opción A; su confirmación formal es la decisión D1 del board (29/09).
 - **Convención de audio:** las pistas viven en Blob bajo `{nombre exacto de la ficha}/{archivo}.mp3`. El nombre de la carpeta debe coincidir exactamente con el campo `nombre`. Esta coincidencia es la que hoy está rota en 42/24 casos.
 - **La API de producción no se usa como intermediaria** para la carga (no tiene los endpoints de admin). El panel y la herramienta de carga escriben directo, con las validaciones de la API replicadas (P7).
+- **Las aprobaciones son PRs** (2026-09-26, decisión de Nico): toda aprobación de escritura en producción se registra como documento en el repositorio `Nico-Rock/invision_bcc` y vale al integrarse su PR. Los PRs se revisan en las reuniones del equipo.
+- **Origen de los ~700 títulos:** SharePoint/OneDrive de la BCC. Se trabaja sobre la carpeta sincronizada localmente por el cliente de OneDrive. La integración vía Microsoft Graph queda fuera de alcance.
+- **Géneros nuevos se aceptan con advertencia** (2026-09-26): no se bloquea la carga por un género nuevo, pero se reporta para revisión.
+- **Iniciativa "En Memoria"** (2026-09-26): registrar y preservar al narrador de cada audiolibro. Los títulos repetidos son legítimos cuando cambia el autor o el narrador.
 - **El usuario admin temporal (id=92)** se mantiene para las cargas; su correo ya se corrigió a un dominio real.
 - **El CSV `Catalogo digital Audioteca 2025(disponibles).csv` ya está cargado** (533 de 536 títulos presentes en producción). No es la fuente de los ~700 pendientes.
 
@@ -130,13 +157,15 @@ Invision cumple un año. El catálogo en producción tiene 538 títulos, pero el
 ```
 CUANDO se procesa una fila del manifiesto
   ¿faltan campos obligatorios o superan el largo de producción?   → sí: fila inválida, motivo, no se escribe nada de ella
-  ¿el género no está en la lista vigente?                          → sí: fila inválida (no se crean géneros nuevos en silencio)
-  ¿el título ya existe (normalizado)?                              → sí: se omite e informa "ya existe"; no es un error
+  ¿el género no existe en el catálogo?                             → sí: se acepta con advertencia "género nuevo" (nunca en silencio)
+  ¿ya existe un libro con el mismo título Y autor (normalizados)?  → sí: se omite e informa "ya existe"; no es un error
+  ¿el título existe con otro autor/narrador y sin nombre distintivo? → sí: fila inválida, "título repetido: indicar nombre distintivo"
+  ¿alguna pista está solo en la nube (sin descargar)?              → sí: fila inválida, "descargar la carpeta desde OneDrive" 
   ¿la carpeta de audio falta, está vacía o tiene pistas truncadas? → sí: fila inválida, motivo
   ¿el orden de pistas es ambiguo?                                  → sí: fila inválida, "orden no determinable"
   ¿es simulación?                                                  → sí: se informa lo que se haría; FIN
-  ¿hay aprobación registrada para este lote?                       → no: se rechaza la ejecución real
-ENTONCES se sube el audio de la fila (salteando pistas ya completas) y la ficha queda visible solo cuando su audio está completo
+  ¿hay una aprobación integrada al repositorio para ESTE lote exacto? → no: se rechaza la ejecución real
+ENTONCES se sube todo el audio de la fila (salteando pistas ya completas) y, solo cuando está completo, se crea su ficha
 
 CUANDO el panel pide un dato que depende de una tabla que no existe en la base
   → la métrica se informa como "no disponible en esta base" con el motivo; el resto de la vista funciona
@@ -149,6 +178,8 @@ CUANDO la indexación de audio falla
 - **Cero escrituras en simulación.** Una ejecución en modo simulación no crea, modifica ni borra nada en la base ni en Blob.
 - **Nunca un duplicado.** Ejecutar el mismo lote dos veces produce el mismo catálogo que ejecutarlo una vez.
 - **Nunca un libro visible sin audio completo** como resultado de una carga.
+- **Nunca una escritura en producción sin un PR de aprobación integrado** que corresponda exactamente a lo que se escribe.
+- **Nunca se pierde un narrador informado:** si no se puede guardar en la base, queda en el informe del lote.
 - **Nunca se pisa audio existente.** Una pista que ya está completa en Blob no se reemplaza.
 - **Una fila mala no tumba una colección.** Ningún listado del panel ni de la API falla entero por una fila individual.
 - **El panel nunca reporta éxito si falló.**
@@ -161,6 +192,8 @@ CUANDO la indexación de audio falla
 - Vistas accesibles del panel para validación de lotes y reconciliación, más el ajuste del formulario individual.
 - Copia local del catálogo sin datos personales.
 - Correcciones puntuales de API y frontend (correo en la salida, capítulos, géneros).
+- Registro de aprobaciones en el repositorio y su verificación antes de escribir.
+- Captura del narrador ("En Memoria") y propuesta de migración aditiva (estado de publicación + narrador).
 
 ## 7. Criterios de verificación
 - **V1 (R1).** Contra producción, `/api/overview` responde sin error y marca las métricas sin tabla como no disponibles.
@@ -176,7 +209,12 @@ CUANDO la indexación de audio falla
 - **V11 (R13, R27).** Un test confirma que la simulación no ejecuta escrituras, y que la ejecución real sin aprobación registrada se rechaza.
 - **V12 (R14).** Un test interrumpe un lote a mitad de camino, lo reanuda y verifica que no hay duplicados ni re-subidas de pistas completas.
 - **V13 (R15).** Cada ejecución deja un informe persistente con creados, subidos, omitidos y fallos.
-- **V14 (R16).** Un test con fallo de audio en un libro verifica que ese libro no queda visible en el catálogo.
+- **V14 (R16).** Un test con fallo de audio en un libro verifica que su ficha no se crea. La migración de estado de publicación existe como propuesta revisable (script más reversión), probada contra una copia local.
+- **V23 (R30, R31).** Un test con dos filas de igual título y distinto narrador verifica que se crean dos fichas distinguibles o que se rechaza la fila sin nombre distintivo.
+- **V24 (R33).** El informe "En Memoria" lista los libros con narrador desconocido o no informado.
+- **V25 (R34).** Sin la migración aplicada, el narrador del manifiesto aparece en el informe del lote.
+- **V26 (R32, R35).** Tests: la ejecución real se rechaza sin aprobación, con una aprobación de otro lote o con el lote modificado después de aprobado, y se permite con la aprobación correcta.
+- **V27 (R11).** Un test con un archivo "solo en la nube" (marcador sin contenido local) produce el rechazo "descargar desde OneDrive".
 - **V15 (R17).** El formulario individual envía editorial, no pide categoría, y rechaza un título de 256 caracteres con un mensaje anunciado.
 - **V16 (R18, R19, R20, R28).** Verificación manual con VoiceOver: navegación con sección actual anunciada, validación de un manifiesto y lectura del informe de reconciliación, todo con teclado.
 - **V17 (R21, R22).** Después de la copia local, el frontend muestra los géneros y títulos de producción, y una consulta sobre la base local no encuentra correos de socios.
@@ -187,17 +225,18 @@ CUANDO la indexación de audio falla
 - **V22 (R29).** Subir una pista de más de 200 MB no eleva la memoria del proceso por encima de un margen acotado (el streaming se verifica en un test).
 
 ## Casos borde
-1. **El mismo título de dos autores distintos** (dos ediciones): hoy la carpeta de audio es solo el título, así que colisionarían. [NEEDS-CLARIFY: ¿puede haber dos libros con el mismo nombre? Si sí, la convención de carpetas tiene que cambiar.]
+1. **El mismo título de dos autores o narradores distintos:** es legítimo (R31). La carpeta de audio debe ser única, así que la fila exige un nombre distintivo.
 2. **Nombres de carpeta con caracteres no válidos** en Blob o en un sistema de archivos (`/`, `?`, `#`): la validación los rechaza con motivo.
 3. **Pistas con nombres sin número** o con numeración mixta (`Pista 1`, `Pista 1b`): orden ambiguo, la fila se rechaza.
 4. **Planilla con codificación distinta** (el CSV actual viene en Windows-1252 con `;`): la lectura acepta ese formato y no corrompe tildes ni eñes.
 5. **Corte de red a la mitad de una pista:** la pista incompleta no queda como válida y se vuelve a subir al retomar.
-6. **Dos personas ejecutando el mismo lote a la vez:** no puede producir duplicados. [NEEDS-CLARIFY: ¿alcanza con documentar que se ejecuta de a uno, o se necesita un bloqueo?]
+6. **Dos personas ejecutando el mismo lote a la vez:** no puede producir duplicados. Como la aprobación es por lote y la verificación de existencia se repite justo antes de cada escritura, una segunda ejecución solo encuentra elementos ya existentes y los omite. Además, se documenta que se ejecuta un lote a la vez.
+7. **Grabación antigua sin narrador conocido:** se registra como "desconocido" y aparece en el informe "En Memoria".
 
 ## Aclaraciones abiertas
-- [NEEDS-CLARIFY: ¿Dónde están los ~700 audiolibros pendientes (disco, SharePoint, Drive) y en qué formato viene su metadata? Condiciona R9 y R11.]
-- [NEEDS-CLARIFY: ¿La Opción A del módulo 13 se confirma en la reunión del 29/09?]
-- [NEEDS-CLARIFY: Ficha visible solo con audio completo (R16): ¿crear al final o crear oculta?]
-- [NEEDS-CLARIFY: ¿Cuál es la lista vigente de géneros, y se unifican las variantes (`DESARROLLO PERSONAL` → `DESARROLLO PERSONAL Y BIENESTAR`, `NO FICCIÓN ENSAYO` → `NO FICCIÓN Y ENSAYO`)?]
-- [NEEDS-CLARIFY: ¿Quién de la BCC aprueba las escrituras en producción y cómo queda registrada la aprobación?]
-- [NEEDS-CLARIFY: Títulos duplicados entre autores (caso borde 1) y ejecución concurrente (caso borde 6).]
+Resueltas el 2026-09-26: origen de los 700 (OneDrive/SharePoint sincronizado), visibilidad (doble garantía, R16), géneros (se aceptan con advertencia), títulos repetidos ("En Memoria", R31), concurrencia (caso borde 6), canal de aprobación (PR, R32).
+
+Quedan para el board el 29/09. No bloquean la construcción, porque todo corre en simulación hasta entonces:
+- **D1.** Confirmar la Opción A del módulo 13 (el esquema de producción manda).
+- **D2.** Nombrar quién aprueba por la BCC los PRs de aprobación.
+- **D3.** Aprobar o no la migración aditiva (estado de publicación + narrador).
