@@ -188,3 +188,15 @@
 
 | Task ID | Status | Verification command | Exit code | Verified by / timestamp |
 |---|---|---|---|---|
+| T1 | done | `PYTEST_API` (8 casos de subida vistos en rojo) | 0 | Claude Code, 2026-09-26 |
+| T2 | done | `PYTEST_API` (2 casos + test viejo de ingesta actualizado a 503); `xlsx` quitado del sitio | 0 | Claude Code, 2026-09-26 |
+| T3 | done | `PYTEST_API` (roles y persona en la auditoría) | 0 | Claude Code, 2026-09-26 |
+| T4 | done | `PYTEST_API` (con y sin tabla; fuera del create_all) + `pytest InvisionAPI-main/scripts` 18/18; tabla habilitada en la SQLite local de la demo | 0 | Claude Code, 2026-09-26 |
+| T5 | done | `SITIO` V11, V10 | 0 | Claude Code, 2026-09-26 |
+| T6 | done | `SITIO` V4, V7, V8 | 0 | Claude Code, 2026-09-26 |
+| T7 | done | `UNIT` + `SITIO` V5 (permiso y PUT simulados: pista repetida salteada, fallida reintentada) | 0 | Claude Code, 2026-09-26 |
+| T8 | done | `UNIT` + `SITIO` V12. Hallazgo con datos reales: el catálogo ya tiene variantes con y sin tilde; la vista ofrece todas | 0 | Claude Code, 2026-09-26 |
+| T9 | done | `UNIT` + `SITIO` V9, V14 | 0 | Claude Code, 2026-09-26 |
+| T10 | done | `SITIO` V13 (axe 0, AAA, 48 px en 4 pestañas y 2 modos). Además: la regla de foco pasa a `!important`, porque reglas más específicas dejaban el anillo viejo | 0 | Claude Code, 2026-09-26 |
+| T11 | done | `SITIO` 8 casos de la consola | 0 | Claude Code, 2026-09-26 |
+| T12 | done | `UNIT` 9/9 · `SITIO` 21/21 · panel y scripts 88/88 · API 49/50 (la falla `test_stream_audio_simple_with_mock` es anterior a la rama) | 0 | Claude Code, 2026-09-26 |

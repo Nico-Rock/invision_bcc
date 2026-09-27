@@ -3,46 +3,259 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
 import { Dialogo } from '../../../components/Dialogo';
+import { generarContrasena, deletrear } from '../../../lib/contrasena';
 
+/**
+ * Contraseña que se puede escuchar (spec 005, R17): mostrar u ocultar con un
+ * interruptor de texto fijo, y generar una fácil de dictar al socio.
+ */
+const CampoContrasena = ({ id, etiqueta, valor, onChange, error, requerido }) => {
+  const { announceText } = useAudio();
+  const [visible, setVisible] = useState(false);
+  const generar = () => {
+    const nueva = generarContrasena();
+    onChange(nueva);
+    setVisible(true);
+    announceText(`Contraseña generada: ${deletrear(nueva)}.`);
+  };
+  return (
+    <div className="form-group">
+      <label className="form-label" htmlFor={id}>{etiqueta}</label>
+      <input
+        id={id}
+        type={visible ? 'text' : 'password'}
+        className="form-input"
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        aria-required={requerido ? 'true' : undefined}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        autoComplete="new-password"
+      />
+      {error && <p id={`${id}-error`} className="texto-error">{error}</p>}
+      <div className="acciones-campo">
+        <button type="button" className="btn-submit btn-secundario" aria-pressed={visible} onClick={() => setVisible(!visible)}>
+          Mostrar contraseña
+        </button>
+        <button type="button" className="btn-submit btn-secundario" onClick={generar}>Generar contraseña</button>
+      </div>
+    </div>
+  );
+};
+
+const vacioAlta = { email: '', username: '', password: '' };
+
+/** Ficha de usuario: alta, edición, roles y borrado con confirmación (R8–R11, R17). */
+const FichaUsuario = ({ modo, usuario, roles, onCambio, onCerrar }) => {
+  const { authenticatedFetch } = useAuth();
+  const { announceText, playCue } = useAudio();
+  const [form, setForm] = useState(() => (usuario ? {
+    email: usuario.email || '', username: usuario.username || '', first_name: usuario.first_name || '',
+    last_name: usuario.last_name || '', phone_number: usuario.phone_number || '', password: '',
+  } : vacioAlta));
+  const [errores, setErrores] = useState({});
+  const [vista, setVista] = useState('form');
+  const [rolesUsuario, setRolesUsuario] = useState(() => (usuario?.roles || []).map((r) => r.id));
+  const cancelarRef = useRef(null);
+
+  useEffect(() => {
+    if (vista === 'eliminar') cancelarRef.current?.focus();
+  }, [vista]);
+
+  const fallar = (texto) => {
+    announceText(texto, { urgente: true });
+    playCue('error');
+  };
+
+  const validar = () => {
+    const e = {};
+    if (!form.email.trim()) e.email = 'El correo es obligatorio.';
+    if (!form.username.trim()) e.username = 'El nombre de usuario es obligatorio.';
+    if (modo === 'crear' && form.password.length < 8) e.password = 'La contraseña necesita al menos 8 caracteres.';
+    if (modo === 'editar' && form.password && form.password.length < 8) e.password = 'La contraseña nueva necesita al menos 8 caracteres.';
+    setErrores(e);
+    const primero = Object.keys(e)[0];
+    if (primero) {
+      fallar(e[primero]);
+      document.getElementById(`usuario-${primero}`)?.focus();
+      return false;
+    }
+    return true;
+  };
+
+  const guardar = async (ev) => {
+    ev.preventDefault();
+    if (!validar()) return;
+    try {
+      if (modo === 'crear') {
+        const r = await authenticatedFetch(`${API_BASE_URL}/users/`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.email.trim(), username: form.username.trim(), password: form.password }),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(typeof d.detail === 'string' ? d.detail : 'revisá los datos');
+        }
+        playCue('success');
+        announceText(`Usuario ${form.username} registrado.`);
+      } else {
+        const { password, ...datos } = form;
+        const r = await authenticatedFetch(`${API_BASE_URL}/users/${usuario.id}/admin`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(typeof d.detail === 'string' ? d.detail : 'revisá los datos');
+        }
+        if (password) {
+          const rp = await authenticatedFetch(`${API_BASE_URL}/user/change-password`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_password: '', new_password: password, user_id: usuario.id }),
+          });
+          if (!rp.ok) throw new Error('los datos se guardaron, pero el cambio de contraseña falló');
+        }
+        playCue('success');
+        announceText(`Usuario ${form.username} actualizado.`);
+      }
+      onCambio();
+      onCerrar();
+    } catch (err) {
+      console.error(err);
+      fallar(`No se pudo guardar el usuario: ${err.message}.`);
+    }
+  };
+
+  const alternarRol = async (rol, asignado) => {
+    try {
+      const r = asignado
+        ? await authenticatedFetch(`${API_BASE_URL}/users/${usuario.id}/roles/${rol.id}`, { method: 'DELETE' })
+        : await authenticatedFetch(`${API_BASE_URL}/users/add_roles`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: usuario.id, role_id: rol.id }),
+        });
+      if (!(r.ok || r.status === 204)) throw new Error(String(r.status));
+      setRolesUsuario(asignado ? rolesUsuario.filter((id) => id !== rol.id) : [...rolesUsuario, rol.id]);
+      playCue('success');
+      announceText(asignado ? `Rol ${rol.name} quitado.` : `Rol ${rol.name} asignado.`);
+      onCambio();
+    } catch (err) {
+      console.error(err);
+      fallar(`No se pudo cambiar el rol ${rol.name}.`);
+    }
+  };
+
+  const eliminar = async () => {
+    try {
+      const r = await authenticatedFetch(`${API_BASE_URL}/users/${usuario.id}/`, { method: 'DELETE' });
+      if (!r.ok) throw new Error(String(r.status));
+      playCue('success');
+      announceText(`Usuario ${usuario.username} eliminado.`);
+      await onCambio();
+      onCerrar();
+    } catch (err) {
+      console.error(err);
+      fallar(`No se pudo eliminar a ${usuario.username}.`);
+      setVista('form');
+    }
+  };
+
+  const campo = (nombre, etiqueta, tipo = 'text', requerido = false) => (
+    <div className="form-group">
+      <label className="form-label" htmlFor={`usuario-${nombre}`}>{etiqueta}</label>
+      <input
+        id={`usuario-${nombre}`}
+        type={tipo}
+        className="form-input"
+        value={form[nombre]}
+        onChange={(e) => setForm({ ...form, [nombre]: e.target.value })}
+        aria-required={requerido ? 'true' : undefined}
+        aria-invalid={errores[nombre] ? 'true' : undefined}
+        aria-describedby={errores[nombre] ? `usuario-${nombre}-error` : undefined}
+        autoComplete="off"
+      />
+      {errores[nombre] && <p id={`usuario-${nombre}-error`} className="texto-error">{errores[nombre]}</p>}
+    </div>
+  );
+
+  if (vista === 'eliminar') {
+    return (
+      <>
+        <h2 id="ficha-usuario-titulo" className="modal-title">¿Eliminar a {usuario.username}?</h2>
+        <p>La cuenta dejará de poder ingresar y se borra su progreso de escucha. <strong>Esta acción todavía no se puede deshacer.</strong></p>
+        <div className="acciones-dialogo">
+          <button ref={cancelarRef} type="button" className="btn-submit btn-secundario" onClick={() => setVista('form')}>Cancelar</button>
+          <button type="button" className="btn-action-delete" onClick={eliminar}>Eliminar definitivamente</button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h2 id="ficha-usuario-titulo" className="modal-title">{modo === 'crear' ? 'Registrar usuario' : `Gestionar: ${usuario.username}`}</h2>
+      <form onSubmit={guardar} noValidate>
+        {campo('email', 'Correo electrónico (obligatorio)', 'email', true)}
+        {campo('username', 'Nombre de usuario (obligatorio)', 'text', true)}
+        {modo === 'editar' && campo('first_name', 'Nombre')}
+        {modo === 'editar' && campo('last_name', 'Apellido')}
+        {modo === 'editar' && campo('phone_number', 'Teléfono', 'tel')}
+        <CampoContrasena
+          id="usuario-password"
+          etiqueta={modo === 'crear' ? 'Contraseña (obligatoria, mínimo 8 caracteres)' : 'Contraseña nueva (opcional, mínimo 8 caracteres)'}
+          valor={form.password}
+          onChange={(v) => setForm({ ...form, password: v })}
+          error={errores.password}
+          requerido={modo === 'crear'}
+        />
+
+        {modo === 'editar' && (
+          <fieldset className="form-group roles-usuario">
+            <legend className="form-label">Roles</legend>
+            {roles.map((rol) => {
+              const asignado = rolesUsuario.includes(rol.id);
+              return (
+                <div key={rol.id} className="campo-casilla">
+                  <input id={`rol-${rol.id}`} type="checkbox" checked={asignado} onChange={() => alternarRol(rol, asignado)} />
+                  <label htmlFor={`rol-${rol.id}`}>{rol.name}</label>
+                </div>
+              );
+            })}
+          </fieldset>
+        )}
+
+        <div className="acciones-dialogo">
+          <button type="submit" className="btn-submit">Guardar</button>
+          <button type="button" className="btn-submit btn-secundario" onClick={onCerrar}>Cerrar</button>
+          {modo === 'editar' && (
+            <button type="button" className="btn-action-delete" onClick={() => setVista('eliminar')}>Eliminar usuario</button>
+          )}
+        </div>
+      </form>
+    </>
+  );
+};
+
+/** Usuarios (spec 005, R8, R11): un control por fila, roles en texto, total en el título. */
 export const UserManagement = () => {
   const { authenticatedFetch } = useAuth();
   const { announceText, playCue } = useAudio();
-
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Modal states
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-
-  // Form states
-  const [newUser, setNewUser] = useState({ email: '', username: '', password: '' });
-  const [editForm, setEditForm] = useState({ email: '', username: '', first_name: '', last_name: '', phone_number: '' });
-  const [newPassword, setNewPassword] = useState('');
-
-  // Refs for accessibility focus control
-  const createButtonRef = useRef(null);
-  const editButtonRefs = useRef({});
-  const modalFirstInputRef = useRef(null);
-  const editModalFirstInputRef = useRef(null);
+  const [ficha, setFicha] = useState(null);
+  const avisoBusqueda = useRef(null);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/users/`);
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
-      } else {
-        setError('Error al obtener la lista de usuarios');
-      }
+      const r = await authenticatedFetch(`${API_BASE_URL}/users/`);
+      if (!r.ok) throw new Error(String(r.status));
+      setUsers(await r.json());
     } catch (err) {
       console.error(err);
-      setError('Error de conexión al obtener usuarios');
+      announceText('No se pudo cargar la lista de usuarios.', { urgente: true });
+      playCue('error');
     } finally {
       setLoading(false);
     }
@@ -50,505 +263,104 @@ export const UserManagement = () => {
 
   const fetchRoles = async () => {
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/roles/`);
-      if (response.ok) {
-        const data = await response.json();
-        setRoles(data);
-      }
+      const r = await authenticatedFetch(`${API_BASE_URL}/roles/`);
+      if (r.ok) setRoles(await r.json());
     } catch (err) {
       console.error('Error fetching roles:', err);
     }
   };
 
   useEffect(() => {
+    // Carga inicial desde la API (mismo patrón que Home.jsx)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers();
     fetchRoles();
-    announceText('Sección de Gestión de Usuarios cargada.');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Esc lo maneja el <dialog> nativo (Dialogo): cierra y devuelve el foco.
+  const coincide = (u, t) => [u.username, u.email, u.first_name, u.last_name].some((v) => v && v.toLowerCase().includes(t));
+  const q = searchQuery.trim().toLowerCase();
+  const filtrados = q ? users.filter((u) => coincide(u, q)) : users;
 
-  const openCreateModal = () => {
-    setShowCreateModal(true);
-    setNewUser({ email: '', username: '', password: '' });
-    announceText('Formulario para registrar nuevo usuario abierto.');
-    playCue('action');
-    setTimeout(() => {
-      if (modalFirstInputRef.current) modalFirstInputRef.current.focus();
-    }, 50);
+  const alBuscar = (valor) => {
+    setSearchQuery(valor);
+    clearTimeout(avisoBusqueda.current);
+    avisoBusqueda.current = setTimeout(() => {
+      const t = valor.trim().toLowerCase();
+      const n = t ? users.filter((u) => coincide(u, t)).length : users.length;
+      announceText(n === 1 ? '1 usuario encontrado.' : `${n} usuarios encontrados.`);
+    }, 800);
   };
 
-  const closeCreateModal = () => {
-    setShowCreateModal(false);
-    announceText('Formulario cerrado.');
-    playCue('action');
-    if (createButtonRef.current) createButtonRef.current.focus();
-  };
-
-  const openEditModal = (user) => {
-    setSelectedUser(user);
-    setEditForm({
-      email: user.email || '',
-      username: user.username || '',
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      phone_number: user.phone_number || ''
-    });
-    setNewPassword('');
-    setShowEditModal(true);
-    announceText(`Formulario de edición para usuario ${user.username} abierto.`);
-    playCue('action');
-    setTimeout(() => {
-      if (editModalFirstInputRef.current) editModalFirstInputRef.current.focus();
-    }, 50);
-  };
-
-  const closeEditModal = () => {
-    setShowEditModal(false);
-    setSelectedUser(null);
-    announceText('Formulario de edición cerrado.');
-    playCue('action');
-    if (selectedUser && editButtonRefs.current[selectedUser.id]) {
-      editButtonRefs.current[selectedUser.id].focus();
-    }
-  };
-
-  const handleCreateUser = async (e) => {
-    e.preventDefault();
-    if (!newUser.email || !newUser.username || !newUser.password) {
-      announceText('Por favor, rellene todos los campos.');
-      playCue('error');
-      return;
-    }
-
-    try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/users/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser)
-      });
-
-      if (response.ok) {
-        announceText('Usuario registrado con éxito.');
-        playCue('success');
-        setShowCreateModal(false);
-        fetchUsers();
-      } else {
-        const errorData = await response.json();
-        announceText(`Error al crear usuario: ${errorData.detail || 'datos inválidos'}`);
-        playCue('error');
-      }
-    } catch (err) {
-      console.error(err);
-      announceText('Error de conexión al registrar usuario.');
-      playCue('error');
-    }
-  };
-
-  const handleUpdateUser = async (e) => {
-    e.preventDefault();
-    try {
-      // 1. Update basic info (using our new PUT /users/{id}/admin route)
-      const response = await authenticatedFetch(`${API_BASE_URL}/users/${selectedUser.id}/admin`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Error al actualizar detalles de usuario.');
-      }
-
-      // 2. Optional password update
-      if (newPassword) {
-        const pwdResponse = await authenticatedFetch(`${API_BASE_URL}/user/change-password`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            current_password: '',
-            new_password: newPassword,
-            user_id: selectedUser.id
-          })
-        });
-        if (!pwdResponse.ok) {
-          throw new Error('Detalles actualizados, pero el cambio de contraseña falló.');
-        }
-      }
-
-      announceText('Usuario actualizado con éxito.');
-      playCue('success');
-      setShowEditModal(false);
-      fetchUsers();
-    } catch (err) {
-      console.error(err);
-      announceText(err.message);
-      playCue('error');
-    }
-  };
-
-  const handleDeleteUser = async (userId, username) => {
-    const confirmDelete = window.confirm(`¿Está seguro de que desea eliminar al usuario "${username}"?`);
-    if (!confirmDelete) return;
-
-    try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/users/${userId}/`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        announceText(`Usuario ${username} eliminado correctamente.`);
-        playCue('success');
-        fetchUsers();
-      } else {
-        announceText('Error al eliminar el usuario.');
-        playCue('error');
-      }
-    } catch (err) {
-      console.error(err);
-      announceText('Error de conexión al eliminar usuario.');
-      playCue('error');
-    }
-  };
-
-  const handleRoleToggle = async (userId, roleId, roleName, isAssigned) => {
-    try {
-      if (isAssigned) {
-        // Revoke role
-        const response = await authenticatedFetch(`${API_BASE_URL}/users/${userId}/roles/${roleId}`, {
-          method: 'DELETE'
-        });
-        if (response.ok) {
-          announceText(`Rol ${roleName} revocado.`);
-          playCue('success');
-          fetchUsers();
-          // Update local state roles list inside selectedUser if open
-          if (selectedUser && selectedUser.id === userId) {
-            const updatedRoles = selectedUser.roles.filter(r => r.id !== roleId);
-            setSelectedUser({ ...selectedUser, roles: updatedRoles });
-          }
-        }
-      } else {
-        // Assign role
-        const response = await authenticatedFetch(`${API_BASE_URL}/users/add_roles`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, role_id: roleId })
-        });
-        if (response.status === 204 || response.ok) {
-          announceText(`Rol ${roleName} asignado.`);
-          playCue('success');
-          fetchUsers();
-          // Update local state roles list inside selectedUser if open
-          if (selectedUser && selectedUser.id === userId) {
-            const targetRole = roles.find(r => r.id === roleId);
-            setSelectedUser({ ...selectedUser, roles: [...selectedUser.roles, targetRole] });
-          }
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      announceText('Error al modificar roles.');
-      playCue('error');
-    }
-  };
-
-  const filteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const nombreRoles = (u) => (u.roles && u.roles.length ? u.roles.map((r) => r.name).join(', ') : 'Sin rol');
 
   return (
-    <div>
-      <div className="admin-actions-bar">
-        <input
-          type="text"
-          placeholder="Buscar usuarios..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="admin-search-input"
-          aria-label="Buscar usuarios por nombre o correo electrónico"
-        />
+    <section className="admin-card" aria-labelledby="usuarios-titulo">
+      <h2 id="usuarios-titulo">Usuarios ({filtrados.length}{q ? ` de ${users.length}` : ''})</h2>
 
-        <button
-          ref={createButtonRef}
-          type="button"
-          onClick={openCreateModal}
-          className="btn-submit"
-          style={{ width: 'auto', marginTop: 0 }}
+      <div className="admin-controls-bar">
+        <label className="sr-only" htmlFor="buscar-usuarios">Buscar usuarios por nombre o correo</label>
+        <input
+          id="buscar-usuarios"
+          type="search"
+          className="admin-search-input"
+          placeholder="Buscar por nombre o correo"
+          value={searchQuery}
+          onChange={(e) => alBuscar(e.target.value)}
           onFocus={() => playCue('focus')}
-        >
-          ➕ Registrar Usuario
+        />
+        <button type="button" className="btn-submit" onClick={() => setFicha({ modo: 'crear', usuario: null })}>
+          <span aria-hidden="true">➕ </span>Registrar usuario
         </button>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem', fontWeight: 'bold' }}>Cargando usuarios...</div>
-      ) : error ? (
-        <div className="login-error">{error}</div>
+      {loading && users.length === 0 ? (
+        <p className="estado-carga-admin">Cargando usuarios…</p>
       ) : (
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th scope="col">ID</th>
-              <th scope="col">Usuario</th>
-              <th scope="col">Correo</th>
-              <th scope="col">Roles</th>
-              <th scope="col">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map((user) => {
-              const isAdminUser = user.roles?.some(r => r.name === 'Admin');
-              return (
-                <tr key={user.id}>
-                  <td>{user.id}</td>
-                  <td style={{ fontWeight: 'bold' }}>{user.username}</td>
-                  <td>{user.email}</td>
+        <div className="tabla-desplazable" tabIndex="0" role="region" aria-labelledby="usuarios-titulo">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th scope="col">Nombre</th>
+                <th scope="col">Usuario</th>
+                <th scope="col">Correo</th>
+                <th scope="col">Roles</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((u) => (
+                <tr key={u.id}>
+                  <td>{[u.first_name, u.last_name].filter(Boolean).join(' ') || 'Sin nombre'}</td>
+                  <td>{u.username}</td>
+                  <td>{u.email}</td>
+                  <td>{nombreRoles(u)}</td>
                   <td>
-                    {user.roles && user.roles.length > 0 ? (
-                      user.roles.map(r => (
-                        <span 
-                          key={r.id} 
-                          className={`role-badge ${r.name.toLowerCase() === 'admin' ? 'admin' : r.name.toLowerCase() === 'user' ? 'user' : 'custom'}`}
-                        >
-                          {r.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="role-badge user">Sin Rol</span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      ref={el => editButtonRefs.current[user.id] = el}
-                      type="button"
-                      onClick={() => openEditModal(user)}
-                      className="btn-action-edit"
-                      aria-label={`Editar detalles de ${user.username}`}
-                      onFocus={() => playCue('focus')}
-                    >
-                      ✏️ Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteUser(user.id, user.username)}
-                      className="btn-action-delete"
-                      aria-label={`Eliminar usuario ${user.username}`}
-                      onFocus={() => playCue('focus')}
-                    >
-                      🗑️ Eliminar
+                    <button type="button" className="btn-action-edit" onClick={() => setFicha({ modo: 'editar', usuario: u })}>
+                      Gestionar<span className="sr-only"> {u.username}</span>
                     </button>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Modal Registrar Usuario */}
-      {showCreateModal && (
-        <Dialogo
-          abierto={showCreateModal}
-          tituloId="create-modal-title"
-          className="modal-card modal-angosto"
-          onClose={() => { if (showCreateModal) closeCreateModal(); }}
-        >
-            <h2 id="create-modal-title" className="modal-title">Registrar Nuevo Usuario</h2>
-            
-            <form onSubmit={handleCreateUser}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="new-email">Correo Electrónico *</label>
-                <input
-                  ref={modalFirstInputRef}
-                  id="new-email"
-                  type="email"
-                  required
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="new-username">Nombre de Usuario *</label>
-                <input
-                  id="new-username"
-                  type="text"
-                  required
-                  value={newUser.username}
-                  onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="new-password">Contraseña (Mín. 8 caracteres) *</label>
-                <input
-                  id="new-password"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="btn-submit"
-                  style={{ background: 'var(--bg-sidebar)', color: 'var(--text-primary)', marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn-submit"
-                  style={{ marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Registrar
-                </button>
-              </div>
-            </form>
-        </Dialogo>
-      )}
-
-      {/* Modal Editar Usuario */}
-      {showEditModal && selectedUser && (
-        <Dialogo
-          abierto={showEditModal}
-          tituloId="edit-modal-title"
-          className="modal-card modal-mediano"
-          onClose={() => { if (showEditModal) closeEditModal(); }}
-        >
-            <h2 id="edit-modal-title" className="modal-title">Editar Usuario: {selectedUser.username}</h2>
-            
-            <form onSubmit={handleUpdateUser}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-email">Correo Electrónico *</label>
-                <input
-                  ref={editModalFirstInputRef}
-                  id="edit-email"
-                  type="email"
-                  required
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-username">Nombre de Usuario *</label>
-                <input
-                  id="edit-username"
-                  type="text"
-                  required
-                  value={editForm.username}
-                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="admin-form-row">
-                <div className="form-group">
-                  <label className="form-label" htmlFor="edit-first-name">Nombre</label>
-                  <input
-                    id="edit-first-name"
-                    type="text"
-                    value={editForm.first_name}
-                    onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="edit-last-name">Apellido</label>
-                  <input
-                    id="edit-last-name"
-                    type="text"
-                    value={editForm.last_name}
-                    onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-phone">Teléfono</label>
-                <input
-                  id="edit-phone"
-                  type="text"
-                  value={editForm.phone_number}
-                  onChange={(e) => setEditForm({ ...editForm, phone_number: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              {/* Roles Section */}
-              <div className="form-group" style={{ border: '2px solid var(--border-color)', borderRadius: '8px', padding: '1rem', marginTop: '1rem' }}>
-                <span className="form-label" style={{ display: 'block', marginBottom: '0.8rem' }}>Asignación de Roles</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                  {roles.map((role) => {
-                    const isAssigned = selectedUser.roles?.some(r => r.id === role.id) || false;
-                    return (
-                      <label key={role.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 'bold' }}>
-                        <input
-                          type="checkbox"
-                          checked={isAssigned}
-                          onChange={() => handleRoleToggle(selectedUser.id, role.id, role.name, isAssigned)}
-                          style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                        />
-                        <span>{role.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Reset Password Section */}
-              <div className="form-group" style={{ border: '2px solid var(--border-color)', borderRadius: '8px', padding: '1rem', marginTop: '1rem' }}>
-                <label className="form-label" htmlFor="reset-password" style={{ display: 'block', marginBottom: '0.5rem' }}>Restablecer Contraseña</label>
-                <input
-                  id="reset-password"
-                  type="password"
-                  placeholder="Nueva contraseña (dejar vacío si no cambia)"
-                  minLength={8}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="btn-submit"
-                  style={{ background: 'var(--bg-sidebar)', color: 'var(--text-primary)', marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn-submit"
-                  style={{ marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Guardar Cambios
-                </button>
-              </div>
-            </form>
-        </Dialogo>
-      )}
-    </div>
+      <Dialogo abierto={!!ficha} tituloId="ficha-usuario-titulo" className="modal-card modal-mediano" onClose={() => setFicha(null)}>
+        {ficha && (
+          <FichaUsuario
+            key={ficha.usuario ? ficha.usuario.id : 'nuevo'}
+            modo={ficha.modo}
+            usuario={ficha.usuario}
+            roles={roles}
+            onCambio={fetchUsers}
+            onCerrar={() => setFicha(null)}
+          />
+        )}
+      </Dialogo>
+    </section>
   );
 };
+
 export default UserManagement;

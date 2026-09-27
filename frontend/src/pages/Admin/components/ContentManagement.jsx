@@ -1,8 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
+import { Dialogo } from '../../../components/Dialogo';
+import { FichaLibro } from './FichaLibro';
+import { valoresUnicos } from '../../../lib/vocabulario';
 
+/**
+ * Libros (spec 005, R8). Para quien administra con lector de pantalla: un solo
+ * control por fila ("Gestionar"), total en el título y conteo anunciado al
+ * buscar. Antes eran 1.077 botones en 538 filas y "Eliminar" al lado de "Editar".
+ */
 export const ContentManagement = () => {
   const { authenticatedFetch } = useAuth();
   const { announceText, playCue } = useAudio();
@@ -12,50 +20,25 @@ export const ContentManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Modal states
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedBook, setSelectedBook] = useState(null);
-
-  // Form states
-  const [newBook, setNewBook] = useState({
-    nombre: '',
-    descripcion: '',
-    genero: '',
-    autor: '',
-    categoria_id: '',
-    clasificacionesStr: '' // comma-separated classifications string
-  });
-  
-  const [editForm, setEditForm] = useState({
-    nombre: '',
-    descripcion: '',
-    genero: '',
-    autor: '',
-    categoria_id: '',
-    clasificacionesStr: ''
-  });
-
-  // Refs for accessibility focus control
-  const createButtonRef = useRef(null);
-  const editButtonRefs = useRef({});
-  const modalFirstInputRef = useRef(null);
-  const editModalFirstInputRef = useRef(null);
+  const [ficha, setFicha] = useState(null); // { modo: 'crear' | 'editar', libro }
+  const avisoBusqueda = useRef(null);
 
   const fetchBooks = async () => {
     setLoading(true);
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/admin/audiolibros`);
-      if (response.ok) {
-        const data = await response.json();
-        setBooks(data);
-      } else {
-        setError('Error al obtener la lista de audiolibros');
-      }
+      if (!response.ok) throw new Error(String(response.status));
+      const data = await response.json();
+      setBooks(data);
+      setError('');
+      return data;
     } catch (err) {
       console.error(err);
-      setError('Error de conexión al obtener audiolibros');
+      const texto = 'No se pudo cargar la lista de libros. Probá de nuevo en un momento.';
+      setError(texto);
+      announceText(texto, { urgente: true });
+      playCue('error');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -64,509 +47,129 @@ export const ContentManagement = () => {
   const fetchCategories = async () => {
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/admin/categorias`);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      }
+      if (response.ok) setCategories(await response.json());
     } catch (err) {
       console.error('Error fetching categories:', err);
     }
   };
 
   useEffect(() => {
+    // Carga inicial desde la API (mismo patrón que Home.jsx)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBooks();
     fetchCategories();
-    announceText('Sección de Gestión de Contenido cargada.');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Modal event handlers for Esc key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (showCreateModal) closeCreateModal();
-        if (showEditModal) closeEditModal();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCreateModal, showEditModal]);
+  const vocabulario = useMemo(() => ({
+    generos: valoresUnicos(books.map((b) => b.genero)),
+    autores: valoresUnicos(books.map((b) => b.autor)),
+    narradores: valoresUnicos(books.map((b) => b.narrador)),
+  }), [books]);
 
-  const openCreateModal = () => {
-    setShowCreateModal(true);
-    setNewBook({
-      nombre: '',
-      descripcion: '',
-      genero: '',
-      autor: '',
-      categoria_id: '',
-      clasificacionesStr: ''
-    });
-    announceText('Formulario para registrar nuevo audiolibro abierto.');
-    playCue('action');
-    setTimeout(() => {
-      if (modalFirstInputRef.current) modalFirstInputRef.current.focus();
-    }, 50);
+  const q = searchQuery.trim().toLowerCase();
+  const filteredBooks = q
+    ? books.filter((b) => [b.nombre, b.autor, b.narrador, b.genero].some((v) => v && v.toLowerCase().includes(q)))
+    : books;
+
+  // El conteo se anuncia cuando se deja de escribir, no en cada tecla
+  const alBuscar = (valor) => {
+    setSearchQuery(valor);
+    clearTimeout(avisoBusqueda.current);
+    avisoBusqueda.current = setTimeout(() => {
+      const t = valor.trim().toLowerCase();
+      const n = t ? books.filter((b) => [b.nombre, b.autor, b.narrador, b.genero].some((v) => v && v.toLowerCase().includes(t))).length : books.length;
+      announceText(n === 1 ? '1 libro encontrado.' : `${n} libros encontrados.`);
+    }, 800);
   };
 
-  const closeCreateModal = () => {
-    setShowCreateModal(false);
-    announceText('Formulario cerrado.');
-    playCue('action');
-    if (createButtonRef.current) createButtonRef.current.focus();
+  // Después de guardar, la ficha se vuelve a abrir con los datos del servidor
+  const alGuardar = async (id) => {
+    const data = await fetchBooks();
+    const libro = data && data.find((b) => b.id === id);
+    if (libro) setFicha({ modo: 'editar', libro });
   };
 
-  const openEditModal = (book) => {
-    setSelectedBook(book);
-    setEditForm({
-      nombre: book.nombre || '',
-      descripcion: book.descripcion || '',
-      genero: book.genero || '',
-      autor: book.autor || '',
-      categoria_id: book.categoria_id || '',
-      clasificacionesStr: book.clasificaciones ? book.clasificaciones.join(', ') : ''
-    });
-    setShowEditModal(true);
-    announceText(`Formulario de edición para el audiolibro ${book.nombre} abierto.`);
-    playCue('action');
-    setTimeout(() => {
-      if (editModalFirstInputRef.current) editModalFirstInputRef.current.focus();
-    }, 50);
+  // Primero se refresca la lista: así la fila eliminada ya no existe cuando el
+  // diálogo busca a quién devolver el foco, y cae en el contenido principal.
+  const alEliminar = async () => {
+    await fetchBooks();
+    setFicha(null);
   };
 
-  const closeEditModal = () => {
-    setShowEditModal(false);
-    setSelectedBook(null);
-    announceText('Formulario de edición cerrado.');
-    playCue('action');
-    if (selectedBook && editButtonRefs.current[selectedBook.id]) {
-      editButtonRefs.current[selectedBook.id].focus();
-    }
-  };
-
-  const handleCreateBook = async (e) => {
-    e.preventDefault();
-    if (!newBook.nombre) {
-      announceText('El título del audiolibro es obligatorio.');
-      playCue('error');
-      return;
-    }
-
-    const payload = {
-      nombre: newBook.nombre,
-      descripcion: newBook.descripcion,
-      genero: newBook.genero,
-      autor: newBook.autor,
-      categoria_id: newBook.categoria_id ? parseInt(newBook.categoria_id) : null,
-      clasificaciones: newBook.clasificacionesStr
-        ? newBook.clasificacionesStr.split(',').map(s => s.trim()).filter(Boolean)
-        : []
-    };
-
-    try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/admin/audiolibros`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        announceText('Audiolibro registrado con éxito.');
-        playCue('success');
-        setShowCreateModal(false);
-        fetchBooks();
-      } else {
-        const errorData = await response.json();
-        announceText(`Error al registrar audiolibro: ${errorData.detail || 'datos inválidos'}`);
-        playCue('error');
-      }
-    } catch (err) {
-      console.error(err);
-      announceText('Error de conexión al registrar audiolibro.');
-      playCue('error');
-    }
-  };
-
-  const handleUpdateBook = async (e) => {
-    e.preventDefault();
-    const payload = {
-      nombre: editForm.nombre,
-      descripcion: editForm.descripcion,
-      genero: editForm.genero,
-      autor: editForm.autor,
-      categoria_id: editForm.categoria_id ? parseInt(editForm.categoria_id) : null,
-      clasificaciones: editForm.clasificacionesStr
-        ? editForm.clasificacionesStr.split(',').map(s => s.trim()).filter(Boolean)
-        : []
-    };
-
-    try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/admin/audiolibros/${selectedBook.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        announceText('Audiolibro actualizado con éxito.');
-        playCue('success');
-        setShowEditModal(false);
-        fetchBooks();
-      } else {
-        const errorData = await response.json();
-        announceText(`Error al actualizar audiolibro: ${errorData.detail || 'datos inválidos'}`);
-        playCue('error');
-      }
-    } catch (err) {
-      console.error(err);
-      announceText('Error de conexión al actualizar audiolibro.');
-      playCue('error');
-    }
-  };
-
-  const handleDeleteBook = async (bookId, nombre) => {
-    const confirmDelete = window.confirm(`¿Está seguro de que desea eliminar el audiolibro "${nombre}"?`);
-    if (!confirmDelete) return;
-
-    try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/admin/audiolibros/${bookId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        announceText(`Audiolibro "${nombre}" eliminado correctamente.`);
-        playCue('success');
-        fetchBooks();
-      } else {
-        announceText('Error al eliminar el audiolibro.');
-        playCue('error');
-      }
-    } catch (err) {
-      console.error(err);
-      announceText('Error de conexión al eliminar audiolibro.');
-      playCue('error');
-    }
-  };
-
-  const filteredBooks = books.filter(b => 
-    b.nombre.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (b.autor && b.autor.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (b.genero && b.genero.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const narracionHabilitada = books.length ? books[0].narracion_habilitada !== false : true;
 
   return (
-    <div>
-      <div className="admin-actions-bar">
-        <input
-          type="text"
-          placeholder="Buscar audiolibros..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="admin-search-input"
-          aria-label="Buscar audiolibros por título, autor o género"
-        />
+    <section className="admin-card" aria-labelledby="libros-titulo">
+      <h2 id="libros-titulo">Libros ({filteredBooks.length}{q ? ` de ${books.length}` : ''})</h2>
 
-        <button
-          ref={createButtonRef}
-          type="button"
-          onClick={openCreateModal}
-          className="btn-submit"
-          style={{ width: 'auto', marginTop: 0 }}
+      <div className="admin-controls-bar">
+        <label className="sr-only" htmlFor="buscar-libros">Buscar libros por título, autor, narrador o género</label>
+        <input
+          id="buscar-libros"
+          type="search"
+          className="admin-search-input"
+          placeholder="Buscar por título, autor, narrador o género"
+          value={searchQuery}
+          onChange={(e) => alBuscar(e.target.value)}
           onFocus={() => playCue('focus')}
-        >
-          ➕ Registrar Audiolibro
+        />
+        <button type="button" className="btn-submit" onClick={() => setFicha({ modo: 'crear', libro: null })}>
+          <span aria-hidden="true">➕ </span>Registrar audiolibro
         </button>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem', fontWeight: 'bold' }}>Cargando audiolibros...</div>
-      ) : error ? (
-        <div className="login-error">{error}</div>
+      {error && <p className="texto-error">{error}</p>}
+
+      {loading && books.length === 0 ? (
+        <p className="estado-carga-admin">Cargando libros…</p>
       ) : (
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th scope="col">Título</th>
-              <th scope="col">Autor</th>
-              <th scope="col">Género</th>
-              <th scope="col">Categoría</th>
-              <th scope="col">Clasificaciones</th>
-              <th scope="col">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBooks.map((book) => (
-              <tr key={book.id}>
-                <td style={{ fontWeight: 'bold' }}>{book.nombre}</td>
-                <td>{book.autor || '—'}</td>
-                <td>{book.genero || '—'}</td>
-                <td>{book.categoria || 'Sin Categoría'}</td>
-                <td>
-                  {book.clasificaciones && book.clasificaciones.length > 0 ? (
-                    book.clasificaciones.map((cl, idx) => (
-                      <span key={idx} className="role-badge custom">
-                        {cl}
-                      </span>
-                    ))
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td>
-                  <button
-                    ref={el => editButtonRefs.current[book.id] = el}
-                    type="button"
-                    onClick={() => openEditModal(book)}
-                    className="btn-action-edit"
-                    aria-label={`Editar metadatos de ${book.nombre}`}
-                    onFocus={() => playCue('focus')}
-                  >
-                    ✏️ Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteBook(book.id, book.nombre)}
-                    className="btn-action-delete"
-                    aria-label={`Eliminar audiolibro ${book.nombre}`}
-                    onFocus={() => playCue('focus')}
-                  >
-                    🗑️ Eliminar
-                  </button>
-                </td>
+        <div className="tabla-desplazable" tabIndex="0" role="region" aria-labelledby="libros-titulo">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th scope="col">Título</th>
+                <th scope="col">Autor</th>
+                <th scope="col">Narrador</th>
+                <th scope="col">Género</th>
+                <th scope="col">Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* Modal Registrar Audiolibro */}
-      {showCreateModal && (
-        <div 
-          className="modal-overlay active" 
-          role="dialog" 
-          aria-modal="true" 
-          aria-labelledby="create-book-title"
-          onClick={(e) => { if (e.target.className.includes('modal-overlay')) closeCreateModal(); }}
-        >
-          <div className="modal-card" style={{ maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 id="create-book-title" className="modal-title">Registrar Nuevo Audiolibro</h2>
-            
-            <form onSubmit={handleCreateBook}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="new-book-title">Título del Audiolibro *</label>
-                <input
-                  ref={modalFirstInputRef}
-                  id="new-book-title"
-                  type="text"
-                  required
-                  value={newBook.nombre}
-                  onChange={(e) => setNewBook({ ...newBook, nombre: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="new-book-author">Autor</label>
-                <input
-                  id="new-book-author"
-                  type="text"
-                  value={newBook.autor}
-                  onChange={(e) => setNewBook({ ...newBook, autor: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="admin-form-row">
-                <div className="form-group">
-                  <label className="form-label" htmlFor="new-book-genre">Género</label>
-                  <input
-                    id="new-book-genre"
-                    type="text"
-                    value={newBook.genero}
-                    onChange={(e) => setNewBook({ ...newBook, genero: e.target.value })}
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="new-book-category">Categoría</label>
-                  <select
-                    id="new-book-category"
-                    value={newBook.categoria_id}
-                    onChange={(e) => setNewBook({ ...newBook, categoria_id: e.target.value })}
-                    className="form-input"
-                    style={{ height: '48px', padding: '0 1rem' }}
-                  >
-                    <option value="">Seleccionar Categoría</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="new-book-desc">Descripción</label>
-                <textarea
-                  id="new-book-desc"
-                  rows="3"
-                  value={newBook.descripcion}
-                  onChange={(e) => setNewBook({ ...newBook, descripcion: e.target.value })}
-                  className="form-input"
-                  style={{ fontFamily: 'inherit', resize: 'vertical' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="new-book-tags">Clasificaciones (Separadas por comas)</label>
-                <input
-                  id="new-book-tags"
-                  type="text"
-                  placeholder="Ej. BCC, Patrimonio, Histórico"
-                  value={newBook.clasificacionesStr}
-                  onChange={(e) => setNewBook({ ...newBook, clasificacionesStr: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="btn-submit"
-                  style={{ background: 'var(--bg-sidebar)', color: 'var(--text-primary)', marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn-submit"
-                  style={{ marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Registrar
-                </button>
-              </div>
-            </form>
-          </div>
+            </thead>
+            <tbody>
+              {filteredBooks.map((book) => (
+                <tr key={book.id}>
+                  <td>{book.nombre}</td>
+                  <td>{book.autor || 'Sin autor'}</td>
+                  <td>{book.narrador ? `${book.narrador}${book.en_memoria ? ' (En Memoria)' : ''}` : 'Sin narrador'}</td>
+                  <td>{book.genero || 'Sin género'}</td>
+                  <td>
+                    <button type="button" className="btn-action-edit" onClick={() => setFicha({ modo: 'editar', libro: book })}>
+                      Gestionar<span className="sr-only"> {book.nombre}</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Modal Editar Audiolibro */}
-      {showEditModal && selectedBook && (
-        <div 
-          className="modal-overlay active" 
-          role="dialog" 
-          aria-modal="true" 
-          aria-labelledby="edit-book-title"
-          onClick={(e) => { if (e.target.className.includes('modal-overlay')) closeEditModal(); }}
-        >
-          <div className="modal-card" style={{ maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 id="edit-book-title" className="modal-title">Editar Audiolibro: {selectedBook.nombre}</h2>
-            
-            <form onSubmit={handleUpdateBook}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-book-name">Título del Audiolibro *</label>
-                <input
-                  ref={editModalFirstInputRef}
-                  id="edit-book-name"
-                  type="text"
-                  required
-                  value={editForm.nombre}
-                  onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-book-author">Autor</label>
-                <input
-                  id="edit-book-author"
-                  type="text"
-                  value={editForm.autor}
-                  onChange={(e) => setEditForm({ ...editForm, autor: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="admin-form-row">
-                <div className="form-group">
-                  <label className="form-label" htmlFor="edit-book-genre">Género</label>
-                  <input
-                    id="edit-book-genre"
-                    type="text"
-                    value={editForm.genero}
-                    onChange={(e) => setEditForm({ ...editForm, genero: e.target.value })}
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="edit-book-category">Categoría</label>
-                  <select
-                    id="edit-book-category"
-                    value={editForm.categoria_id}
-                    onChange={(e) => setEditForm({ ...editForm, categoria_id: e.target.value })}
-                    className="form-input"
-                    style={{ height: '48px', padding: '0 1rem' }}
-                  >
-                    <option value="">Seleccionar Categoría</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-book-desc">Descripción</label>
-                <textarea
-                  id="edit-book-desc"
-                  rows="3"
-                  value={editForm.descripcion}
-                  onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
-                  className="form-input"
-                  style={{ fontFamily: 'inherit', resize: 'vertical' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-book-tags">Clasificaciones (Separadas por comas)</label>
-                <input
-                  id="edit-book-tags"
-                  type="text"
-                  placeholder="Ej. BCC, Patrimonio, Histórico"
-                  value={editForm.clasificacionesStr}
-                  onChange={(e) => setEditForm({ ...editForm, clasificacionesStr: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="btn-submit"
-                  style={{ background: 'var(--bg-sidebar)', color: 'var(--text-primary)', marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn-submit"
-                  style={{ marginTop: 0 }}
-                  onFocus={() => playCue('focus')}
-                >
-                  Guardar Cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+      <Dialogo abierto={!!ficha} tituloId="ficha-libro-titulo" className="modal-card modal-ancho" onClose={() => setFicha(null)}>
+        {ficha && (
+          <FichaLibro
+            key={ficha.libro ? `${ficha.libro.id}-${ficha.libro.narrador}-${ficha.libro.en_memoria}` : 'nuevo'}
+            modo={ficha.modo}
+            libro={ficha.libro}
+            categorias={categories}
+            vocabulario={vocabulario}
+            narracionHabilitada={narracionHabilitada}
+            onGuardado={alGuardar}
+            onEliminado={alEliminar}
+          />
+        )}
+      </Dialogo>
+    </section>
   );
 };
+
 export default ContentManagement;

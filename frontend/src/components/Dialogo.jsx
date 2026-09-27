@@ -28,7 +28,10 @@ export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', 
 
   const alCerrar = () => {
     const destino = disparadorRef.current;
+    // Si el disparador ya no existe (p. ej. la fila del libro recién eliminado),
+    // el foco va al contenido principal: nunca queda en la nada.
     if (destino && document.contains(destino)) destino.focus();
+    else document.getElementById('main-content-section')?.focus();
     disparadorRef.current = null;
     onClose();
   };

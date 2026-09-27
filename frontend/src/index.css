@@ -1362,3 +1362,131 @@ body,
   color: var(--text-secondary);
   opacity: 1;
 }
+
+/* ==========================================================================
+   Consola de administración (spec 005, grupo A). Quien administra es una
+   persona ciega total: un control por fila, fichas en <dialog> y colores AAA.
+   ========================================================================== */
+
+/* Foco único en toda la app (R26 del spec 002). Con !important porque reglas
+   más específicas de arriba (.tab-btn:focus-visible, .btn-action-*:focus-visible,
+   .admin-search-input:focus) dejaban el anillo viejo, sin separación ni anillo
+   interior: la accesibilidad decide sobre la cascada (P17). */
+:focus-visible {
+  outline: 4px solid var(--focus-ring) !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 4px var(--focus-ring-inner) !important;
+}
+main:focus-visible {
+  outline-offset: -4px !important;
+  box-shadow: inset 0 0 0 8px var(--focus-ring-inner) !important;
+}
+
+.admin-subtitulo {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+.estado-carga-admin {
+  padding: 1.5rem 0;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.aviso-admin {
+  border: 3px solid var(--status-warn);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin: 1rem 0;
+  color: var(--text-primary);
+}
+.admin-controls-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin: 1rem 0;
+}
+.admin-search-input {
+  flex: 1 1 18rem;
+  width: auto;
+  min-height: var(--objetivo);
+  border-color: var(--border-control);
+}
+.tabla-desplazable {
+  overflow-x: auto;
+}
+.admin-table tr:hover {
+  background-color: var(--bg-sidebar);
+}
+.tab-btn {
+  min-height: var(--objetivo);
+}
+
+/* Acciones: tokens AAA en los dos modos (antes blanco sobre #EF4444, 3,76:1) */
+.btn-action-edit,
+.btn-action-delete {
+  min-height: var(--objetivo);
+  min-width: var(--objetivo);
+  padding: 0.5rem 1rem;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text-on-accent);
+}
+.btn-action-edit {
+  background-color: var(--accent-blue);
+}
+.btn-action-delete {
+  background-color: var(--status-error);
+}
+.btn-action-edit:hover,
+.btn-action-delete:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  border-color: var(--text-primary);
+}
+
+.acciones-dialogo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.acciones-campo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.campo-casilla {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.campo-casilla input[type="checkbox"] {
+  width: var(--objetivo);
+  height: var(--objetivo);
+  accent-color: var(--accent-blue);
+  flex-shrink: 0;
+}
+.nota-campo {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-top: 0.35rem;
+}
+.roles-usuario {
+  border: 2px solid var(--border-control);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+.capitulos-libro {
+  border-top: 3px solid var(--border-color);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+.orden-pistas {
+  margin: 0.5rem 0 1rem 1.5rem;
+}
+.dialogo .modal-ancho {
+  max-width: 640px;
+}

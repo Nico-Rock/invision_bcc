@@ -7,197 +7,102 @@ import { AuditLogs } from './components/AuditLogs';
 import { UserManagement } from './components/UserManagement';
 import { ContentManagement } from './components/ContentManagement';
 
+// Orden y nombres visibles de las pestañas (spec 005, R13 y R14). La consola abre
+// en Libros: es la tarea principal y la ingesta está deshabilitada.
+const PESTANAS = [
+  { id: 'content', nombre: 'Libros' },
+  { id: 'users', nombre: 'Usuarios' },
+  { id: 'audit', nombre: 'Auditoría' },
+  { id: 'import', nombre: 'Ingesta Masiva' },
+];
+
 export const AdminPanel = () => {
   const { authenticatedFetch } = useAuth();
   const { announceText, playCue } = useAudio();
 
-  const [activeTab, setActiveTab] = useState('import');
+  const [activeTab, setActiveTab] = useState('content');
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
-
-  const tabRefs = {
-    import: useRef(null),
-    users: useRef(null),
-    content: useRef(null),
-    audit: useRef(null)
-  };
-
-  const tabsList = ['import', 'users', 'content', 'audit'];
+  const tabRefs = useRef({});
 
   const fetchAuditLogs = async () => {
     setLoadingAudit(true);
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/admin/auditoria/sesiones/`);
-      if (response.ok) {
-        const data = await response.json();
-        setAuditLogs(data);
-      }
+      if (!response.ok) throw new Error(String(response.status));
+      setAuditLogs(await response.json());
     } catch (err) {
       console.error('Error fetching audit logs:', err);
+      announceText('No se pudo cargar la auditoría de accesos.', { urgente: true });
+      playCue('error');
     } finally {
       setLoadingAudit(false);
     }
   };
 
   useEffect(() => {
+    // Carga inicial desde la API (mismo patrón que Home.jsx)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAuditLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const changeTab = (tabName) => {
-    setActiveTab(tabName);
-    
-    // Announce active tab verbally
-    let verbalName = '';
-    if (tabName === 'import') verbalName = 'Ingesta Masiva';
-    else if (tabName === 'users') verbalName = 'Gestión de Usuarios';
-    else if (tabName === 'content') verbalName = 'Gestión de Contenido';
-    else if (tabName === 'audit') verbalName = 'Auditoría de Accesos';
-
-    announceText(`Mostrando pestaña de ${verbalName}`);
+  // Un solo aviso, con el nombre que se ve (antes: dos avisos y otro nombre)
+  const changeTab = (id) => {
+    setActiveTab(id);
+    const pestana = PESTANAS.find((p) => p.id === id);
+    announceText(`${pestana.nombre}.`);
     playCue('action');
-
-    // Set focus on the selected tab button for keyboard users
-    setTimeout(() => {
-      if (tabRefs[tabName].current) {
-        tabRefs[tabName].current.focus();
-      }
-    }, 50);
+    setTimeout(() => tabRefs.current[id]?.focus(), 0);
   };
 
+  // Patrón de pestañas ARIA completo: flechas, Inicio y Fin
   const handleTabKeyDown = (e, index) => {
-    let newIndex = index;
-    if (e.key === 'ArrowRight') {
-      newIndex = (index + 1) % tabsList.length;
-      e.preventDefault();
-      changeTab(tabsList[newIndex]);
-    } else if (e.key === 'ArrowLeft') {
-      newIndex = (index - 1 + tabsList.length) % tabsList.length;
-      e.preventDefault();
-      changeTab(tabsList[newIndex]);
-    }
+    const ultimo = PESTANAS.length - 1;
+    const destino = { ArrowRight: index === ultimo ? 0 : index + 1, ArrowLeft: index === 0 ? ultimo : index - 1, Home: 0, End: ultimo }[e.key];
+    if (destino === undefined) return;
+    e.preventDefault();
+    changeTab(PESTANAS[destino].id);
   };
 
   return (
     <div className="admin-panel-container">
       <header className="admin-header">
-        <h1 className="admin-title">Panel de Administración e Ingesta</h1>
-        <p style={{ color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+        <h1 className="admin-title">Panel de Administración</h1>
+        <p className="admin-subtitulo">
           Gestión del patrimonio digital de la Biblioteca Central para Ciegos
         </p>
       </header>
 
-      {/* ARIA Accessible Tablist */}
-      <div 
-        role="tablist" 
-        aria-label="Panel de Administración" 
-        className="tabs-header"
-      >
-        <button
-          ref={tabRefs.import}
-          role="tab"
-          id="tab-import"
-          aria-selected={activeTab === 'import'}
-          aria-controls="panel-import"
-          className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
-          tabIndex={activeTab === 'import' ? 0 : -1}
-          onClick={() => changeTab('import')}
-          onKeyDown={(e) => handleTabKeyDown(e, 0)}
-          onFocus={() => playCue('focus')}
-        >
-          Ingesta Masiva
-        </button>
-
-        <button
-          ref={tabRefs.users}
-          role="tab"
-          id="tab-users"
-          aria-selected={activeTab === 'users'}
-          aria-controls="panel-users"
-          className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-          tabIndex={activeTab === 'users' ? 0 : -1}
-          onClick={() => changeTab('users')}
-          onKeyDown={(e) => handleTabKeyDown(e, 1)}
-          onFocus={() => playCue('focus')}
-        >
-          Usuarios
-        </button>
-
-        <button
-          ref={tabRefs.content}
-          role="tab"
-          id="tab-content"
-          aria-selected={activeTab === 'content'}
-          aria-controls="panel-content"
-          className={`tab-btn ${activeTab === 'content' ? 'active' : ''}`}
-          tabIndex={activeTab === 'content' ? 0 : -1}
-          onClick={() => changeTab('content')}
-          onKeyDown={(e) => handleTabKeyDown(e, 2)}
-          onFocus={() => playCue('focus')}
-        >
-          Libros
-        </button>
-
-        <button
-          ref={tabRefs.audit}
-          role="tab"
-          id="tab-audit"
-          aria-selected={activeTab === 'audit'}
-          aria-controls="panel-audit"
-          className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
-          tabIndex={activeTab === 'audit' ? 0 : -1}
-          onClick={() => changeTab('audit')}
-          onKeyDown={(e) => handleTabKeyDown(e, 3)}
-          onFocus={() => playCue('focus')}
-        >
-          Auditoría
-        </button>
+      <div role="tablist" aria-label="Secciones de administración" className="tabs-header">
+        {PESTANAS.map((p, i) => (
+          <button
+            key={p.id}
+            ref={(el) => { tabRefs.current[p.id] = el; }}
+            type="button"
+            role="tab"
+            id={`tab-${p.id}`}
+            aria-selected={activeTab === p.id}
+            aria-controls={`panel-${p.id}`}
+            className={`tab-btn ${activeTab === p.id ? 'active' : ''}`}
+            tabIndex={activeTab === p.id ? 0 : -1}
+            onClick={() => changeTab(p.id)}
+            onKeyDown={(e) => handleTabKeyDown(e, i)}
+            onFocus={() => playCue('focus')}
+          >
+            {p.nombre}
+          </button>
+        ))}
       </div>
 
-      {/* Tab Panels */}
-      <div 
-        id="panel-import" 
-        role="tabpanel" 
-        aria-labelledby="tab-import" 
-        hidden={activeTab !== 'import'}
-      >
-        {activeTab === 'import' && (
-          <ExcelImporter fetchAuditLogs={fetchAuditLogs} />
-        )}
-      </div>
-
-      <div 
-        id="panel-users" 
-        role="tabpanel" 
-        aria-labelledby="tab-users" 
-        hidden={activeTab !== 'users'}
-      >
-        {activeTab === 'users' && (
-          <UserManagement />
-        )}
-      </div>
-
-      <div 
-        id="panel-content" 
-        role="tabpanel" 
-        aria-labelledby="tab-content" 
-        hidden={activeTab !== 'content'}
-      >
-        {activeTab === 'content' && (
-          <ContentManagement />
-        )}
-      </div>
-
-      <div 
-        id="panel-audit" 
-        role="tabpanel" 
-        aria-labelledby="tab-audit" 
-        hidden={activeTab !== 'audit'}
-      >
-        {activeTab === 'audit' && (
-          <AuditLogs auditLogs={auditLogs} loadingAudit={loadingAudit} />
-        )}
-      </div>
+      {PESTANAS.map((p) => (
+        <div key={p.id} id={`panel-${p.id}`} role="tabpanel" aria-labelledby={`tab-${p.id}`} hidden={activeTab !== p.id}>
+          {activeTab === 'content' && p.id === 'content' && <ContentManagement />}
+          {activeTab === 'users' && p.id === 'users' && <UserManagement />}
+          {activeTab === 'audit' && p.id === 'audit' && <AuditLogs auditLogs={auditLogs} loadingAudit={loadingAudit} />}
+          {activeTab === 'import' && p.id === 'import' && <ExcelImporter onIrALibros={() => changeTab('content')} />}
+        </div>
+      ))}
     </div>
   );
 };

@@ -217,7 +217,11 @@ const AppContent = () => {
               </ul>
             </nav>
 
-            <GenerosNav generos={generos} error={errorGeneros} navRef={genresNavRef} />
+            {/* En la consola los géneros de los socios no tienen uso y se leían
+                antes del título principal (spec 005, R13) */}
+            {!pathname.startsWith('/admin') && (
+              <GenerosNav generos={generos} error={errorGeneros} navRef={genresNavRef} />
+            )}
           </aside>
 
           <main id="main-content-section" className="main-content" tabIndex="-1">

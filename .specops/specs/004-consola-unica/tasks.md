@@ -153,3 +153,4 @@
 
 | Task ID | Status | Verification command | Exit code | Verified by / timestamp |
 |---|---|---|---|---|
+| T1 | done (vía spec 005, T1) | `PYTEST_API`: `../`, `a/b.mp3`, `.wav` rechazados; SAS de solo creación por 15 min; no se firma si la pista existe | 0 | Claude Code, 2026-09-26 |
