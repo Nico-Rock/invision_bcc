@@ -4,6 +4,7 @@ import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
 import { Dialogo } from '../../../components/Dialogo';
 import { generarContrasena, deletrear } from '../../../lib/contrasena';
+import { PERFILES, nombrePerfil } from '../../../lib/consola';
 
 /**
  * Contraseña que se puede escuchar (spec 005, R17): mostrar u ocultar con un
@@ -56,6 +57,7 @@ const FichaUsuario = ({ modo, usuario, roles, onCambio, onCerrar }) => {
   const [errores, setErrores] = useState({});
   const [vista, setVista] = useState('form');
   const [rolesUsuario, setRolesUsuario] = useState(() => (usuario?.roles || []).map((r) => r.id));
+  const [perfil, setPerfil] = useState(usuario?.perfil || '');
   const cancelarRef = useRef(null);
 
   useEffect(() => {
@@ -144,6 +146,25 @@ const FichaUsuario = ({ modo, usuario, roles, onCambio, onCerrar }) => {
     }
   };
 
+  // Perfil de accesibilidad (spec 005, R25): define la configuración del primer ingreso
+  const cambiarPerfil = async (nuevo) => {
+    setPerfil(nuevo);
+    if (!nuevo) return;
+    try {
+      const r = await authenticatedFetch(`${API_BASE_URL}/admin/usuarios/${usuario.id}/perfil`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: nuevo }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : String(r.status));
+      playCue('success');
+      announceText(`Perfil de ${usuario.username}: ${nombrePerfil(nuevo)}. Se aplica en su próximo ingreso desde un dispositivo nuevo.`);
+      onCambio();
+    } catch (err) {
+      setPerfil(usuario?.perfil || '');
+      fallar(`No se pudo guardar el perfil: ${err.message}`);
+    }
+  };
+
   const eliminar = async () => {
     try {
       const r = await authenticatedFetch(`${API_BASE_URL}/users/${usuario.id}/`, { method: 'DELETE' });
@@ -207,6 +228,19 @@ const FichaUsuario = ({ modo, usuario, roles, onCambio, onCerrar }) => {
           error={errores.password}
           requerido={modo === 'crear'}
         />
+
+        {modo === 'editar' && (
+          <div className="form-group">
+            <label className="form-label" htmlFor="usuario-perfil">Perfil de accesibilidad</label>
+            <select id="usuario-perfil" className="form-input" value={perfil} onChange={(e) => cambiarPerfil(e.target.value)} aria-describedby="usuario-perfil-detalle">
+              <option value="">Sin perfil</option>
+              {PERFILES.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+            <p id="usuario-perfil-detalle" className="nota-campo">
+              {perfil ? PERFILES.find((p) => p.id === perfil)?.detalle : 'Sin perfil, el sitio arranca con la configuración estándar.'}
+            </p>
+          </div>
+        )}
 
         {modo === 'editar' && (
           <fieldset className="form-group roles-usuario">
@@ -325,6 +359,7 @@ export const UserManagement = () => {
                 <th scope="col">Usuario</th>
                 <th scope="col">Correo</th>
                 <th scope="col">Roles</th>
+                <th scope="col">Perfil</th>
                 <th scope="col">Acciones</th>
               </tr>
             </thead>
@@ -335,6 +370,7 @@ export const UserManagement = () => {
                   <td>{u.username}</td>
                   <td>{u.email}</td>
                   <td>{nombreRoles(u)}</td>
+                  <td>{nombrePerfil(u.perfil)}</td>
                   <td>
                     <button type="button" className="btn-action-edit" onClick={() => setFicha({ modo: 'editar', usuario: u })}>
                       Gestionar<span className="sr-only"> {u.username}</span>

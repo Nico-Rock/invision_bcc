@@ -11,7 +11,7 @@ import { valoresUnicos } from '../../../lib/vocabulario';
  * control por fila ("Gestionar"), total en el título y conteo anunciado al
  * buscar. Antes eran 1.077 botones en 538 filas y "Eliminar" al lado de "Editar".
  */
-export const ContentManagement = () => {
+export const ContentManagement = ({ filtroInicial = null }) => {
   const { authenticatedFetch } = useAuth();
   const { announceText, playCue } = useAudio();
 
@@ -21,6 +21,10 @@ export const ContentManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [ficha, setFicha] = useState(null); // { modo: 'crear' | 'editar', libro }
+  const [version, setVersion] = useState(0);
+  const [filtro, setFiltro] = useState(filtroInicial ? filtroInicial.tipo : 'todos');
+  const [idsFiltro] = useState(filtroInicial && filtroInicial.ids ? new Set(filtroInicial.ids) : null);
+  const [papeleraHabilitada, setPapeleraHabilitada] = useState(false);
   const avisoBusqueda = useRef(null);
 
   const fetchBooks = async () => {
@@ -58,6 +62,7 @@ export const ContentManagement = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBooks();
     fetchCategories();
+    authenticatedFetch(`${API_BASE_URL}/admin/papelera`).then((r) => setPapeleraHabilitada(r.ok)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -67,10 +72,17 @@ export const ContentManagement = () => {
     narradores: valoresUnicos(books.map((b) => b.narrador)),
   }), [books]);
 
+  // Filtros por estado (spec 005, R18): los pendientes del Inicio llegan acá
+  const pasaFiltro = (b, f) => ({
+    todos: true,
+    ids: idsFiltro ? idsFiltro.has(b.id) : true,
+    borrador: b.estado_publicacion === 'borrador',
+    publicado: b.estado_publicacion === 'publicado',
+    sin_narrador: !b.narrador,
+  }[f] ?? true);
   const q = searchQuery.trim().toLowerCase();
-  const filteredBooks = q
-    ? books.filter((b) => [b.nombre, b.autor, b.narrador, b.genero].some((v) => v && v.toLowerCase().includes(q)))
-    : books;
+  const coincide = (b, t) => [b.nombre, b.autor, b.narrador, b.genero].some((v) => v && v.toLowerCase().includes(t));
+  const filteredBooks = books.filter((b) => pasaFiltro(b, filtro) && (!q || coincide(b, q)));
 
   // El conteo se anuncia cuando se deja de escribir, no en cada tecla
   const alBuscar = (valor) => {
@@ -78,7 +90,7 @@ export const ContentManagement = () => {
     clearTimeout(avisoBusqueda.current);
     avisoBusqueda.current = setTimeout(() => {
       const t = valor.trim().toLowerCase();
-      const n = t ? books.filter((b) => [b.nombre, b.autor, b.narrador, b.genero].some((v) => v && v.toLowerCase().includes(t))).length : books.length;
+      const n = books.filter((b) => pasaFiltro(b, filtro) && (!t || coincide(b, t))).length;
       announceText(n === 1 ? '1 libro encontrado.' : `${n} libros encontrados.`);
     }, 800);
   };
@@ -87,7 +99,10 @@ export const ContentManagement = () => {
   const alGuardar = async (id) => {
     const data = await fetchBooks();
     const libro = data && data.find((b) => b.id === id);
-    if (libro) setFicha({ modo: 'editar', libro });
+    if (libro) {
+      setVersion((v) => v + 1);
+      setFicha({ modo: 'editar', libro });
+    }
   };
 
   // Primero se refresca la lista: así la fila eliminada ya no existe cuando el
@@ -101,7 +116,7 @@ export const ContentManagement = () => {
 
   return (
     <section className="admin-card" aria-labelledby="libros-titulo">
-      <h2 id="libros-titulo">Libros ({filteredBooks.length}{q ? ` de ${books.length}` : ''})</h2>
+      <h2 id="libros-titulo">Libros ({filteredBooks.length}{filteredBooks.length !== books.length ? ` de ${books.length}` : ''})</h2>
 
       <div className="admin-controls-bar">
         <label className="sr-only" htmlFor="buscar-libros">Buscar libros por título, autor, narrador o género</label>
@@ -114,6 +129,23 @@ export const ContentManagement = () => {
           onChange={(e) => alBuscar(e.target.value)}
           onFocus={() => playCue('focus')}
         />
+        <label className="sr-only" htmlFor="filtro-libros">Mostrar</label>
+        <select
+          id="filtro-libros"
+          className="form-input selector-filtro"
+          value={filtro}
+          onChange={(e) => {
+            setFiltro(e.target.value);
+            const n = books.filter((b) => pasaFiltro(b, e.target.value) && (!q || coincide(b, q))).length;
+            announceText(n === 1 ? '1 libro.' : `${n} libros.`);
+          }}
+        >
+          <option value="todos">Todos los libros</option>
+          {idsFiltro && <option value="ids">Sin audio</option>}
+          <option value="borrador">Borradores</option>
+          <option value="publicado">Publicados</option>
+          <option value="sin_narrador">Sin narrador</option>
+        </select>
         <button type="button" className="btn-submit" onClick={() => setFicha({ modo: 'crear', libro: null })}>
           <span aria-hidden="true">➕ </span>Registrar audiolibro
         </button>
@@ -132,6 +164,7 @@ export const ContentManagement = () => {
                 <th scope="col">Autor</th>
                 <th scope="col">Narrador</th>
                 <th scope="col">Género</th>
+                <th scope="col">Estado</th>
                 <th scope="col">Acciones</th>
               </tr>
             </thead>
@@ -142,6 +175,7 @@ export const ContentManagement = () => {
                   <td>{book.autor || 'Sin autor'}</td>
                   <td>{book.narrador ? `${book.narrador}${book.en_memoria ? ' (En Memoria)' : ''}` : 'Sin narrador'}</td>
                   <td>{book.genero || 'Sin género'}</td>
+                  <td>{book.estado_publicacion === 'borrador' ? 'Borrador' : 'Publicado'}</td>
                   <td>
                     <button type="button" className="btn-action-edit" onClick={() => setFicha({ modo: 'editar', libro: book })}>
                       Gestionar<span className="sr-only"> {book.nombre}</span>
@@ -157,12 +191,13 @@ export const ContentManagement = () => {
       <Dialogo abierto={!!ficha} tituloId="ficha-libro-titulo" className="modal-card modal-ancho" onClose={() => setFicha(null)}>
         {ficha && (
           <FichaLibro
-            key={ficha.libro ? `${ficha.libro.id}-${ficha.libro.narrador}-${ficha.libro.en_memoria}` : 'nuevo'}
+            key={ficha.libro ? `${ficha.libro.id}-${version}` : 'nuevo'}
             modo={ficha.modo}
             libro={ficha.libro}
             categorias={categories}
             vocabulario={vocabulario}
             narracionHabilitada={narracionHabilitada}
+            papeleraHabilitada={papeleraHabilitada}
             onGuardado={alGuardar}
             onEliminado={alEliminar}
           />

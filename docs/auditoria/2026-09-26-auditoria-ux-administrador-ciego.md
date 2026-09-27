@@ -171,4 +171,19 @@ La consola única (spec 004) y el catálogo de atajos (spec 003) siguen vigentes
 | M1–M6 | ✅ Reparados | Estructura, un aviso, Inicio/Fin, archivo visible, contraseñas, sin progreso falso |
 | Presign inseguro (spec 004, E1) | ✅ Reparado | Nombre validado y permiso de solo creación |
 
-Pendiente de aprobación (grupos B y C del spec 005): Inicio, estado de publicación, verificación de audio, tareas con estado real, importador nuevo, papelera, fusión, perfiles de socio, auditoría de contenido e informe del día.
+### Grupos B y C (implementados el mismo día)
+
+| Mejora | Estado |
+|---|---|
+| O2 Inicio con pendientes | ✅ Primera pestaña; resumen hablado y acceso a cada lista filtrada |
+| O3 Estado de publicación | ✅ Fichas nuevas en borrador; publicar exige audio; los socios solo ven lo publicado |
+| O5 Verificación de audio | ✅ Duración y archivos vacíos, dañados o cortados. 🟡 Silencios largos: pendiente de aprobar ffmpeg |
+| O6 Fusión de valores | ✅ Desde el Inicio, con vista previa hablada y deshacer por historial |
+| O7 Tareas con estado real | ✅ Consultables y con aviso al terminar desde cualquier pestaña |
+| O8 Importador que valida | ✅ CSV: mapeo explícito, problemas por fila, confirmación; fichas en borrador. 🟡 Audio desde SharePoint: sigue fuera |
+| O9 Papelera y deshacer | ✅ 30 días, restaurar, eliminar definitivamente con confirmación; historial con deshacer |
+| O10 Perfil del socio | ✅ Lo elige la administración y se aplica en el primer ingreso de cada dispositivo |
+| O11 Auditoría útil | ✅ Cambios de contenido y accesos, con filtro |
+| O12 Informe del día | ✅ En el Inicio, imprimible |
+
+Todo funciona en la base local de la demo. En producción necesita el DDL de `aprobaciones/2026-09-29_tablas_administracion.md` y el despliegue de la API nueva, ambos con aprobación de la BCC.

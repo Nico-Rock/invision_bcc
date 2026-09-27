@@ -1,42 +1,121 @@
-// Auditoría legible (spec 005, R12): quién, qué y cuándo en una tabla con
-// encabezados. Antes era una región viva (role="log", la tercera de la página)
-// con filas enfocables que decían "Usuario ID: 5".
-export const AuditLogs = ({ auditLogs, loadingAudit }) => (
-  <section className="admin-card" aria-labelledby="audit-title">
-    <h2 id="audit-title">Auditoría de accesos ({auditLogs.length})</h2>
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../hooks/useAuth';
+import { useAudio } from '../../../hooks/useAudio';
+import { API_BASE_URL } from '../../../config';
+import { OPERACIONES, fechaHablada } from '../../../lib/consola';
 
-    {loadingAudit ? (
-      <p className="estado-carga-admin">Cargando eventos de acceso…</p>
-    ) : auditLogs.length === 0 ? (
-      <p className="estado-carga-admin">No hay eventos de inicio o cierre de sesión registrados.</p>
-    ) : (
-      <div className="tabla-desplazable" tabIndex="0" role="region" aria-labelledby="audit-title">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th scope="col">Persona</th>
-              <th scope="col">Correo</th>
-              <th scope="col">Evento</th>
-              <th scope="col">Fecha y hora</th>
-            </tr>
-          </thead>
-          <tbody>
-            {auditLogs.map((log) => {
-              const fecha = log.timestamp ? new Date(log.timestamp) : null;
-              return (
+const leer = async (fetcher, url) => {
+  const r = await fetcher(url);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : String(r.status));
+  return d;
+};
+
+/**
+ * Auditoría (spec 005, R12 y R26): quién hizo qué con el contenido y quién
+ * entró, en tablas con encabezados y en palabras, sin números sueltos.
+ */
+export const AuditLogs = () => {
+  const { authenticatedFetch } = useAuth();
+  const { announceText, playCue } = useAudio();
+  const [operaciones, setOperaciones] = useState(null);
+  const [errorOps, setErrorOps] = useState('');
+  const [accesos, setAccesos] = useState(null);
+  const [filtro, setFiltro] = useState('');
+
+  const cargarOperaciones = async (operacion) => {
+    try {
+      const q = operacion ? `?operacion=${encodeURIComponent(operacion)}` : '';
+      setOperaciones(await leer(authenticatedFetch, `${API_BASE_URL}/admin/operaciones${q}`));
+      setErrorOps('');
+    } catch (err) {
+      setOperaciones([]);
+      setErrorOps(err.message);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarOperaciones('');
+    leer(authenticatedFetch, `${API_BASE_URL}/admin/auditoria/sesiones/`)
+      .then(setAccesos)
+      .catch(() => {
+        setAccesos([]);
+        announceText('No se pudo cargar la auditoría de accesos.', { urgente: true });
+        playCue('error');
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtrar = async (valor) => {
+    setFiltro(valor);
+    await cargarOperaciones(valor);
+  };
+
+  useEffect(() => {
+    if (operaciones && filtro !== undefined) announceText(`${operaciones.length} ${operaciones.length === 1 ? 'cambio' : 'cambios'}.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operaciones]);
+
+  return (
+    <section className="admin-card" aria-labelledby="audit-title">
+      <h2 id="audit-title">Auditoría</h2>
+
+      <h3 id="cambios-titulo">Cambios de contenido ({operaciones ? operaciones.length : '…'})</h3>
+      <label className="form-label" htmlFor="filtro-operacion">Mostrar</label>
+      <select id="filtro-operacion" className="form-input" value={filtro} onChange={(e) => filtrar(e.target.value)}>
+        <option value="">Todos los cambios</option>
+        {Object.entries(OPERACIONES).map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}
+      </select>
+      {errorOps && <p className="texto-error">{errorOps}</p>}
+      {operaciones && operaciones.length > 0 && (
+        <div className="tabla-desplazable" tabIndex="0" role="region" aria-labelledby="cambios-titulo">
+          <table className="admin-table">
+            <thead>
+              <tr><th scope="col">Persona</th><th scope="col">Qué hizo</th><th scope="col">Sobre qué</th><th scope="col">Detalle</th><th scope="col">Cuándo</th></tr>
+            </thead>
+            <tbody>
+              {operaciones.map((o) => (
+                <tr key={o.id}>
+                  <td>{o.usuario?.username || 'Cuenta desconocida'}</td>
+                  <td>{OPERACIONES[o.operacion] || o.operacion}</td>
+                  <td>{o.objeto || 'Sin objeto'}</td>
+                  <td>{o.detalle || 'Sin detalle'}</td>
+                  <td>{fechaHablada(o.fecha)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {operaciones && operaciones.length === 0 && !errorOps && <p>No hay cambios registrados.</p>}
+
+      <h3 id="accesos-titulo">Accesos ({accesos ? accesos.length : '…'})</h3>
+      {accesos === null ? (
+        <p className="estado-carga-admin">Cargando eventos de acceso…</p>
+      ) : accesos.length === 0 ? (
+        <p className="estado-carga-admin">No hay eventos de inicio o cierre de sesión registrados.</p>
+      ) : (
+        <div className="tabla-desplazable" tabIndex="0" role="region" aria-labelledby="accesos-titulo">
+          <table className="admin-table">
+            <thead>
+              <tr><th scope="col">Persona</th><th scope="col">Correo</th><th scope="col">Evento</th><th scope="col">Fecha y hora</th></tr>
+            </thead>
+            <tbody>
+              {accesos.map((log) => (
                 <tr key={log.id}>
                   <td>{log.usuario?.username || `Cuenta ${log.usuario_id}`}</td>
                   <td>{log.usuario?.email || 'Sin correo'}</td>
                   <td>{log.tipo_evento === 'LOGIN' ? 'Inició sesión' : 'Cerró sesión'}</td>
-                  <td>{fecha ? `${fecha.toLocaleDateString('es-AR')} a las ${fecha.toLocaleTimeString('es-AR')}` : 'Sin fecha'}</td>
+                  <td>{fechaHablada(log.timestamp)}</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </section>
-);
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+};
 
 export default AuditLogs;

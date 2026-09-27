@@ -4,6 +4,7 @@ import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
 import { parecidos } from '../../../lib/vocabulario';
 import { CapitulosLibro } from './CapitulosLibro';
+import { PublicacionLibro, HistorialLibro } from './SeccionesFicha';
 
 const vacio = { nombre: '', autor: '', narrador: '', en_memoria: false, genero: '', categoria_id: '', descripcion: '', clasificacionesStr: '' };
 
@@ -30,7 +31,7 @@ const CAMPOS_VOCABULARIO = [
  * mismo?" ante un valor parecido a uno existente, y la confirmación de borrado,
  * que explica las consecuencias y arranca con el foco en "Cancelar".
  */
-export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabilitada, onGuardado, onEliminado }) => {
+export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabilitada, papeleraHabilitada, onGuardado, onEliminado }) => {
   const { authenticatedFetch } = useAuth();
   const { announceText, playCue } = useAudio();
   const [form, setForm] = useState(() => desdeLibro(libro));
@@ -143,8 +144,11 @@ export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabi
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/admin/audiolibros/${libro.id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error(String(response.status));
+      const datos = response.status === 204 ? {} : await response.json().catch(() => ({}));
       playCue('success');
-      announceText(`Audiolibro ${libro.nombre} eliminado.`);
+      announceText(datos.papelera
+        ? `${libro.nombre} enviado a la papelera. Podés restaurarlo durante ${datos.dias} días desde la pestaña Papelera.`
+        : `Audiolibro ${libro.nombre} eliminado.`);
       onEliminado();
     } catch (err) {
       console.error(err);
@@ -157,11 +161,17 @@ export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabi
     return (
       <>
         <h2 id="ficha-libro-titulo" className="modal-title">¿Eliminar {libro.nombre}?</h2>
-        <p>El libro dejará de verse para los socios y se pierde su ficha, incluido el narrador. El audio que ya está en el almacenamiento no se borra.</p>
-        <p><strong>Esta acción todavía no se puede deshacer.</strong></p>
+        {papeleraHabilitada ? (
+          <p>El libro dejará de verse para los socios y va a la papelera, donde se puede restaurar durante 30 días. El audio que ya está en el almacenamiento no se borra.</p>
+        ) : (
+          <>
+            <p>El libro dejará de verse para los socios y se pierde su ficha, incluido el narrador. El audio que ya está en el almacenamiento no se borra.</p>
+            <p><strong>Esta base todavía no tiene papelera: la acción no se puede deshacer.</strong></p>
+          </>
+        )}
         <div className="acciones-dialogo">
           <button ref={cancelarRef} type="button" className="btn-submit btn-secundario" onClick={() => setVista('form')}>Cancelar</button>
-          <button type="button" className="btn-action-delete" onClick={eliminar}>Eliminar definitivamente</button>
+          <button type="button" className="btn-action-delete" onClick={eliminar}>{papeleraHabilitada ? 'Enviar a la papelera' : 'Eliminar definitivamente'}</button>
         </div>
       </>
     );
@@ -276,7 +286,9 @@ export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabi
         </div>
       </form>
 
+      {modo === 'editar' && <PublicacionLibro libro={libro} onCambio={() => onGuardado(libro.id)} />}
       {modo === 'editar' && <CapitulosLibro libro={libro} />}
+      {modo === 'editar' && <HistorialLibro libro={libro} onCambio={() => onGuardado(libro.id)} />}
     </>
   );
 };

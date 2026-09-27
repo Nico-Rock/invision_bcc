@@ -1490,3 +1490,59 @@ main:focus-visible {
 .dialogo .modal-ancho {
   max-width: 640px;
 }
+
+/* Consola, grupos B y C del spec 005 */
+.campo-casilla input[type="radio"] {
+  width: var(--objetivo);
+  height: var(--objetivo);
+  accent-color: var(--accent-blue);
+  flex-shrink: 0;
+}
+.lista-pendientes {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1.5rem;
+}
+.seccion-ficha {
+  border-top: 3px solid var(--border-color);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+.selector-filtro {
+  flex: 0 1 16rem;
+}
+.informe-dia {
+  border: 2px solid var(--border-control);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+}
+.informe-dia ul {
+  margin: 0.5rem 0 1rem 1.5rem;
+}
+
+/* Informe del día imprimible (R27): solo el informe, en negro sobre blanco */
+@media print {
+  body * { visibility: hidden; }
+  .informe-dia, .informe-dia * { visibility: visible; color: #000000 !important; }
+  .informe-dia { position: absolute; left: 0; top: 0; border: none; }
+  .no-imprimir { display: none !important; }
+}
+
+/* Botón secundario: fondo de tarjeta y texto principal en los dos modos. La regla
+   de .btn-submit (texto sobre acento) le ganaba por orden y dejaba texto negro
+   sobre #121212 en alto contraste (axe, 26/09). */
+.btn-submit.btn-secundario,
+.btn-submit-search.btn-secundario {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 2px solid var(--border-control);
+}
+.btn-submit.btn-secundario:hover,
+.btn-submit-search.btn-secundario:hover {
+  border-color: var(--accent-orange);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

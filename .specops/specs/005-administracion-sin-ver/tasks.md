@@ -200,3 +200,10 @@
 | T10 | done | `SITIO` V13 (axe 0, AAA, 48 px en 4 pestañas y 2 modos). Además: la regla de foco pasa a `!important`, porque reglas más específicas dejaban el anillo viejo | 0 | Claude Code, 2026-09-26 |
 | T11 | done | `SITIO` 8 casos de la consola | 0 | Claude Code, 2026-09-26 |
 | T12 | done | `UNIT` 9/9 · `SITIO` 21/21 · panel y scripts 88/88 · API 49/50 (la falla `test_stream_audio_simple_with_mock` es anterior a la rama) | 0 | Claude Code, 2026-09-26 |
+| T13 | done | `PYTEST_API` (pendientes, publicación, visibilidad para socios) + `SITIO` (Inicio primero y anunciado; publicar sin audio da aviso urgente con consulta real de solo lectura) | 0 | Claude Code, 2026-09-26 |
+| T14 | done | `PYTEST_API` (13 casos de piezas puras: duración, vacía, sin audio, dañada, truncada, muy corta) + `SITIO` (duración y problema anunciados por pista). Silencio largo: fuera, requiere ffmpeg (dependencia a aprobar) | 0 | Claude Code, 2026-09-26 |
+| T15 | done | `PYTEST_API` (tareas con estado real, importador que valida sin escribir) + `SITIO` (CSV analizado, importado como tarea, aviso "Tarea terminada" desde cualquier pestaña) | 0 | Claude Code, 2026-09-26 |
+| T16 | done | `PYTEST_API` (papelera, restaurar, vaciar vencidos, eliminar definitivo, historial y deshacer, fusión) + `SITIO` (papelera, deshacer y unión desde el Inicio) | 0 | Claude Code, 2026-09-26 |
+| T17 | done | `PYTEST_API` (perfil y /user/me/preferencias) + `SITIO` (el socio recibe alto contraste y texto al 150 % en su primer ingreso) | 0 | Claude Code, 2026-09-26 |
+| T18 | done | `PYTEST_API` (registro e informe) + `SITIO` (auditoría "Creó la ficha…", informe del día imprimible) | 0 | Claude Code, 2026-09-26 |
+| B/C | done | `UNIT` 9/9 · `SITIO` 23/23 · panel y scripts 83/83 · API 85/86 (falla anterior a la rama). Hallazgo: inspeccionar el esquema con otra conexión hacía ROLLBACK de la sesión en SQLite; corregido. Base local limpiada con `habilitar_local.py --limpiar-pruebas` | 0 | Claude Code, 2026-09-26 |

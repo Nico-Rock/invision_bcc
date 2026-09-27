@@ -34,7 +34,7 @@ from vocabulario import grupos_parecidos
 router = APIRouter(tags=["Administración sin ver"])
 
 MAX_TEXTO_CSV = 2_000_000
-MAX_LISTA = 50
+MAX_LISTA = 2000  # la consola filtra Libros con estos ids
 PERFILES = {
     "lector": {"voz": False, "contraste": False, "texto": 16},
     "baja_vision": {"voz": True, "contraste": True, "texto": 24},
@@ -406,6 +406,19 @@ def restaurar(libro_id: int, db: Session = Depends(get_db), usuario_id=Depends(a
     db.delete(fila)
     db.commit()
     ex.registrar(db, usuario_id, "restaurar_libro", nombre)
+    return {"id": libro_id, "nombre": nombre}
+
+
+@router.delete("/admin/papelera/{libro_id}")
+def eliminar_definitivamente(libro_id: int, db: Session = Depends(get_db), usuario_id=Depends(admin)):
+    """Borrado definitivo de una ficha que ya está en la papelera (confirmado en la consola)."""
+    _exigir(db, TABLA_PAPELERA, "La papelera")
+    fila = db.query(PapeleraAudiolibro).filter_by(audiolibro_id=libro_id).first()
+    if not fila:
+        raise HTTPException(status_code=404, detail="Ese libro no está en la papelera.")
+    nombre = fila.nombre
+    ex.borrar_definitivo(db, libro_id)
+    ex.registrar(db, usuario_id, "borrar_definitivo", nombre)
     return {"id": libro_id, "nombre": nombre}
 
 

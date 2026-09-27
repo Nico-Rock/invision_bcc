@@ -292,3 +292,12 @@ def test_r28_sin_tablas_degrada_con_aviso(client, admin_token):
         assert client.delete(f"/admin/audiolibros/{libro_id}", headers=H(admin_token)).status_code == 204
     finally:
         BaseExtras.metadata.create_all(bind=test_engine)
+
+
+def test_r23_eliminar_definitivamente_desde_la_papelera(client, admin_token, test_db):
+    libro_id = crear(client, admin_token, "BORRAR YA BC")
+    client.delete(f"/admin/audiolibros/{libro_id}", headers=H(admin_token))
+    assert client.delete(f"/admin/papelera/{libro_id}", headers=H(admin_token)).status_code == 200
+    test_db.expire_all()
+    assert test_db.query(Audiolibro).filter_by(id=libro_id).first() is None
+    assert client.delete(f"/admin/papelera/{libro_id}", headers=H(admin_token)).status_code == 404

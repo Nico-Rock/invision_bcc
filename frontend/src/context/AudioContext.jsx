@@ -401,6 +401,33 @@ export const AudioProvider = ({ children }) => {
     playChapter(currentBook, next);
   };
 
+  // Perfil de accesibilidad (spec 005, R25): la primera vez que cada persona
+  // entra desde este dispositivo se aplican las preferencias que cargó la
+  // administración. Después manda lo que elija con la barra de accesibilidad.
+  useEffect(() => {
+    if (!token || !user?.id) return;
+    const marca = `a11y-perfil-aplicado-${user.id}`;
+    if (leerCrudo(marca) !== null) return;
+    let vigente = true;
+    fetch(`${API_BASE_URL}/user/me/preferencias`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!vigente || !d) return;
+        guardar(marca, d.perfil || 'sin-perfil');
+        if (!d.preferencias) return;
+        primerUsoRef.current = false;
+        const p = d.preferencias;
+        setFontScale(acotarTexto(p.texto));
+        setHighContrast(!!p.contraste);
+        vozRef.current = !!p.voz;
+        setVozActiva(!!p.voz);
+        const partes = [p.contraste ? 'alto contraste' : 'contraste estándar', `texto al ${Math.round((acotarTexto(p.texto) / 16) * 100)} %`, p.voz ? 'lectura en voz encendida' : 'lectura en voz apagada'];
+        announceText(`Se aplicó tu configuración de accesibilidad: ${partes.join(', ')}. Podés cambiarla en la barra superior.`);
+      })
+      .catch(() => {});
+    return () => { vigente = false; };
+  }, [token, user?.id]);
+
   const value = {
     currentBook,
     currentChapterIndex,
