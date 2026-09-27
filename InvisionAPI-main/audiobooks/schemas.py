@@ -73,9 +73,12 @@ class AdminUserUpdate(BaseModel):
 
 
 class AudiobookCreateUpdate(BaseModel):
-    nombre: str = Field(..., min_length=1)
+    nombre: str = Field(..., min_length=1, max_length=255)
     descripcion: Optional[str] = None
-    genero: Optional[str] = None
-    autor: Optional[str] = None
+    genero: Optional[str] = Field(None, max_length=100)
+    autor: Optional[str] = Field(None, max_length=200)
     categoria_id: Optional[int] = None
     clasificaciones: Optional[List[str]] = []
+    # Spec 005 (R6): se guardan en una tabla aparte; None = no tocar
+    narrador: Optional[str] = Field(None, max_length=200)
+    en_memoria: Optional[bool] = None

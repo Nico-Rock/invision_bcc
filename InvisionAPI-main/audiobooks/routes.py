@@ -95,7 +95,7 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/users/", response_model=List[UserResponse])
+@router.get("/users/")
 async def read_users(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     # Decodificar el token para obtener la información del usuario autenticado
     user_info = decode_access_token(token)
@@ -110,7 +110,19 @@ async def read_users(db: Session = Depends(get_db), token: str = Depends(oauth2_
     if not users:
         raise HTTPException(status_code=404, detail="No se encontraron usuarios")
 
-    return users
+    # Con sus roles (spec 005, R11): sin esto la consola mostraba "Sin Rol"
+    # para todas las cuentas, incluida la del administrador.
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "username": u.username,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "roles": [{"id": ur.role.id, "name": ur.role.name} for ur in u.roles if ur.role],
+        }
+        for u in users
+    ]
 
 @router.get("/users/{user_id}/", response_model=UserResponse)
 async def read_user_detail(user_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
@@ -498,102 +510,74 @@ def get_books_by_genre_endpoint(
 from fastapi import BackgroundTasks
 from sharepoint import ingest_audiobook_files
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+from urllib.parse import quote
+from validacion_pistas import validar_nombre_pista
+from models_extras import NarracionAudiolibro, narracion_habilitada
 from datetime import datetime, timezone, timedelta
 from config import AZURE_ACCOUNT_NAME, AZURE_ACCOUNT_KEY, AZURE_CONTAINER_NAME
 
 @router.post("/admin/importar-lote")
 async def importar_lote(
-    data: dict, 
-    background_tasks: BackgroundTasks, 
-    db: Session = Depends(get_db), 
+    data: dict,
     token: str = Depends(oauth2_scheme)
 ):
+    """Deshabilitada (spec 005, R1): la "ingesta" era un simulacro que subía
+    `dummy mp3 content` con overwrite=True sobre el capítulo 1 real y la pantalla
+    anunciaba un éxito inventado. No crea ni encola nada hasta que exista la
+    transferencia real desde SharePoint (spec aparte, R21 y R22)."""
     user_info = decode_access_token(token)
     if "Admin" not in user_info["roles"]:
         raise HTTPException(status_code=403, detail="No autorizado")
-    
-    excel_data = data.get("libros", [])
-    
-    for libro_data in excel_data:
-        nombre = libro_data.get("nombre")
-        descripcion = libro_data.get("descripcion")
-        autor = libro_data.get("autor")
-        categoria_nombre = libro_data.get("categoria")
-        clasificaciones_lista = libro_data.get("clasificaciones", [])
-        sharepoint_url = libro_data.get("sharepoint_url")
-        
-        # 1. Resolver o crear categoría
-        categoria = db.query(Categoria).filter(Categoria.nombre == categoria_nombre).first()
-        if not categoria and categoria_nombre:
-            categoria = Categoria(nombre=categoria_nombre)
-            db.add(categoria)
-            db.commit()
-            db.refresh(categoria)
-            
-        # 2. Crear audiolibro
-        audiolibro = db.query(Audiolibro).filter(Audiolibro.nombre == nombre).first()
-        if not audiolibro:
-            audiolibro = Audiolibro(
-                nombre=nombre,
-                descripcion=descripcion,
-                autor=autor,
-                categoria_id=categoria.id if categoria else None
-            )
-            db.add(audiolibro)
-            db.commit()
-            db.refresh(audiolibro)
-            
-        # 3. Vincular clasificaciones
-        for clas_nombre in clasificaciones_lista:
-            clas = db.query(Clasificacion).filter(Clasificacion.nombre == clas_nombre).first()
-            if not clas and clas_nombre:
-                clas = Clasificacion(nombre=clas_nombre)
-                db.add(clas)
-                db.commit()
-                db.refresh(clas)
-            if clas and clas not in audiolibro.clasificaciones:
-                audiolibro.clasificaciones.append(clas)
-                db.commit()
-                
-        # 4. Encolar tarea de descarga de SharePoint si hay URL
-        if sharepoint_url:
-            background_tasks.add_task(
-                ingest_audiobook_files,
-                sharepoint_url,
-                audiolibro.nombre
-            )
-            
-    return {"message": "Importación iniciada en segundo plano"}
+    raise HTTPException(
+        status_code=503,
+        detail="La ingesta desde SharePoint está deshabilitada hasta que exista la transferencia real. "
+               "Los libros se cargan desde la pestaña Libros.",
+    )
 
 
 @router.post("/audiolibros/{audiolibro_id}/capitulos/presign-upload")
 async def get_presigned_upload_url(
     audiolibro_id: int,
-    filename: str,
+    filename: str = "",
     db: Session = Depends(get_db),
     token: str = Depends(oauth2_scheme)
 ):
+    """Permiso para subir UNA pista directo al almacenamiento (spec 005, R3).
+
+    Antes firmaba escritura por una hora con el nombre tal como llegaba: con
+    `../` o un nombre existente se podía sobrescribir cualquier audio (CWE-22).
+    Ahora el nombre se valida, una pista existente no se vuelve a firmar y el
+    permiso es de SOLO CREACIÓN: Azure rechaza sobrescribir aunque se reintente.
+    """
     user_info = decode_access_token(token)
     if "Admin" not in user_info["roles"]:
         raise HTTPException(status_code=403, detail="No autorizado")
 
+    motivo = validar_nombre_pista(filename)
+    if motivo:
+        raise HTTPException(status_code=422, detail=motivo)
+
     audiolibro = db.query(Audiolibro).filter(Audiolibro.id == audiolibro_id).first()
     if not audiolibro:
         raise HTTPException(status_code=404, detail="Audiolibro no encontrado")
-        
+    if container_client is None:
+        raise HTTPException(status_code=503, detail="El almacenamiento de audio no está disponible.")
+
     blob_name = f"{audiolibro.nombre}/{filename}"
+    if container_client.get_blob_client(blob_name).exists():
+        return {"estado": "existe", "blob_path": blob_name}
 
     sas_token = generate_blob_sas(
         account_name=AZURE_ACCOUNT_NAME,
         container_name=AZURE_CONTAINER_NAME,
         blob_name=blob_name,
         account_key=AZURE_ACCOUNT_KEY,
-        permission=BlobSasPermissions(write=True, create=True),
-        expiry=datetime.now(timezone.utc) + timedelta(hours=1)
+        permission=BlobSasPermissions(create=True),
+        expiry=datetime.now(timezone.utc) + timedelta(minutes=15)
     )
 
-    sas_url = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/{blob_name}?{sas_token}"
-    return {"sas_url": sas_url, "blob_path": blob_name}
+    sas_url = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/{quote(blob_name)}?{sas_token}"
+    return {"estado": "subir", "sas_url": sas_url, "blob_path": blob_name}
 
 
 @router.get("/admin/auditoria/sesiones/")
@@ -610,6 +594,11 @@ async def get_sesiones_auditoria(
         {
             "id": s.id,
             "usuario_id": s.usuario_id,
+            # Spec 005 (R12): quién, no solo un número
+            "usuario": {
+                "username": s.usuario.username if s.usuario else None,
+                "email": s.usuario.email if s.usuario else None,
+            },
             "tipo_evento": s.tipo_evento,
             "timestamp": s.timestamp.isoformat() if s.timestamp else None
         }
@@ -647,8 +636,13 @@ async def list_admin_audiolibros(db: Session = Depends(get_db), token: str = Dep
         raise HTTPException(status_code=403, detail="No autorizado")
     
     libros = db.query(Audiolibro).all()
+    habilitada = narracion_habilitada(db)
+    narraciones = {n.audiolibro_id: n for n in db.query(NarracionAudiolibro).all()} if habilitada else {}
     return [
         {
+            "narracion_habilitada": habilitada,
+            "narrador": narraciones[b.id].narrador if b.id in narraciones else None,
+            "en_memoria": bool(narraciones[b.id].en_memoria) if b.id in narraciones else False,
             "id": b.id,
             "nombre": b.nombre,
             "descripcion": b.descripcion,
@@ -660,6 +654,28 @@ async def list_admin_audiolibros(db: Session = Depends(get_db), token: str = Dep
         }
         for b in libros
     ]
+
+
+def _guardar_narracion(db, libro_id, payload):
+    """Guarda narrador y "En Memoria" (spec 005, R6 y R7).
+
+    Devuelve "sin_cambios" si no se mandaron, "no_habilitada" si la base todavía
+    no tiene la tabla (el libro se guarda igual) o "guardada".
+    """
+    if payload.narrador is None and payload.en_memoria is None:
+        return "sin_cambios"
+    if not narracion_habilitada(db):
+        return "no_habilitada"
+    fila = db.query(NarracionAudiolibro).filter(NarracionAudiolibro.audiolibro_id == libro_id).first()
+    if not fila:
+        fila = NarracionAudiolibro(audiolibro_id=libro_id, en_memoria=False)
+        db.add(fila)
+    if payload.narrador is not None:
+        fila.narrador = payload.narrador.strip() or None
+    if payload.en_memoria is not None:
+        fila.en_memoria = payload.en_memoria
+    db.commit()
+    return "guardada"
 
 
 @router.post("/admin/audiolibros", status_code=status.HTTP_201_CREATED)
@@ -690,14 +706,15 @@ async def create_admin_audiolibro(payload: AudiobookCreateUpdate, db: Session = 
         if cl:
             libro.clasificaciones.append(cl)
     db.commit()
-    
+
     return {
         "id": libro.id,
         "nombre": libro.nombre,
         "descripcion": libro.descripcion,
         "genero": libro.genero,
         "autor": libro.autor,
-        "categoria_id": libro.categoria_id
+        "categoria_id": libro.categoria_id,
+        "narracion": _guardar_narracion(db, libro.id, payload),
     }
 
 
@@ -730,7 +747,12 @@ async def update_admin_audiolibro(id: int, payload: AudiobookCreateUpdate, db: S
             libro.clasificaciones.append(cl)
     
     db.commit()
-    return {"id": libro.id, "nombre": libro.nombre, "descripcion": libro.descripcion}
+    return {
+        "id": libro.id,
+        "nombre": libro.nombre,
+        "descripcion": libro.descripcion,
+        "narracion": _guardar_narracion(db, libro.id, payload),
+    }
 
 
 @router.delete("/admin/audiolibros/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -742,7 +764,10 @@ async def delete_admin_audiolibro(id: int, db: Session = Depends(get_db), token:
     libro = db.query(Audiolibro).filter(Audiolibro.id == id).first()
     if not libro:
         raise HTTPException(status_code=404, detail="Audiolibro no encontrado")
-    
+
+    # La narración vive en otra tabla sin clave foránea declarada en el ORM
+    if narracion_habilitada(db):
+        db.query(NarracionAudiolibro).filter(NarracionAudiolibro.audiolibro_id == id).delete()
     db.delete(libro)
     db.commit()
     return

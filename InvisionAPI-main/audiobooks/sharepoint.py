@@ -24,14 +24,11 @@ def get_graph_token():
     return "mock_graph_token"
 
 async def ingest_audiobook_files(sharepoint_folder_url: str, destination_folder: str):
-    token = get_graph_token()
-    # Simulación / Llamada a Graph API para listar archivos y hacer pipe directo a Azure Blob Storage
-    # En producción este método implementa la transferencia chunked.
-    # Para la prueba, simplemente creamos un blob simulado si no existe
-    try:
-        blob_client = container_client.get_blob_client(f"{destination_folder}/Capitulo 1.mp3")
-        # En caso de que falle por políticas o falta de conexión en testing, capturamos la excepción
-        blob_client.upload_blob(b"dummy mp3 content", overwrite=True)
-    except Exception as e:
-        print(f"Mocking blob upload: {e}")
-    return True
+    """Sin implementar a propósito (spec 005, R1).
+
+    La versión anterior era un simulacro que subía `dummy mp3 content` con
+    overwrite=True a `{libro}/Capitulo 1.mp3` en el almacenamiento real: si el
+    libro existía, reemplazaba su primer capítulo por 17 bytes. Nunca más un
+    simulacro que escribe datos reales.
+    """
+    raise NotImplementedError("La transferencia desde SharePoint todavía no está implementada.")

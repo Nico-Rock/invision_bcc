@@ -446,8 +446,11 @@ def test_importar_lote_endpoint(mock_ingest, client, admin_token):
         ]
     }
     response = client.post("/admin/importar-lote", json=payload, headers=headers)
-    assert response.status_code == 200
-    assert response.json()["message"] == "Importación iniciada en segundo plano"
+    # Spec 005 (R1): la ingesta simulada escribía audio falso sobre el capítulo 1
+    # real y anunciaba un éxito inventado. Queda deshabilitada y no encola nada.
+    assert response.status_code == 503
+    assert "deshabilitada" in response.json()["detail"]
+    mock_ingest.assert_not_called()
 
 
 def test_get_categorias_unauthorized(client):
