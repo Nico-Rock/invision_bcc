@@ -77,6 +77,7 @@ En la práctica:
 | A2 | ¿Quién de la BCC hace la prueba con lectores de pantalla reales (VoiceOver, NVDA, TalkBack)? | Una persona usuaria real, idealmente socia de la BCC | La auditoría automática no reemplaza a quien usa la tecnología todos los días |
 | A3 | ¿La "Lectura en voz" del sitio viene encendida o apagada por defecto? | **Encendida en el primer uso, con un aviso que explica cómo apagarla** | Protege a las personas mayores sin lector; quien usa lector la apaga una vez |
 | A4 | ¿Dejamos de comunicar "90 %" hasta tener la nueva medición? | **Sí** | Una cifra sin respaldo pone en riesgo la confianza de la BCC |
+| A5 | Con el catálogo de atajos editable solo por el administrador (spec 003), ¿aceptamos que los atajos generales usen **Alt + Mayúscula + tecla** y que las teclas sueltas funcionen solo dentro del reproductor? | **Sí** | Es la forma de cumplir el estándar (WCAG 2.1.4) sin personalización por persona: las teclas sueltas chocan con NVDA, JAWS y VoiceOver. La alternativa es que cada socio pueda reasignar sus teclas, que es otro proyecto |
 
 ## 6. Cómo sabremos que funcionó
 - **0 fallas** en la auditoría automática, en las dos apps y en los dos modos (hoy ya es 0, y no debe romperse).
