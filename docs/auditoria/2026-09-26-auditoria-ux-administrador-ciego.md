@@ -149,3 +149,26 @@ Cada hallazgo indica: qué se observó → qué principio viola → cuál es la 
 | 8 | Informe del día (O12) | Spec 005, fase posterior | Baja |
 
 La consola única (spec 004) y el catálogo de atajos (spec 003) siguen vigentes: el spec 005 se construye sobre ellos. Las pantallas nuevas nacen dentro de la consola y usan el catálogo.
+
+## Estado al 2026-09-26 (spec 005, grupo A)
+
+| Hallazgo | Estado | Cómo |
+|---|---|---|
+| C1 ingesta que pisaba audio | ✅ Reparado | Ruta en 503, sin escritura; el simulacro ya no sube nada |
+| C2 progreso inventado | ✅ Reparado | Eliminado; la pantalla explica y lleva a Libros |
+| C3 sin subida de audio | ✅ Reparado | Capítulos desde la ficha, con la subida segura |
+| C4 sin narrador | ✅ Reparado en local | Tabla aparte; producción espera la aprobación `aprobaciones/2026-09-29_narrador_en_memoria.md` |
+| C5 errores sin urgencia | ✅ Reparado | Canal urgente y campos marcados en toda la consola |
+| A1 "Sin Rol" | ✅ Reparado | La API devuelve roles y la tabla los dice |
+| A2 1.077 botones | ✅ Reparado | Un "Gestionar" por fila, total y conteo anunciado |
+| A3 borrado sin red | 🟡 Mitigado | Confirmación con consecuencias y foco en "Cancelar"; la papelera es R23 (grupo B) |
+| A4 foco que escapa | ✅ Reparado | Todas las fichas con `<dialog>` |
+| A5 abre en la ingesta | ✅ Reparado | Abre en Libros; el Inicio con pendientes es R18 (grupo B) |
+| A6 auditoría en números | ✅ Reparado | Tabla con persona y correo, sin región viva |
+| A7 texto libre | 🟡 Mitigado | Sugerencias y "¿Es el mismo?"; la fusión de duplicados es R24 (grupo B) |
+| A8 importador que adivina | 🟡 Retirado | El importador se quitó con la ingesta; el nuevo es R22 (grupo B) |
+| A9 contraste de Eliminar | ✅ Reparado | Tokens AAA; axe en 0 en las 4 pestañas y los 2 modos |
+| M1–M6 | ✅ Reparados | Estructura, un aviso, Inicio/Fin, archivo visible, contraseñas, sin progreso falso |
+| Presign inseguro (spec 004, E1) | ✅ Reparado | Nombre validado y permiso de solo creación |
+
+Pendiente de aprobación (grupos B y C del spec 005): Inicio, estado de publicación, verificación de audio, tareas con estado real, importador nuevo, papelera, fusión, perfiles de socio, auditoría de contenido e informe del día.
