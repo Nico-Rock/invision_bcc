@@ -2,7 +2,7 @@
 
 > Atómicas, ordenadas y verificables. Cada grupo es un punto de control.
 > `PYTEST_API` = `docker exec invision_local sh -c "cd /app && python -m pytest test_atajos.py test_routes.py -q"` (API local con SQLite, nunca producción).
-> `PYTEST_PANEL` = `.venv/bin/python -m pytest admin-dashboard -q` · `NODETEST` = `node --test admin-dashboard/tests/js/*.test.js` · `SITIO` = `cd frontend && npm run test:a11y`.
+> `SITIO` = `cd frontend && npm run test:a11y`.
 > Todo test nuevo se ve fallar antes de implementar (P5). Commits: `tipo(T#): descripción [R#]`.
 
 **Status:** analyzed  **Date:** 2026-09-26
@@ -17,7 +17,7 @@
 - **Files:** `InvisionAPI-main/audiobooks/atajos_catalogo.json`, `InvisionAPI-main/audiobooks/atajos_casos.json`
 - **Verification command:** `python3 -m json.tool` sobre los dos archivos
 - **Commit message:** `feat(T1): catalogo de acciones por defecto y casos de reglas [R1, R2, R14, R15, R17, R18]`
-- **Acceptance:** están todas las acciones actuales del sitio y del panel, con valores por defecto conformes a D3; la lista de reservadas nombra quién usa cada combinación; hay al menos un caso que viola y uno que cumple cada regla.
+- **Acceptance:** están todas las acciones actuales del sitio y las de la consola del spec 004, con valores por defecto conformes a D3; la lista de reservadas nombra quién usa cada combinación; hay al menos un caso que viola y uno que cumple cada regla.
 
 ### T2 [Story P1] — Reglas en Python puro
 - **Satisfies:** R5, R14, R15, R16, R17, R18, R25
@@ -77,25 +77,25 @@
 - **Commit message:** `test(T7): ciclo editar, recargar y usar un atajo [R7, R21]`
 - **Acceptance:** V6 y V12 de punta a punta en la base local.
 
-## Group D — Historia 3: panel (checkpoint)
+## Group D — Historia 3: zona de administración (checkpoint)
 
-### T8 [Story P1] — Lectura del catálogo en el panel
-- **Satisfies:** R11, R12, R13
+### T8 [Story P1] — Zona "admin" del catálogo protegida por rol
+- **Satisfies:** R12, R13
 - **Depends on:** T4
 - **Parallel:** [P]
-- **Files:** `admin-dashboard/server.py`, `admin-dashboard/invision/esquema.py`, `admin-dashboard/tests/test_atajos_panel.py`
-- **Verification command:** `PYTEST_PANEL`
-- **Commit message:** `feat(T8): el panel lee el catalogo de atajos sin poder escribirlo [R11, R12, R13]`
-- **Acceptance:** V8 (sin tabla, valores por defecto con `origen: defecto`), V10 (ninguna ruta de escritura).
+- **Files:** `InvisionAPI-main/audiobooks/routes.py`, `InvisionAPI-main/audiobooks/test_routes.py`
+- **Verification command:** `PYTEST_API`
+- **Commit message:** `feat(T8): zona admin del catalogo solo con rol Admin [R12, R13]`
+- **Acceptance:** V10; el panel operativo no cambia (R13).
 
-### T9 [Story P1] — Atajos del panel desde el catálogo
+### T9 [Story P1] — La consola responde a la zona "admin"
 - **Satisfies:** R10, R11
-- **Depends on:** T8
+- **Depends on:** T8, T6
 - **Parallel:** sequential
-- **Files:** `admin-dashboard/static/a11y-logica.js`, `admin-dashboard/static/ayuda.js`, `admin-dashboard/static/index.html`, `admin-dashboard/tests/js/a11y_logica.test.js`
-- **Verification command:** `NODETEST` (casos compartidos) + teclas reales en el panel
-- **Commit message:** `feat(T9): el panel responde a los atajos del catalogo [R10, R11]`
-- **Acceptance:** V6, V7 y V9 en el panel; el estado del panel dice si los atajos vienen del catálogo o de los valores por defecto.
+- **Files:** `frontend/src/context/AtajosContext.jsx`, `frontend/src/pages/Admin/AdminPanel.jsx`, `frontend/tests/a11y/atajos.spec.js`
+- **Verification command:** `SITIO`
+- **Commit message:** `feat(T9): la consola responde a los atajos de su zona [R10, R11]`
+- **Acceptance:** V6, V7 y V9 en la zona de administración; las pestañas del spec 004 se suman cuando existan.
 
 ## Group E — Verificación (checkpoint)
 
@@ -104,7 +104,7 @@
 - **Depends on:** T7, T9
 - **Parallel:** sequential
 - **Files:** `verificacion/a11y/informes/2026-09-XX-atajos.json`
-- **Verification command:** recorrido del panel (48 combinaciones) + `SITIO`
+- **Verification command:** `SITIO`
 - **Commit message:** `docs(T10): informe de accesibilidad con el catalogo de atajos [R6, R26]`
 - **Acceptance:** V5: 0 problemas en el recorrido y el arnés en verde.
 
@@ -122,7 +122,7 @@
 - **Depends on:** T10, T11
 - **Parallel:** sequential
 - **Files:** `.specops/specs/003-catalogo-atajos/tasks.md`
-- **Verification command:** `PYTEST_API && PYTEST_PANEL && NODETEST && SITIO`
+- **Verification command:** `PYTEST_API && SITIO`
 - **Commit message:** `docs(T12): registro de verificacion del catalogo de atajos [R23, R24]`
 - **Acceptance:** fila por tarea en el registro; confirmación de que no se ejecutó nada en producción.
 
@@ -130,7 +130,7 @@
 
 ## Coverage check
 - R1 → T1, T4, T6 · R2 → T1 · R3 → T4 · R4 → T6 · R5 → T2, T4, T6 · R6 → T6, T10
-- R7 → T5, T7 · R8 → T5 · R9 → T4, T5 · R10 → T5, T9 · R11 → T8, T9 · R12 → T8 · R13 → T8
+- R7 → T5, T7 · R8 → T5 · R9 → T4, T5 · R10 → T5, T9 · R11 → T9 · R12 → T8 · R13 → T8
 - R14 → T1, T2, T11 · R15 → T1, T2 · R16 → T2 · R17 → T1, T2 · R18 → T1, T2
 - R19 → T3, T11 · R20 → T4 · R21 → T3, T7 · R22 → T3, T4, T6 · R23 → T4, T6, T12
 - R24 → T3, T12 · R25 → T2, T4, T5 · R26 → T10

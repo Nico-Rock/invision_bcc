@@ -59,6 +59,8 @@ Muchas grabaciones de la BCC son antiguas, y para algunos narradores pueden ser 
 | D4 | ¿Unificamos los géneros? Hoy hay **17 formas escritas para unos 10 géneros** ("Infantil" e "INFANTIL", "Desarrollo personal" y "Desarrollo personal y bienestar", entre otros) y 4 libros sin género. | Sí, con la lista que valide la BCC | Hoy un socio que filtra por género no ve todos los libros |
 | D5 | ¿Aprobamos corregir los 24 casos de audio sin ficha que tengan una coincidencia clara? | Sí, revisados uno por uno | Son libros ya grabados que se recuperan de inmediato |
 | D6 | ¿Aprobamos agregar a la base el **estado de publicación** y el **narrador** de cada libro? (cambio que solo agrega datos, reversible) | Sí, por PR | Garantiza que ningún libro se vea sin audio y habilita "En Memoria" |
+| D7 | ¿Aprobamos unificar el panel operativo dentro del administrador del sitio (una sola consola, spec 004), en tres fases y retirando el panel solo cuando la consola lo reemplace en producción? | Sí | Hoy hay dos herramientas sobre la misma infraestructura: cinco funciones repetidas, dos accesos y dos juegos de atajos. Con una sola consola, el equipo opera desde cualquier computadora con su cuenta |
+| D8 | ¿Priorizamos corregir ya la subida de capítulos de la API, que hoy permite sobrescribir cualquier audio del almacenamiento? | Sí, por PR aparte y antes que el resto | Es un riesgo presente en producción, independiente de la unificación (spec 004, T1) |
 
 ## 6. Cómo sabremos que funcionó
 - **0 libros visibles sin audio** después de aplicar la reconciliación aprobada.

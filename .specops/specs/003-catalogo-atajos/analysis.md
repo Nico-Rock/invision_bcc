@@ -5,6 +5,9 @@
 ## Origen
 Pedido de Nico del 2026-09-26: "los usuarios de esta aplicación usarán lectores de pantalla y navegación en base a atajos de teclado y comandos especiales, por eso todas las funciones deben ser customizadas desde el administrador, mediante un catálogo de teclas, funciones y acciones". Sus respuestas: alcance sitio y panel; solo el admin edita; guardado en base vía PR; spec antes de código.
 
+## Ajuste del 2026-09-26 (unificación, spec 004)
+Nico decidió que el panel sea parte del sitio. El catálogo pasa de "una sección por app" a **una app con dos zonas**, "sitio" y "admin". La Historia 3 ahora es la consola de administración. El panel operativo conserva sus atajos hasta retirarse y no recibe trabajo nuevo (R13). El validador se volvió a correr: GATE PASS, 26 requisitos, 12 tareas.
+
 ## Hallazgos semánticos
 
 | # | Severidad | Artefacto / ID | Hallazgo | Resolución |
