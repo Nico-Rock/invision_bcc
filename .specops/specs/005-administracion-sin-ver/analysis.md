@@ -14,6 +14,8 @@
 | F3 | MEDIUM | R1 | Deshabilitar la ingesta quita una función visible. | No funcionaba: escribía audio falso. Se reemplaza por una explicación, y la transferencia real queda como spec aparte basado en R21 y R22. |
 | F4 | LOW | R9 | La papelera (R23) espera Gate 1; mientras tanto, el borrado sigue siendo definitivo. | El diálogo con el foco en "Cancelar" y las consecuencias explicadas reduce el riesgo. |
 | F5 | LOW | CORS | La subida desde el navegador requiere CORS de `PUT` en Blob. | Si falla, aviso urgente; la configuración va a aprobación. |
+| F6 | MEDIUM | Rendimiento (fuera de alcance) | `crud.search_audio` lista los 13.099 archivos del almacenamiento en **cada** búsqueda de un socio: explica los 9 a 11 s por pedido de la API local. | No se tocó (no es de este spec). Con el índice en segundo plano que ya tiene la API (`indice_audio.py`, D13) se resuelve; se propone como tarea del spec 006 o de la fase 1 del 004. |
+| F7 | MEDIUM | Verificación de audio | El silencio largo no se detecta sin decodificar. | Se dice en pantalla. Requiere aprobar ffmpeg como dependencia de la imagen. |
 
 **Bloqueantes: 0.**
 
