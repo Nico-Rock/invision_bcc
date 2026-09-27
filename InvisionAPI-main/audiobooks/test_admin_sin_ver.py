@@ -129,8 +129,10 @@ def test_v6_sin_tabla_el_libro_se_guarda_igual(client, admin_token):
 
 
 def test_v6_con_tabla_guarda_edita_y_borra_el_narrador(client, admin_token, test_db):
-    from models_extras import BaseExtras
-    BaseExtras.metadata.create_all(bind=test_engine)
+    # Solo la tabla del narrador: con la papelera (grupo B) el borrado no es definitivo
+    from models_extras import BaseExtras, NarracionAudiolibro
+    BaseExtras.metadata.drop_all(bind=test_engine)
+    NarracionAudiolibro.__table__.create(bind=test_engine)
     try:
         r = client.post("/admin/audiolibros", headers=_auth(admin_token),
                         json={"nombre": "CON NARRADOR", "narrador": "ROSA PÉREZ", "en_memoria": True})

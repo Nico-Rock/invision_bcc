@@ -112,6 +112,7 @@ async def read_users(db: Session = Depends(get_db), token: str = Depends(oauth2_
 
     # Con sus roles (spec 005, R11): sin esto la consola mostraba "Sin Rol"
     # para todas las cuentas, incluida la del administrador.
+    perfiles = ex.perfiles_por_usuario(db)  # spec 005, R25
     return [
         {
             "id": u.id,
@@ -120,6 +121,7 @@ async def read_users(db: Session = Depends(get_db), token: str = Depends(oauth2_
             "first_name": u.first_name,
             "last_name": u.last_name,
             "roles": [{"id": ur.role.id, "name": ur.role.name} for ur in u.roles if ur.role],
+            "perfil": perfiles.get(u.id),
         }
         for u in users
     ]
@@ -336,7 +338,12 @@ async def delete_role_from_user(role_id: int, db: Session = Depends(get_db), tok
 @router.post("/search")
 async def search(query: dict, db: Session = Depends(get_db)):
     search_term = query.get("query", "")
-    return await search_audio(db, search_term)
+    resultado = await search_audio(db, search_term)
+    # Los socios no ven borradores ni la papelera (spec 005, R19 y R23)
+    ocultos = ex.ids_ocultos_para_socios(db)
+    if ocultos:
+        resultado["results"] = [r for r in resultado.get("results", []) if r.get("id") not in ocultos]
+    return resultado
 
 
 @router.post("/guardar-progreso")
@@ -479,7 +486,11 @@ async def get_my_audiobooks(usuario_id: int, db: Session = Depends(get_db), toke
 @router.get("/genres", response_model=List[str])
 def get_genres(db: Session = Depends(get_db)):
     try:
-        return get_unique_genres(db)
+        ocultos = ex.ids_ocultos_para_socios(db)  # spec 005, R19 y R23
+        if not ocultos:
+            return get_unique_genres(db)
+        filas = db.query(Audiolibro.genero).filter(Audiolibro.genero.isnot(None), ~Audiolibro.id.in_(ocultos)).distinct().all()
+        return sorted({g[0].strip() for g in filas if g[0] and g[0].strip()})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al cargar los géneros: {str(e)}")
 
@@ -500,8 +511,8 @@ def get_books_by_genre_endpoint(
         decoded_genre = unquote(genre).strip().lower()
 
         books = get_books_by_genre(db, decoded_genre)
-
-        return books
+        ocultos = ex.ids_ocultos_para_socios(db)  # spec 005, R19 y R23
+        return [b for b in books if b.get("id") not in ocultos]
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al cargar los libros: {str(e)}")
@@ -513,6 +524,8 @@ from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from urllib.parse import quote
 from validacion_pistas import validar_nombre_pista
 from models_extras import NarracionAudiolibro, narracion_habilitada
+import extras as ex
+from fastapi.responses import JSONResponse
 from datetime import datetime, timezone, timedelta
 from config import AZURE_ACCOUNT_NAME, AZURE_ACCOUNT_KEY, AZURE_CONTAINER_NAME
 
@@ -635,12 +648,17 @@ async def list_admin_audiolibros(db: Session = Depends(get_db), token: str = Dep
     if "Admin" not in user_info.get("roles", []):
         raise HTTPException(status_code=403, detail="No autorizado")
     
-    libros = db.query(Audiolibro).all()
+    papelera = ex.ids_en_papelera(db)
+    libros = [b for b in db.query(Audiolibro).all() if b.id not in papelera]
+    estados = ex.estados_publicacion(db)
+    publicacion_habilitada = ex.tabla_habilitada(db, "audiolibro_publicacion")
     habilitada = narracion_habilitada(db)
     narraciones = {n.audiolibro_id: n for n in db.query(NarracionAudiolibro).all()} if habilitada else {}
     return [
         {
             "narracion_habilitada": habilitada,
+            "publicacion_habilitada": publicacion_habilitada,
+            "estado_publicacion": estados.get(b.id, "publicado"),
             "narrador": narraciones[b.id].narrador if b.id in narraciones else None,
             "en_memoria": bool(narraciones[b.id].en_memoria) if b.id in narraciones else False,
             "id": b.id,
@@ -707,6 +725,9 @@ async def create_admin_audiolibro(payload: AudiobookCreateUpdate, db: Session = 
             libro.clasificaciones.append(cl)
     db.commit()
 
+    narracion = _guardar_narracion(db, libro.id, payload)
+    ex.marcar_borrador(db, libro.id)  # las fichas nuevas nacen en borrador (R19)
+    ex.registrar(db, user_info.get("id"), "crear_libro", libro.nombre)
     return {
         "id": libro.id,
         "nombre": libro.nombre,
@@ -714,7 +735,7 @@ async def create_admin_audiolibro(payload: AudiobookCreateUpdate, db: Session = 
         "genero": libro.genero,
         "autor": libro.autor,
         "categoria_id": libro.categoria_id,
-        "narracion": _guardar_narracion(db, libro.id, payload),
+        "narracion": narracion,
     }
 
 
@@ -728,6 +749,15 @@ async def update_admin_audiolibro(id: int, payload: AudiobookCreateUpdate, db: S
     if not libro:
         raise HTTPException(status_code=404, detail="Audiolibro no encontrado")
     
+    # Valores anteriores para el historial y el deshacer (spec 005, R23)
+    narr_antes = ex.narracion_de(db, libro.id)
+    antes = {
+        "nombre": libro.nombre, "descripcion": libro.descripcion, "genero": libro.genero,
+        "autor": libro.autor, "categoria_id": libro.categoria_id,
+        "narrador": narr_antes.narrador if narr_antes else None,
+        "en_memoria": narr_antes.en_memoria if narr_antes else None,
+    }
+
     libro.nombre = payload.nombre
     libro.descripcion = payload.descripcion
     libro.genero = payload.genero
@@ -747,11 +777,18 @@ async def update_admin_audiolibro(id: int, payload: AudiobookCreateUpdate, db: S
             libro.clasificaciones.append(cl)
     
     db.commit()
+    narracion = _guardar_narracion(db, libro.id, payload)
+    cambios = [(c, antes[c], getattr(libro, c)) for c in ("nombre", "descripcion", "genero", "autor", "categoria_id")]
+    if narracion == "guardada":
+        narr = ex.narracion_de(db, libro.id)
+        cambios += [("narrador", antes["narrador"], narr.narrador), ("en_memoria", antes["en_memoria"], narr.en_memoria)]
+    ex.registrar_historial(db, libro.id, cambios, user_info.get("id"))
+    ex.registrar(db, user_info.get("id"), "editar_libro", libro.nombre)
     return {
         "id": libro.id,
         "nombre": libro.nombre,
         "descripcion": libro.descripcion,
-        "narracion": _guardar_narracion(db, libro.id, payload),
+        "narracion": narracion,
     }
 
 
@@ -765,11 +802,14 @@ async def delete_admin_audiolibro(id: int, db: Session = Depends(get_db), token:
     if not libro:
         raise HTTPException(status_code=404, detail="Audiolibro no encontrado")
 
-    # La narración vive en otra tabla sin clave foránea declarada en el ORM
-    if narracion_habilitada(db):
-        db.query(NarracionAudiolibro).filter(NarracionAudiolibro.audiolibro_id == id).delete()
-    db.delete(libro)
-    db.commit()
+    # Papelera (spec 005, R23): 30 días para restaurar. Sin la tabla, el borrado
+    # es definitivo y la confirmación de la consola lo dice.
+    if ex.mover_a_papelera(db, libro, user_info.get("id")):
+        ex.registrar(db, user_info.get("id"), "eliminar_libro", libro.nombre, "a la papelera")
+        return JSONResponse(status_code=200, content={"papelera": True, "dias": ex.DIAS_PAPELERA})
+    nombre = libro.nombre
+    ex.borrar_definitivo(db, id)
+    ex.registrar(db, user_info.get("id"), "eliminar_libro", nombre, "definitivo")
     return
 
 

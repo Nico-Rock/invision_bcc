@@ -40,7 +40,7 @@
 - **Satisfies:** R6, R7, R28
 - **Depends on:** T3
 - **Parallel:** sequential
-- **Files:** `InvisionAPI-main/audiobooks/models_extras.py`, `InvisionAPI-main/audiobooks/routes.py`, `InvisionAPI-main/audiobooks/schemas.py`, `InvisionAPI-main/scripts/habilitar_extras.py`, `aprobaciones/2026-09-29_narrador_en_memoria.md`, `InvisionAPI-main/audiobooks/test_admin_sin_ver.py`
+- **Files:** `InvisionAPI-main/audiobooks/models_extras.py`, `InvisionAPI-main/audiobooks/routes.py`, `InvisionAPI-main/audiobooks/schemas.py`, `InvisionAPI-main/audiobooks/habilitar_local.py`, `aprobaciones/2026-09-29_narrador_en_memoria.md`, `InvisionAPI-main/audiobooks/test_admin_sin_ver.py`
 - **Verification command:** `PYTEST_API` (con y sin la tabla; `Base.metadata` no la contiene)
 - **Commit message:** `feat(T4): narrador y En Memoria en tabla aparte con aprobacion [R6, R7, R28]`
 - **Acceptance:** V6 (API) y parte de V16.

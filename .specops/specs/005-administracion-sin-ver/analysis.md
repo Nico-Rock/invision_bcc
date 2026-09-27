@@ -22,4 +22,4 @@
 | Rol | Nombre | Decisión | Fecha |
 |---|---|---|---|
 | Dueño técnico | Nico | **Grupo A aprobado**: "spec 005 y repara todos los problemas" | 2026-09-26 |
-| Dueño técnico | Nico | Grupos B y C: _pendiente_ | |
+| Dueño técnico | Nico | **Grupos B y C aprobados**: "dale con todo" | 2026-09-26 |

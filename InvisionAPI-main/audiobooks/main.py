@@ -109,5 +109,9 @@ app.add_middleware(
 
 app.include_router(main_router)
 
+# Administración sin ver (spec 005, grupos B y C)
+from admin_extras import router as admin_extras_router  # noqa: E402
+app.include_router(admin_extras_router)
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
