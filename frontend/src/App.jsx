@@ -210,7 +210,7 @@ const AppContent = () => {
                         <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                       </svg>
-                      <span>[3] Admin Ingesta</span>
+                      <span>[3] Administración</span>
                     </NavLink>
                   </li>
                 )}

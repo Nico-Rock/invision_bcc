@@ -61,7 +61,7 @@ export const useKeyboardShortcuts = ({ onFocusSearch, onFocusGenres, onToggleHel
           break;
         case '3':
           e.preventDefault();
-          irA('/admin/import', 'Panel de administración e ingesta.');
+          irA('/admin/import', 'Panel de administración.');
           break;
         case '4':
         case 'g':
@@ -121,7 +121,7 @@ export const useKeyboardShortcuts = ({ onFocusSearch, onFocusGenres, onToggleHel
 // Fuente única de la tabla de ayuda (R39): la ventana y el resumen hablado salen de acá.
 export const ATAJOS_SITIO = [
   { teclas: ['S'], accion: 'Ir al buscador' },
-  { teclas: ['1', '2', '3'], accion: 'Ir a Perfil, Catálogo o Admin' },
+  { teclas: ['1', '2', '3'], accion: 'Ir a Perfil, Catálogo o Administración' },
   { teclas: ['4', 'G'], accion: 'Ir a los géneros' },
   { teclas: ['Espacio'], accion: 'Reproducir o pausar', reproductor: true },
   { teclas: ['←', '→'], accion: 'Retroceder o adelantar 15 segundos', reproductor: true },
