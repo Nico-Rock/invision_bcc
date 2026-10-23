@@ -35,7 +35,7 @@ Infraestructura que soporta la app: base de datos (SQLite dev / SQL Server prod)
 - **Qué hace:** Carga configuración desde variables de entorno (.env) con python-dotenv.
 - **Archivo .env:**
   ```
-  SECRET_KEY="elio123"
+  SECRET_KEY=<retirada del repositorio>
   ALGORITHM=HS256
   ACCESS_TOKEN_EXPIRE_MINUTES=1440
   DATABASE_URL="sqlite:///invision.db"
@@ -121,7 +121,7 @@ Infraestructura que soporta la app: base de datos (SQLite dev / SQL Server prod)
 **Bugs críticos:**
 1. `config.py` línea 15+: SQL_PASSWORD y AZURE_ACCOUNT_KEY visibles en código fuente
 2. CORS `allow_origin_regex=r"https?://.*"` — cualquier sitio puede hacer requests
-3. SECRET_KEY es `"elio123"` — trivialmente adivinable
+3. SECRET_KEY es `<retirada del repositorio>` — débil: debe rotarse y no documentarse
 4. Credenciales seed hardcodeadas (admin123, user123)
 
 **Gaps principales:**

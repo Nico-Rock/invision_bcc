@@ -52,7 +52,7 @@ Sistema de autenticación basado en JWT que cubre login, registro (admin-only), 
 
 | Función | Implementada | Tests | Bugs |
 |---------|-------------|-------|------|
-| Login JWT | Si | Si | SECRET_KEY débil ("elio123") |
+| Login JWT | Si | Si | SECRET_KEY débil (valor retirado del repositorio) |
 | Registro | Si | Si | Sin validación de fuerza de password |
 | Perfil | Si | Si | UI de perfil es placeholder |
 | Cambio password | Si | Si | Sin flujo "olvidé mi password" |
