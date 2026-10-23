@@ -1,21 +1,20 @@
 import { useEffect } from 'react';
 import { useAudio } from './useAudio';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from './useAuth';
+import { accionReproductor, describirFoco } from '../lib/reproductor';
+import { accionGlobal } from '../lib/atajosGlobales';
+import { ESTADO_FOCO, enfocarDestino } from '../lib/navegacion';
 
 /**
- * Atajos del sitio (spec 002, R29, R15). Guardas, iguales a las del panel:
- * nunca con modificadores ni teclas mantenidas; nunca mientras se escribe
- * (incluido Esc); nunca con el foco en un audio o dentro de un diálogo; y
- * Espacio nunca se secuestra sobre un botón o enlace (antes bloqueaba todos
- * los botones cuando había un libro cargado).
+ * Teclas del reproductor (spec 003, R10 y D10; variante S3). No hay atajos
+ * globales de una tecla: no llegan a quien usa NVDA o JAWS, no existen en el
+ * iPhone y a la persona mayor solo le provocan disparos accidentales
+ * (WCAG 2.1.4). Espacio, flechas, N, P y M actúan solo con el foco dentro del
+ * reproductor; fuera de él no se toca el comportamiento nativo. La decisión
+ * vive en `lib/reproductor.js`, que tiene sus pruebas.
  */
-const escribiendo = (el) =>
-  !!el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable);
-
-const sobreControl = (el) =>
-  !!el && (el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button');
-
-export const useKeyboardShortcuts = ({ onFocusSearch, onFocusGenres, onToggleHelp }) => {
+export const useKeyboardShortcuts = () => {
   const {
     currentBook,
     togglePlayback,
@@ -23,90 +22,30 @@ export const useKeyboardShortcuts = ({ onFocusSearch, onFocusGenres, onToggleHel
     stepVolume,
     toggleMute,
     neighborChapter,
-    announceText,
-    playCue,
   } = useAudio();
 
-  const navigate = useNavigate();
-
   useEffect(() => {
-    const irA = (ruta, texto) => {
-      navigate(ruta);
-      announceText(texto);
-      playCue('action');
-    };
+    if (!currentBook) return undefined;
 
     const handleKeyDown = (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-      const el = document.activeElement;
-      if (el && el.closest && el.closest('dialog')) return;  // el diálogo nativo maneja Esc y Tab
-      if (escribiendo(el)) return;
-      if (el && (el.tagName === 'AUDIO' || el.tagName === 'VIDEO')) return;
-
-      const tecla = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      const conLibro = !!currentBook;
-
-      switch (tecla) {
-        case 's':
-          e.preventDefault();
-          onFocusSearch?.();
+      const accion = accionReproductor(e, describirFoco(document.activeElement));
+      if (!accion) return;
+      e.preventDefault();
+      switch (accion.id) {
+        case 'alternar':
+          togglePlayback();
           break;
-        case '1':
-          e.preventDefault();
-          irA('/perfil', 'Sección Perfil.');
+        case 'saltar':
+          skipSeconds(accion.valor);
           break;
-        case '2':
-          e.preventDefault();
-          irA('/', 'Catálogo de audiolibros.');
+        case 'volumen':
+          stepVolume(accion.valor);
           break;
-        case '3':
-          e.preventDefault();
-          irA('/admin/import', 'Panel de administración.');
+        case 'capitulo':
+          neighborChapter(accion.valor);
           break;
-        case '4':
-        case 'g':
-          e.preventDefault();
-          onFocusGenres?.();
-          break;
-        case '?':
-        case 'h':
-          e.preventDefault();
-          onToggleHelp?.(true);
-          break;
-        case ' ':
-          if (conLibro && !sobreControl(el)) {
-            e.preventDefault();
-            togglePlayback();
-          }
-          break;
-        // Las flechas sí funcionan sobre un botón (ahí queda el foco al elegir
-        // un libro); los campos de rango y selectores ya quedan afuera arriba.
-        case 'ArrowLeft':
-        case 'ArrowRight':
-          if (conLibro) {
-            e.preventDefault();
-            skipSeconds(tecla === 'ArrowRight' ? 15 : -15);
-          }
-          break;
-        case 'ArrowUp':
-        case 'ArrowDown':
-          if (conLibro) {
-            e.preventDefault();
-            stepVolume(tecla === 'ArrowUp' ? 1 : -1);
-          }
-          break;
-        case 'n':
-        case 'p':
-          if (conLibro) {
-            e.preventDefault();
-            neighborChapter(tecla === 'n' ? 1 : -1);
-          }
-          break;
-        case 'm':
-          if (conLibro) {
-            e.preventDefault();
-            toggleMute();
-          }
+        case 'silencio':
+          toggleMute();
           break;
         default:
           break;
@@ -115,24 +54,125 @@ export const useKeyboardShortcuts = ({ onFocusSearch, onFocusGenres, onToggleHel
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentBook, onFocusSearch, onFocusGenres, onToggleHelp, navigate, togglePlayback, skipSeconds, stepVolume, toggleMute, neighborChapter, announceText, playCue]);
+  }, [currentBook, togglePlayback, skipSeconds, stepVolume, toggleMute, neighborChapter]);
 };
 
-// Fuente única de la tabla de ayuda (R39): la ventana y el resumen hablado salen de acá.
-export const ATAJOS_SITIO = [
-  { teclas: ['S'], accion: 'Ir al buscador' },
-  { teclas: ['1', '2', '3'], accion: 'Ir a Perfil, Catálogo o Administración' },
-  { teclas: ['4', 'G'], accion: 'Ir a los géneros' },
-  { teclas: ['Espacio'], accion: 'Reproducir o pausar', reproductor: true },
-  { teclas: ['←', '→'], accion: 'Retroceder o adelantar 15 segundos', reproductor: true },
-  { teclas: ['↑', '↓'], accion: 'Subir o bajar el volumen de a 10 %', reproductor: true },
-  { teclas: ['N', 'P'], accion: 'Capítulo siguiente o anterior', reproductor: true },
-  { teclas: ['M'], accion: 'Silenciar o restaurar el sonido', reproductor: true },
-  { teclas: ['Esc'], accion: 'Cerrar esta ayuda' },
-  { teclas: ['H', '?'], accion: 'Abrir esta ayuda' },
-];
+// Enfoca un destino que puede tardar en aparecer (cambio de vista)
+const enfocarCuando = (selector, intentos = 120) => {
+  const destino = document.querySelector(selector);
+  if (destino) { enfocarDestino(destino); return; }
+  if (intentos > 0) requestAnimationFrame(() => enfocarCuando(selector, intentos - 1));
+};
 
-export const RESUMEN_ATAJOS =
-  'Atajos disponibles: S para buscar, 1, 2 y 3 para Perfil, Catálogo y Admin, 4 o G para los géneros, '
-  + 'y con un libro sonando: Espacio para pausar, flechas izquierda y derecha para moverte 15 segundos, '
-  + 'flechas arriba y abajo para el volumen, N y P para cambiar de capítulo y M para silenciar.';
+/**
+ * Atajos globales con Alt (Alt+1…7) y, dentro de Administración, Alt+Mayús+1…7
+ * para las pestañas. Funcionan desde cualquier vista y con el foco en un campo
+ * de texto (llevan modificador, no escriben nada). La decisión vive en
+ * `lib/atajosGlobales.js`. Cada acción produce un solo aviso cortés.
+ */
+export const useAtajosGlobales = ({ abrirAyuda }) => {
+  const { currentBook, announceText, playCue } = useAudio();
+  const { isAuthenticated, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    // Compartida por Alt+0 y por la entrada «Continuar escuchando» del menú
+    const continuar = () => {
+      // Lleva al catálogo si hace falta y pide a la vista que muestre la
+      // sección (limpia una búsqueda activa). Foco al primer "Continuar";
+      // sin nada que continuar, un único aviso y el foco no se mueve.
+      const enCatalogoSinFiltro = pathname === '/' && !window.location.search;
+      if (!enCatalogoSinFiltro) navigate('/');
+      const pedir = () => window.dispatchEvent(new CustomEvent('invision:continuar'));
+      if (enCatalogoSinFiltro) pedir(); else requestAnimationFrame(pedir);
+      const esperar = (intentos) => {
+        const boton = document.querySelector('.continuar-btn');
+        if (boton) { boton.focus(); return; }
+        const estado = document.querySelector('[data-continuar]')?.getAttribute('data-continuar');
+        if (estado === 'vacio' || estado === 'error' || intentos <= 0) {
+          announceText('No tienes libros para continuar.');
+          playCue('error');
+          return;
+        }
+        requestAnimationFrame(() => esperar(intentos - 1));
+      };
+      esperar(180);
+    };
+
+    const handleKeyDown = (e) => {
+      const accion = accionGlobal(e, {
+        esAdmin: isAdmin,
+        hayLibro: !!currentBook,
+        enAdmin: pathname.startsWith('/admin'),
+        dialogoAbierto: !!document.querySelector('dialog[open]'),
+        paginas: pathname === '/'
+          ? {
+            anterior: !!document.querySelector('[data-pagina="anterior"]:not(:disabled)'),
+            siguiente: !!document.querySelector('[data-pagina="siguiente"]:not(:disabled)'),
+          }
+          : null,
+        escribiendo: describirFoco(document.activeElement).escribiendo,
+      });
+      if (!accion) return;
+      e.preventDefault();
+      const avisar = (texto) => { announceText(texto); playCue('action'); };
+      if (accion.tipo === 'pestana') {
+        // AdminPanel anuncia y enfoca la pestaña
+        window.dispatchEvent(new CustomEvent('invision:pestana', { detail: { id: accion.id } }));
+        return;
+      }
+      switch (accion.id) {
+        case 'perfil':
+          navigate('/perfil', { state: ESTADO_FOCO });
+          avisar('Perfil.');
+          break;
+        case 'catalogo':
+          navigate('/', { state: ESTADO_FOCO });
+          // Al entrar al catálogo, la vista ya anuncia cuántos libros hay
+          if (pathname === '/') avisar('Catálogo.');
+          break;
+        case 'admin':
+          navigate('/admin/import', { state: ESTADO_FOCO });
+          avisar('Administración.');
+          break;
+        case 'buscador':
+          if (pathname !== '/') navigate('/');
+          enfocarCuando('#buscador');
+          if (pathname === '/') avisar('Buscador.');
+          break;
+        case 'generos':
+          if (!document.getElementById('genres-heading')) break;
+          enfocarDestino(document.getElementById('genres-heading'));
+          avisar('Géneros.');
+          break;
+        case 'reproductor':
+          enfocarDestino(document.getElementById('reproductor'));
+          avisar('Reproductor.');
+          break;
+        case 'ayuda':
+          abrirAyuda();
+          break;
+        case 'paginaAnterior':
+        case 'paginaSiguiente':
+          // El botón de paginación cambia de página, anuncia y enfoca el título
+          document.querySelector(`[data-pagina="${accion.id === 'paginaAnterior' ? 'anterior' : 'siguiente'}"]`)?.click();
+          break;
+        case 'continuar':
+          continuar();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('invision:ir-continuar', continuar);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('invision:ir-continuar', continuar);
+    };
+  }, [isAuthenticated, isAdmin, currentBook, pathname, navigate, announceText, playCue, abrirAyuda]);
+};

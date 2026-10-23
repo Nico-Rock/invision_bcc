@@ -2,11 +2,13 @@
 import { createContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE_URL } from '../config';
+import { payloadProgreso, debeGuardar, posicionInicial, avisoContinuar, EVENTO_PROGRESO_GUARDADO } from '../lib/progreso';
 
 export const AudioContext = createContext(null);
 
 // Decisión A3 de la reunión del 29/09: única constante a cambiar.
 const VOZ_POR_DEFECTO = true;
+const ahora = () => Date.now();
 const TEXTO_MIN = 12, TEXTO_MAX = 32;
 
 const leerCrudo = (clave) => {
@@ -43,6 +45,10 @@ export const AudioProvider = ({ children }) => {
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [chapters, setChapters] = useState([]);
   const [muted, setMuted] = useState(false);
+  // Libro cuya pista se descargó y quedó asignada al audio. currentBook se fija
+  // antes de descargar; si la descarga falla, este valor queda vacío y elegir
+  // otra vez la tarjeta reintenta la carga.
+  const [libroCargadoId, setLibroCargadoId] = useState(null);
 
   // Preferencias de accesibilidad: se leen acotadas (un valor corrupto en
   // localStorage no puede romper la app, CWE-20) y se aplican en <html>.
@@ -58,6 +64,7 @@ export const AudioProvider = ({ children }) => {
   const audioRef = useRef(null);
   const audioCtxRef = useRef(null);
   const objectUrlRef = useRef(null);
+
 
   // Sync volume to localStorage
   useEffect(() => {
@@ -186,14 +193,77 @@ export const AudioProvider = ({ children }) => {
     }
   };
 
+  // Progreso de escucha (Continuar escuchando). Refs: los manejadores del
+  // elemento <audio> se registran una sola vez y leen siempre lo vigente.
+  const sesionRef = useRef({ token: null, userId: null });
+  const pistaRef = useRef({ libroId: null, capitulo: 1, total: 0 });
+  const ultimoGuardadoRef = useRef(null);
+  const avisoFalloRef = useRef(false);
+  useEffect(() => { sesionRef.current = { token, userId: user?.id ?? null }; }, [token, user?.id]);
+
+  // Guarda la posición actual. Nunca interrumpe la escucha: si falla, se
+  // reintenta en el siguiente ciclo y se avisa una sola vez por sesión.
+  const guardarProgreso = ({ keepalive = false, segundos = null, motivo = 'ciclo' } = {}) => {
+    const { token: tk, userId } = sesionRef.current;
+    const { libroId, capitulo } = pistaRef.current;
+    const audio = audioRef.current;
+    if (!tk || !userId || !libroId || !audio) return;
+    const cuerpo = payloadProgreso({
+      usuarioId: userId,
+      libroId,
+      capitulo,
+      segundos: segundos ?? audio.currentTime,
+    });
+    if (!cuerpo) return;
+    ultimoGuardadoRef.current = ahora();
+    try {
+      fetch(`${API_BASE_URL}/guardar-progreso`, {
+        method: 'POST',
+        keepalive,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+        body: JSON.stringify(cuerpo),
+      }).then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        // Aviso silencioso para que "Continuar escuchando" se actualice (Home)
+        try {
+          window.dispatchEvent(new CustomEvent(EVENTO_PROGRESO_GUARDADO, {
+            detail: { libroId, capitulo, motivo },
+          }));
+        } catch { /* sin ventana: nada que actualizar */ }
+      }).catch(() => {
+        // Reintento en el próximo ciclo de 15 s
+        ultimoGuardadoRef.current = null;
+        if (!avisoFalloRef.current && !keepalive) {
+          avisoFalloRef.current = true;
+          announceText('No se pudo guardar tu avance por ahora. La escucha sigue y se volverá a intentar.');
+        }
+      });
+    } catch { /* sin red: se reintenta en el próximo ciclo */ }
+  };
+  const guardarRef = useRef(null);
+  useEffect(() => { guardarRef.current = guardarProgreso; });
+
   // Handle audio element event listeners
   useEffect(() => {
     const audio = new Audio();
     audioRef.current = audio;
 
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+      // Cada ~15 s mientras suena
+      if (!audio.paused && debeGuardar({ ahora: ahora(), ultimo: ultimoGuardadoRef.current })) {
+        guardarRef.current?.();
+      }
+    };
     const onDurationChange = () => setDuration(audio.duration || 0);
+    // Al cerrar u ocultar la página: guardado con keepalive
+    const onOcultar = (ev) => {
+      if (ev.type === 'pagehide' || document.visibilityState === 'hidden') guardarRef.current?.({ keepalive: true });
+    };
     const onEnded = () => {
+      // Fin del capítulo: se guarda en su último segundo. Al reanudar, el
+      // siguiente capítulo empieza de 0 y el último cuenta como terminado.
+      guardarRef.current?.({ segundos: audio.duration || audio.currentTime });
       setIsPlaying(false);
       announceText('Fin del capítulo.');
       playCue('success');
@@ -209,8 +279,12 @@ export const AudioProvider = ({ children }) => {
     audio.addEventListener('durationchange', onDurationChange);
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('error', onError);
+    window.addEventListener('pagehide', onOcultar);
+    document.addEventListener('visibilitychange', onOcultar);
 
     return () => {
+      window.removeEventListener('pagehide', onOcultar);
+      document.removeEventListener('visibilitychange', onOcultar);
       audio.pause();
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('durationchange', onDurationChange);
@@ -224,7 +298,16 @@ export const AudioProvider = ({ children }) => {
   }, []);
 
   // Load and play a specific audiobook chapter
-  const playChapter = async (book, chapterIdx) => {
+  // opciones: { segundos, total, reanuda }. Con reanuda, empieza en `segundos`
+  // y da un único aviso "Continuando «Título», capítulo X, minuto Y."
+  const playChapter = async (book, chapterIdx, opciones = {}) => {
+    const { segundos = 0, total = 0, reanuda = false } = opciones || {};
+    // Cambio de capítulo o de libro: se guarda dónde quedó la pista anterior
+    const previo = audioRef.current;
+    if (pistaRef.current.libroId && previo && previo.currentTime > 0 && !previo.ended) {
+      guardarRef.current?.({ motivo: 'capitulo' });
+    }
+    setLibroCargadoId(null);
     if (!token || !user) {
       announceText('Debes iniciar sesión para reproducir audiolibros.', { urgente: true });
       playCue('error');
@@ -235,8 +318,8 @@ export const AudioProvider = ({ children }) => {
       setIsPlaying(false);
       setCurrentBook(book);
       setCurrentChapterIndex(chapterIdx);
-      
-      announceText(`Cargando capítulo ${chapterIdx} de ${book.nombre || book.title}...`);
+
+      if (!reanuda) announceText(`Cargando capítulo ${chapterIdx} de ${book.nombre || book.title}...`);
       playCue('action');
 
       const streamUrl = `${API_BASE_URL}/stream-audio-simple/${user.id}/${book.id}/${chapterIdx}`;
@@ -262,12 +345,39 @@ export const AudioProvider = ({ children }) => {
 
       if (audioRef.current) {
         audioRef.current.src = objectUrl;
+        // La pista ya está asignada: cuenta como cargada aunque el navegador
+        // rechace play() por su política de reproducción automática
+        const totalCaps = total || (String(pistaRef.current.libroId) === String(book.id) ? pistaRef.current.total : 0);
+        pistaRef.current = { libroId: book.id, capitulo: chapterIdx, total: totalCaps };
+        ultimoGuardadoRef.current = ahora();
+        setLibroCargadoId(book.id);
         audioRef.current.volume = volume;
         audioRef.current.playbackRate = playbackRate;
-        
+
+        let inicio = 0;
+        if (reanuda && segundos > 0) {
+          const audio = audioRef.current;
+          if (!(audio.duration > 0)) {
+            await new Promise((listo) => {
+              const fin = () => { audio.removeEventListener('loadedmetadata', fin); listo(); };
+              audio.addEventListener('loadedmetadata', fin);
+              setTimeout(fin, 4000);
+            });
+          }
+          const pos = posicionInicial({ capitulo: chapterIdx, segundos, totalCapitulos: totalCaps, duracion: audio.duration });
+          // Al final del capítulo: el siguiente desde 0; al final del libro, de nuevo
+          if (pos.terminado) return playChapter(book, 1, { total: totalCaps });
+          if (pos.capitulo !== chapterIdx) return playChapter(book, pos.capitulo, { total: totalCaps });
+          inicio = pos.segundos;
+          try { audio.currentTime = inicio; } catch { inicio = 0; }
+          setCurrentTime(inicio);
+        }
+
         await audioRef.current.play();
         setIsPlaying(true);
-        announceText(`Reproduciendo ${book.nombre || book.title}. Capítulo ${chapterIdx}.`);
+        announceText(reanuda && inicio > 0
+          ? avisoContinuar(book.nombre || book.title, chapterIdx, inicio)
+          : `Reproduciendo ${book.nombre || book.title}. Capítulo ${chapterIdx}.`);
         playCue('success');
       }
     } catch (err) {
@@ -283,6 +393,7 @@ export const AudioProvider = ({ children }) => {
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
+      guardarRef.current?.({ motivo: 'pausa' });
       announceText('Reproducción pausada');
       playCue('action');
     } else {
@@ -398,7 +509,7 @@ export const AudioProvider = ({ children }) => {
       playCue('error');
       return;
     }
-    playChapter(currentBook, next);
+    playChapter(currentBook, next, { total });
   };
 
   // Perfil de accesibilidad (spec 005, R25): la primera vez que cada persona
@@ -430,6 +541,7 @@ export const AudioProvider = ({ children }) => {
 
   const value = {
     currentBook,
+    libroCargadoId,
     currentChapterIndex,
     isPlaying,
     currentTime,

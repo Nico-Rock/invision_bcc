@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react';
  * Tab y Shift+Tab giran adentro: el modal nativo deja salir el foco hacia la
  * interfaz del navegador (en el panel quedaba en <body>).
  */
-export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', children }) => {
+export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', claseDialogo = '', children }) => {
   const ref = useRef(null);
   const disparadorRef = useRef(null);
 
@@ -19,7 +19,9 @@ export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', 
     if (abierto && !dialogo.open) {
       disparadorRef.current = document.activeElement;
       dialogo.showModal();
-      const primero = dialogo.querySelector('[autofocus], input, select, textarea, button');
+      // [data-foco-inicial]: un elemento estático arriba (con tabIndex -1) para
+      // contenidos largos, así la ventana no abre desplazada hasta el final
+      const primero = dialogo.querySelector('[data-foco-inicial], [autofocus], input, select, textarea, button');
       if (primero) primero.focus();
     } else if (!abierto && dialogo.open) {
       dialogo.close();
@@ -59,7 +61,7 @@ export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', 
   return (
     <dialog
       ref={ref}
-      className="dialogo"
+      className={`dialogo ${claseDialogo}`.trim()}
       aria-labelledby={tituloId}
       onClose={alCerrar}
       onKeyDown={retenerFoco}

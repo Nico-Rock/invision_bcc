@@ -2,6 +2,14 @@ import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useAudio } from '../hooks/useAudio';
 import { API_BASE_URL } from '../config';
+import { esIOS } from '../lib/plataforma';
+import { textoTecla } from '../lib/atajosGlobales';
+import { VELOCIDADES, valorVelocidad } from '../lib/velocidad';
+import { TECLAS_REPRODUCTOR } from '../lib/reproductor';
+
+// En iPhone y iPad el sistema ignora el volumen que fija la página: el control
+// del sitio anunciaba un porcentaje que no se oía. Ahí se usan los botones del equipo.
+const VOLUMEN_DEL_SISTEMA = typeof navigator !== 'undefined' && esIOS(navigator);
 
 export const AudioPlayer = () => {
   const { authenticatedFetch } = useAuth();
@@ -68,7 +76,10 @@ export const AudioPlayer = () => {
   };
 
   return (
-    <section className="player-dock active" aria-label="Reproductor de audiolibros">
+    // id y tabIndex -1: destino del enlace "Saltar al reproductor". Con el foco
+    // dentro, responden Espacio, flechas, N, P y M (useKeyboardShortcuts).
+    <section id="reproductor" className="player-dock active" aria-labelledby="reproductor-titulo" tabIndex={-1}>
+      <h2 id="reproductor-titulo" className="sr-only">Reproductor de audiolibros</h2>
       {/* Información del libro */}
       <div className="player-info">
         <div 
@@ -82,6 +93,7 @@ export const AudioPlayer = () => {
         <div className="player-chapter-title" id="playerChapter">
           Capítulo {currentChapterIndex} de {chapters.length || 1}
         </div>
+        <div className="player-atajo" aria-hidden="true"><kbd className="nav-kbd">{textoTecla('reproductor')}</kbd></div>
       </div>
 
       {/* Controles del Reproductor */}
@@ -164,30 +176,40 @@ export const AudioPlayer = () => {
             {formatTime(duration)}
           </span>
         </div>
+        {/* Teclas con el foco dentro del reproductor, desde TECLAS_REPRODUCTOR.
+            aria-hidden: la ayuda ya las cuenta y así el lector no las repite
+            cada vez que el foco pasa por aquí. No es enfocable: no cambia el Tab. */}
+        <p className="player-teclas" aria-hidden="true">
+          <span className="player-teclas-intro">Con el foco aquí:</span>
+          {TECLAS_REPRODUCTOR.map((fila) => (
+            <span key={fila.id} className="player-teclas-item">
+              {fila.teclas.map((t) => <kbd key={t} className="player-kbd">{t}</kbd>)}
+              <span>{fila.corto}</span>
+            </span>
+          ))}
+        </p>
       </div>
 
       {/* Volumen y velocidad */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
         {/* Control de Velocidad */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <label htmlFor="speed-select" style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Velocidad:</label>
+          <label htmlFor="speed-select" style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Velocidad:</label>
           <select
             id="speed-select"
-            value={playbackRate}
+            value={valorVelocidad(playbackRate)}
             onChange={(e) => changeSpeed(parseFloat(e.target.value))}
             onFocus={() => playCue('focus')}
             className="player-select"
           >
-            <option value="0.75">0.75x</option>
-            <option value="1.0">1.0x (Normal)</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="1.75">1.75x</option>
-            <option value="2.0">2.0x</option>
+            {VELOCIDADES.map((o) => (
+              <option key={o.valor} value={valorVelocidad(o.valor)}>{o.etiqueta}</option>
+            ))}
           </select>
         </div>
 
-        {/* Control de Volumen */}
+        {/* Control de Volumen (no en iOS) */}
+        {!VOLUMEN_DEL_SISTEMA && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '150px' }}>
           <span aria-hidden="true" style={{ fontSize: '1.1rem' }}>🔊</span>
           <input
@@ -209,6 +231,7 @@ export const AudioPlayer = () => {
             }}
           />
         </div>
+        )}
       </div>
     </section>
   );

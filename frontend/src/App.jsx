@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { AudioProvider } from './context/AudioContext';
 import { useAudio } from './hooks/useAudio';
 import { A11yBar } from './components/A11yBar';
-import { useKeyboardShortcuts, ATAJOS_SITIO, RESUMEN_ATAJOS } from './hooks/useKeyboardShortcuts';
+import { useKeyboardShortcuts, useAtajosGlobales } from './hooks/useKeyboardShortcuts';
+import { aAriaGlobal, textoTecla } from './lib/atajosGlobales';
+import { SECCIONES_AYUDA, ALCANCE_ATAJOS, filasAyuda, filasAyudaAlt, resumenAyuda } from './lib/ayuda';
+import { ESTADO_FOCO, enlacesDeSalto, decidirFoco, enfocarDestino } from './lib/navegacion';
 import { Dialogo } from './components/Dialogo';
 import { API_BASE_URL } from './config';
 import { Login } from './pages/Login';
@@ -18,7 +21,7 @@ const ProfileView = () => {
   const { user } = useAuth();
   return (
     <section aria-labelledby="profile-title">
-      <h2 id="profile-title" className="results-heading">Mi Perfil</h2>
+      <h2 id="profile-title" className="results-heading" tabIndex={-1}>Mi Perfil</h2>
       <div style={{ padding: '2rem 0', fontWeight: 'bold' }}>
         <p>Usuario: {user?.email || 'Cargando...'}</p>
         <p>Roles: {user?.roles?.join(', ') || 'Usuario'}</p>
@@ -48,19 +51,21 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
 
 // Géneros reales del catálogo (spec 002, R20): antes la barra mostraba dos
 // categorías fijas que no filtraban nada y los reales estaban ocultos.
-const GenerosNav = ({ generos, error, navRef }) => {
+// Elegir uno pide llevar el foco al encabezado de resultados (S3).
+const GenerosNav = ({ generos, error }) => {
   const [params] = useSearchParams();
   const { pathname } = useLocation();
   const activo = pathname === '/' ? params.get('genero') : null;
   return (
-    <nav className="sidebar-section" aria-labelledby="genres-heading" ref={navRef}>
-      <h2 className="sidebar-title" id="genres-heading">Géneros [4]</h2>
+    <nav className="sidebar-section" aria-labelledby="genres-heading">
+      {/* tabIndex -1: destino del enlace de salto "Saltar a los géneros" */}
+      <h2 className="sidebar-title" id="genres-heading" tabIndex={-1}>Géneros <kbd className="nav-kbd" aria-hidden="true">{textoTecla('generos')}</kbd></h2>
       {error ? (
         <p className="texto-error">{error}</p>
       ) : (
         <ul className="genres-list">
           <li>
-            <Link to="/" className="genre-btn" aria-current={pathname === '/' && !activo ? 'page' : undefined}>
+            <Link to="/" state={ESTADO_FOCO} className="genre-btn" aria-current={pathname === '/' && !activo ? 'page' : undefined}>
               Todos
             </Link>
           </li>
@@ -68,6 +73,7 @@ const GenerosNav = ({ generos, error, navRef }) => {
             <li key={g}>
               <Link
                 to={`/?genero=${encodeURIComponent(g)}`}
+                state={ESTADO_FOCO}
                 className="genre-btn"
                 aria-current={activo === g ? 'page' : undefined}
               >
@@ -83,16 +89,16 @@ const GenerosNav = ({ generos, error, navRef }) => {
 
 // Main App Wrapper to bind routing, state, and shortcuts
 const AppContent = () => {
-  const { isAuthenticated, isAdmin, logout } = useAuth();
-  const { announceText, playCue, esPrimerUso, vozActiva } = useAudio();
+  const { isAuthenticated, isAdmin, logout, loading } = useAuth();
+  const { announceText, playCue, esPrimerUso, vozActiva, currentBook } = useAudio();
   const [showHelp, setShowHelp] = useState(false);
   const [generos, setGeneros] = useState([]);
   const [errorGeneros, setErrorGeneros] = useState('');
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
-
-  const searchInputRef = useRef(null);
-  const genresNavRef = useRef(null);
+  const location = useLocation();
+  const { pathname } = location;
+  const claveInicial = useRef(location.key);
+  const autenticadoAntes = useRef(isAuthenticated);
+  const focoPendiente = useRef(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -125,40 +131,56 @@ const AppContent = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Foco tras un cambio de vista (S3): al ingresar, al cambiar de sección o
+  // al elegir un género, el foco va al encabezado principal de la vista nueva
+  // (en Administración, a la pestaña activa). Solo tras una acción de la
+  // persona (ingreso o navegación con ESTADO_FOCO), nunca en la carga inicial.
+  useEffect(() => {
+    const { selector, pendiente } = decidirFoco({
+      location,
+      claveInicial: claveInicial.current,
+      pendiente: focoPendiente.current,
+      autenticadoAntes: autenticadoAntes.current,
+      autenticado: isAuthenticated,
+    });
+    autenticadoAntes.current = isAuthenticated;
+    focoPendiente.current = pendiente;
+    if (!selector) return undefined;
+    let cuadro = 0;
+    const enfocar = (intentos) => {
+      const destino = document.querySelector(selector);
+      if (destino) destino.focus();
+      else if (intentos > 0) cuadro = requestAnimationFrame(() => enfocar(intentos - 1));
+    };
+    enfocar(120);
+    return () => cancelAnimationFrame(cuadro);
+  }, [location, isAuthenticated]);
+
+  const filasDeAyuda = filasAyuda(isAdmin);
+  const filasAlt = filasAyudaAlt(isAdmin);
+
   const abrirAyuda = () => {
     setShowHelp(true);
-    announceText(`Ventana de atajos abierta. ${RESUMEN_ATAJOS}`);
+    announceText(`Ventana de ayuda abierta. ${resumenAyuda(isAdmin)}`);
     playCue('action');
   };
 
-  // Bind Keyboard Shortcuts hook
-  useKeyboardShortcuts({
-    // S funciona desde cualquier sección: vuelve al catálogo y enfoca el buscador
-    onFocusSearch: () => {
-      const enfocar = (intentos = 10) => {
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-          announceText('Buscador de audiolibros.');
-          playCue('focus');
-        } else if (intentos > 0) {
-          requestAnimationFrame(() => enfocar(intentos - 1));
-        }
-      };
-      if (pathname !== '/') navigate('/');
-      enfocar();
-    },
-    onFocusGenres: () => {
-      const primero = genresNavRef.current?.querySelector('a');
-      if (primero) {
-        primero.focus();
-        announceText('Géneros.');
-      }
-    },
-    onToggleHelp: (show) => {
-      if (show) abrirAyuda();
-      else setShowHelp(false);
-    }
-  });
+  // Teclas del reproductor: solo con el foco dentro de él
+  useKeyboardShortcuts();
+  // Atajos globales con Alt (tabla en lib/atajosGlobales.js)
+  useAtajosGlobales({ abrirAyuda });
+
+  // Enlaces de salto: solo los que tienen destino en la vista actual
+  const enlaces = enlacesDeSalto({ pathname, autenticado: isAuthenticated, cargando: loading, hayLibro: !!currentBook });
+  // El destino se resuelve al activar el enlace (la pestaña activa cambia). Si
+  // no existe, o no puede recibir foco ni con tabindex="-1", se desplaza hasta él (lo que
+  // haría el ancla nativa) en vez de dejar el enlace sin efecto.
+  const saltarA = (e, { destino: id, destinoSelector }) => {
+    const destino = destinoSelector ? document.querySelector(destinoSelector) : document.getElementById(id);
+    if (!destino) return;
+    e.preventDefault();
+    if (!enfocarDestino(destino)) destino.scrollIntoView();
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -168,6 +190,13 @@ const AppContent = () => {
 
   return (
     <div className="app-shell">
+      {/* Enlaces de salto: los primeros Tab de la página */}
+      {enlaces.map((enlace) => (
+        <a key={enlace.destino} href={enlace.href} className="skip-link" onClick={(e) => saltarA(e, enlace)}>
+          {enlace.texto}
+        </a>
+      ))}
+
       <A11yBar />
 
       {!isAuthenticated ? (
@@ -181,36 +210,50 @@ const AppContent = () => {
         <div className="app-layout">
           <aside className="sidebar" aria-label="Menú principal y géneros">
             <nav className="sidebar-section" aria-labelledby="menu-heading">
-              <h2 className="sidebar-title" id="menu-heading">Menú</h2>
+              <h2 className="sidebar-title" id="menu-heading" tabIndex={-1}>Menú</h2>
               <ul className="nav-menu">
                 <li>
-                  <NavLink to="/perfil" aria-keyshortcuts="1" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                  <NavLink to="/perfil" aria-keyshortcuts={aAriaGlobal('perfil')} state={ESTADO_FOCO} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                       <circle cx="12" cy="7" r="4"></circle>
                     </svg>
-                    <span>[1] Perfil</span>
+                    <span>Perfil</span> <kbd className="nav-kbd" aria-hidden="true">{textoTecla('perfil')}</kbd>
                   </NavLink>
                 </li>
                 <li>
-                  <NavLink to="/" aria-keyshortcuts="2" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
+                  <NavLink to="/" aria-keyshortcuts={aAriaGlobal('catalogo')} state={ESTADO_FOCO} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                     </svg>
-                    <span>[2] Catálogo</span>
+                    <span>Catálogo</span> <kbd className="nav-kbd" aria-hidden="true">{textoTecla('catalogo')}</kbd>
                   </NavLink>
+                </li>
+                <li>
+                  <Link
+                    to="/"
+                    className="nav-link"
+                    aria-keyshortcuts={aAriaGlobal('continuar')}
+                    onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('invision:ir-continuar')); }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                    </svg>
+                    <span>Continuar escuchando</span> <kbd className="nav-kbd" aria-hidden="true">{textoTecla('continuar')}</kbd>
+                  </Link>
                 </li>
                 {isAdmin && (
                   <li>
-                    <NavLink to="/admin/import" aria-keyshortcuts="3" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                    <NavLink to="/admin/import" aria-keyshortcuts={aAriaGlobal('admin')} state={ESTADO_FOCO} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                         <circle cx="9" cy="7" r="4"></circle>
                         <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                       </svg>
-                      <span>[3] Administración</span>
+                      <span>Administración</span> <kbd className="nav-kbd" aria-hidden="true">{textoTecla('admin')}</kbd>
                     </NavLink>
                   </li>
                 )}
@@ -220,7 +263,7 @@ const AppContent = () => {
             {/* En la consola los géneros de los socios no tienen uso y se leían
                 antes del título principal (spec 005, R13) */}
             {!pathname.startsWith('/admin') && (
-              <GenerosNav generos={generos} error={errorGeneros} navRef={genresNavRef} />
+              <GenerosNav generos={generos} error={errorGeneros} />
             )}
           </aside>
 
@@ -230,9 +273,9 @@ const AppContent = () => {
                 type="button"
                 className="shortcuts-help-btn"
                 onClick={abrirAyuda}
-                aria-keyshortcuts="H Shift+Slash"
+                aria-keyshortcuts={aAriaGlobal('ayuda')}
               >
-                <span aria-hidden="true">❓</span> Ayuda de Atajos
+                <span aria-hidden="true">❓</span> Ayuda <kbd className="nav-kbd" aria-hidden="true">{textoTecla('ayuda')}</kbd>
               </button>
 
               <button type="button" className="btn-logout" onClick={handleLogout}>
@@ -250,7 +293,7 @@ const AppContent = () => {
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <Home searchInputRef={searchInputRef} />
+                    <Home />
                   </ProtectedRoute>
                 }
               />
@@ -278,34 +321,59 @@ const AppContent = () => {
 
       <AudioPlayer />
 
-      {/* Ayuda: <dialog> nativo que retiene y devuelve el foco (R30) */}
+      {/* Ayuda: <dialog> nativo que retiene y devuelve el foco (R30). Explica
+          cómo moverse y lista los pocos atajos que quedan (S3). */}
       <Dialogo
         abierto={showHelp}
         tituloId="modal-title"
+        claseDialogo="dialogo-ayuda"
         onClose={() => {
           setShowHelp(false);
-          announceText('Ayuda de atajos cerrada.');
+          announceText('Ayuda cerrada.');
         }}
       >
-        <h2 className="modal-title" id="modal-title">Atajos de Teclado Disponibles</h2>
+        {/* El foco entra por el título: con la ayuda larga, enfocar "Entendido"
+            dejaba la ventana desplazada hasta el final */}
+        <h2 className="modal-title" id="modal-title" tabIndex={-1} data-foco-inicial>Cómo moverte por Invision</h2>
+        <h3 className="ayuda-subtitulo">Atajos de teclado</h3>
+        <p>{ALCANCE_ATAJOS}</p>
+        <table className="shortcuts-table">
+          <caption className="sr-only">Atajos con Alt</caption>
+          <thead>
+            <tr><th scope="col">Tecla</th><th scope="col">Acción</th></tr>
+          </thead>
+          <tbody>
+            {filasAlt.map((a) => (
+              <tr key={a.accion}>
+                <td>{a.teclas.map((t) => <kbd key={t} className={t.length > 8 ? 'kbd-tag kbd-largo' : 'kbd-tag'}>{t}</kbd>)}</td>
+                <td>{a.accion}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         <table className="shortcuts-table">
           <thead>
             <tr><th scope="col">Tecla</th><th scope="col">Acción</th></tr>
           </thead>
           <tbody>
-            {ATAJOS_SITIO.map((a) => (
+            {filasDeAyuda.map((a) => (
               <tr key={a.accion}>
                 <td>
                   {a.teclas.map((t, i) => (
                     <span key={t}>{i > 0 && ' o '}<kbd className="kbd-tag">{t}</kbd></span>
                   ))}
-                  {a.reproductor && ' (con un libro sonando)'}
                 </td>
                 <td>{a.accion}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        {SECCIONES_AYUDA.map((s) => (
+          <section key={s.titulo} className="ayuda-seccion">
+            <h3 className="ayuda-subtitulo">{s.titulo}</h3>
+            <p>{s.texto}</p>
+          </section>
+        ))}
         <button
           type="button"
           className="btn-submit-search"

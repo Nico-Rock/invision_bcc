@@ -18,6 +18,18 @@ export const OPERACIONES = {
   perfil_socio: 'Cambió el perfil de accesibilidad',
 };
 
+// Pestañas (spec 005, R13 y R18): la consola abre en Inicio, que dice qué
+// necesita atención. El orden va de lo diario a lo excepcional.
+export const PESTANAS = [
+  { id: 'inicio', nombre: 'Inicio' },
+  { id: 'content', nombre: 'Libros' },
+  { id: 'users', nombre: 'Usuarios' },
+  { id: 'import', nombre: 'Importar fichas' },
+  { id: 'tareas', nombre: 'Tareas' },
+  { id: 'papelera', nombre: 'Papelera' },
+  { id: 'audit', nombre: 'Auditoría' },
+];
+
 export const ESTADOS_TAREA = {
   encolada: 'en espera',
   en_curso: 'en curso',

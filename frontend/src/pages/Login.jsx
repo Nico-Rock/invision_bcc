@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAudio } from '../hooks/useAudio';
+import { ESTADO_FOCO } from '../lib/navegacion';
 
 export const Login = () => {
   const { login } = useAuth();
@@ -20,7 +21,8 @@ export const Login = () => {
       await login(email, password);
       announceText('Inicio de sesión exitoso. Redirigiendo al catálogo.');
       playCue('success');
-      navigate('/');
+      // El foco pasa al encabezado de resultados del catálogo (S3)
+      navigate('/', { state: ESTADO_FOCO });
     } catch (err) {
       const errMsg = err.message || 'Credenciales incorrectas o error en el servidor';
       setError(errMsg);

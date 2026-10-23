@@ -531,6 +531,8 @@ body {
 }
 .book-card:focus-visible {
   outline: var(--focus-ring-outline);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 7px var(--focus-ring-inner);
   border-color: var(--accent-orange);
   background-color: var(--bg-sidebar);
 }
@@ -602,7 +604,7 @@ body {
 }
 .player-chapter-title {
   font-size: 1rem;
-  color: #9CA3AF;
+  color: #A3AAB5; /* 7,58:1 sobre #111827 (AAA) */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -740,7 +742,10 @@ body {
   border-radius: 4px;
   padding: 0.2rem 0.5rem;
   font-family: monospace;
+  white-space: nowrap;
 }
+/* La combinación larga (Alt+Mayús+1 a 7) sí puede partirse en pantallas angostas */
+.kbd-tag.kbd-largo { white-space: normal; }
 
 /* Auth / Login Page styling */
 .login-container {
@@ -956,6 +961,7 @@ body {
   align-items: center;
   gap: 1rem;
   margin-top: 2rem;
+  flex-wrap: wrap;
 }
 .pagination-btn {
   background-color: var(--bg-card);
@@ -983,8 +989,18 @@ body {
 }
 
 /* Tabs A11y Styles */
+.tabs-ayuda {
+  margin: 0 0 0.75rem;
+  max-width: 60ch;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
 .tabs-header {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 2rem;
   border-bottom: 3px solid var(--border-color);
@@ -1280,6 +1296,8 @@ button {
   background: var(--bg-card);
   border: 3px solid var(--brand-orange);
 }
+.dialogo.dialogo-ayuda { width: min(92vw, 56rem); max-width: min(92vw, 56rem); }
+.dialogo-ayuda .modal-card { max-width: none; width: 100%; box-sizing: border-box; }
 .modal-angosto { max-width: 450px; }
 .modal-mediano { max-width: 500px; }
 
@@ -1545,4 +1563,198 @@ main:focus-visible {
   border-color: var(--accent-orange);
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+
+/* Navegación por estructura (variante S3 de la simulación de 75 recorridos) */
+
+/* Reproductor como destino del enlace de salto: el anillo va por dentro,
+   porque el borde inferior y los laterales tocan el borde de la ventana */
+.player-dock:focus-visible {
+  outline-offset: -4px;
+}
+
+/* Con la vista angosta o baja (zoom alto) el reproductor deja de ser fijo y
+   pasa al final de la página: fijo tapaba casi toda la vista y el elemento
+   enfocado (WCAG 2.4.11). A tamaño de escritorio no cambia. */
+@media (max-width: 480px), (max-height: 480px) {
+  .player-dock,
+  .player-dock.active {
+    position: static;
+    transform: none;
+    box-shadow: none;
+  }
+  .player-buttons {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+}
+
+/* Ventana de ayuda: cómo moverse con lector, teclado, toque y mouse */
+.ayuda-subtitulo {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.4rem;
+}
+.ayuda-seccion p {
+  margin: 0 0 0.5rem;
+}
+
+/* Título del libro en el reproductor (P14, P17): el naranja de texto
+   --accent-orange (#8F2F00) da 2,17:1 sobre el fondo oscuro del reproductor
+   (#111827). Token propio, solo para este título: #FDBA74 da 10,5:1. En alto
+   contraste sigue el amarillo de antes (#FFE600, 14:1). */
+:root {
+  --acento-sobre-oscuro: #FDBA74;
+}
+.high-contrast {
+  --acento-sobre-oscuro: #FFE600;
+}
+.player-book-title {
+  color: var(--acento-sobre-oscuro);
+}
+
+/* Reflujo a 320 px (WCAG 1.4.10): la columna única no crece más que la vista.
+   Medía 376 px porque las tarjetas tienen un mínimo de 280 px y el contenido
+   3rem de relleno por lado; la barra lateral se estiraba con ella. Con menos
+   relleno lateral, "Ayuda", "Salir" e "Invision" ya no se parten a mitad. */
+@media (max-width: 480px) {
+  .app-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar,
+  .main-content {
+    min-width: 0;
+  }
+  .main-content {
+    padding: 1.5rem 1rem;
+  }
+  .results-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Atajo visible dentro de un enlace o botón (Alt+N) */
+.nav-kbd {
+  margin-left: auto;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
+}
+.nav-link { flex-wrap: wrap; }
+/* La etiqueta cede espacio y parte por palabras (nunca dentro de una palabra); la marca baja solo si no cabe */
+.nav-link > span { flex: 1 1 0; min-width: min-content; overflow-wrap: normal; word-break: normal; }
+.search-atajo { margin: 0.5rem 0 0; font-size: 0.95rem; }
+.search-atajo .nav-kbd, .player-atajo .nav-kbd, .sidebar-title .nav-kbd { margin-left: 0.4rem; }
+.sidebar-title .nav-kbd { font-size: 0.8rem; text-transform: none; }
+.player-atajo { margin-top: 0.15rem; }
+.shortcuts-help-btn .nav-kbd { margin-left: 0.4rem; }
+.tab-btn { padding-left: 1rem; padding-right: 1rem; }
+.tab-btn .nav-kbd { margin-left: 0.5rem; font-size: 0.85rem; }
+
+/* Pestañas de Administración: envuelven en pantallas angostas en vez de desbordar */
+@media (max-width: 480px) {
+  .tabs-header { flex-wrap: wrap; }
+}
+
+/* Ayuda en pantallas angostas: menos relleno para que la tabla respire */
+@media (max-width: 480px) {
+  .dialogo-ayuda .modal-card { padding: 1rem; }
+  .dialogo-ayuda .shortcuts-table td, .dialogo-ayuda .shortcuts-table th { padding-left: 0.25rem; padding-right: 0.25rem; }
+}
+
+/* Continuar escuchando (antes de los resultados del catálogo) */
+.continuar-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+}
+.continuar-heading {
+  font-size: 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.continuar-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.continuar-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.continuar-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 14rem;
+  overflow-wrap: anywhere;
+}
+.continuar-titulo { font-weight: 700; }
+.continuar-meta { color: var(--text-secondary); }
+.continuar-estado {
+  margin: 0.75rem 0 0;
+  color: var(--text-secondary);
+}
+
+/* Teclas del reproductor (con el foco dentro). Hereda el color del
+   reproductor (#FFFFFF sobre #111827, 17:1). Cada tecla y su acción no se
+   parten; la línea envuelve entre grupos en pantallas angostas. */
+.player-teclas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: inherit;
+  max-width: 100%;
+}
+.player-teclas-intro,
+.player-teclas-item {
+  white-space: nowrap;
+}
+.player-teclas-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.player-kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 0.3rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  color: inherit;
+}
+
+/* Las etiquetas de los botones de la barra superior no se parten dentro de una palabra */
+.shortcuts-help-btn, .btn-logout { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 400px) {
+  .top-bar { gap: 0.5rem; }
+  .shortcuts-help-btn { padding: 0.6rem 0.6rem; font-size: 1rem; }
+  .btn-logout { padding: 0.6rem 0.6rem; font-size: 1.1rem; gap: 0.4rem; }
 }

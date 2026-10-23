@@ -4,10 +4,29 @@ import { crearDictado } from '../lib/dictado';
 import { useAuth } from '../hooks/useAuth';
 import { useAudio } from '../hooks/useAudio';
 import { API_BASE_URL } from '../config';
+import { indiceDestino, textoPosicion } from '../lib/listaLibros';
+import { aAriaGlobal, textoTecla } from '../lib/atajosGlobales';
+import { SELECTOR_REPRODUCTOR, debeRecargar } from '../lib/reproductor';
+import {
+  leerProgreso, hayProgreso, listaContinuar, nombreBotonContinuar, textoPosicionHablada,
+  debeRefrescarContinuar, EVENTO_PROGRESO_GUARDADO,
+} from '../lib/progreso';
 
-export const Home = ({ searchInputRef: refExterno }) => {
-  const { authenticatedFetch } = useAuth();
-  const { playChapter, announceText, playCue, vozActiva } = useAudio();
+// Lleva el foco al botón de reproducir y pausar del reproductor ("Pausar
+// audiolibro" mientras suena). Espera a que el reproductor exista.
+const enfocarReproductor = (intentos = 30) => {
+  const boton = document.getElementById('playerPlayBtn');
+  if (boton) boton.focus();
+  else if (intentos > 0) requestAnimationFrame(() => enfocarReproductor(intentos - 1));
+};
+
+export const Home = () => {
+  const { authenticatedFetch, user } = useAuth();
+  const { playChapter, libroCargadoId, announceText, playCue, vozActiva, currentBook } = useAudio();
+  // "Continuar escuchando": estado 'cargando' | 'listo' | 'vacio' | 'error'
+  const [continuar, setContinuar] = useState({ estado: 'cargando', items: [] });
+  // Consulta con la que se pidió el listado actual (la sección se oculta al buscar)
+  const [consultaActiva, setConsultaActiva] = useState('');
   const [params] = useSearchParams();
   const navigate = useNavigate();
   // El género sale de la URL (?genero=): lo elige la barra lateral (R20)
@@ -27,9 +46,8 @@ export const Home = ({ searchInputRef: refExterno }) => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-
-  const refInterno = useRef(null);
-  const searchInputRef = refExterno || refInterno;
+  // Tarjeta con tabIndex 0 (tabulador itinerante)
+  const [activa, setActiva] = useState(0);
 
   const fetchBooks = async (query = '', genre = '') => {
     setLoading(true);
@@ -72,7 +90,9 @@ export const Home = ({ searchInputRef: refExterno }) => {
       }));
 
       setBooks(adaptedList);
+      setConsultaActiva(genre ? '' : query);
       setCurrentPage(1);
+      setActiva(0);
       
       const countMsg = adaptedList.length === 1 ? '1 audiolibro encontrado.' : `${adaptedList.length} audiolibros encontrados.`;
       announceText(countMsg);
@@ -98,6 +118,99 @@ export const Home = ({ searchInputRef: refExterno }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGenre]);
 
+  // "Continuar escuchando": se pide al entrar al catálogo, cuando cambia el
+  // libro cargado y tras los guardados de progreso exitosos (con límite de
+  // frecuencia). Si falla, queda un aviso discreto y el catálogo sigue. Los
+  // refrescos no anuncian nada, no mueven el foco y conservan la lista
+  // anterior hasta tener la nueva; con el foco dentro de la sección, el
+  // repintado espera a que el foco salga.
+  const continuarRef = useRef(null);
+  const pendienteRef = useRef(null);
+  const peticionRef = useRef(0);
+  const refrescoRef = useRef({ ultimo: null, previo: null });
+
+  const aplicarContinuar = (nuevo) => {
+    const seccion = continuarRef.current;
+    if (seccion && seccion.contains(document.activeElement)) {
+      pendienteRef.current = nuevo;
+      return;
+    }
+    pendienteRef.current = null;
+    setContinuar(nuevo);
+  };
+
+  const pedirContinuar = ({ inicial = false } = {}) => {
+    if (!user?.id) return;
+    const id = ++peticionRef.current;
+    authenticatedFetch(`${API_BASE_URL}/mis-audiolibros/${user.id}`)
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((data) => {
+        if (id !== peticionRef.current) return;
+        const items = listaContinuar(data);
+        aplicarContinuar({ estado: items.length ? 'listo' : 'vacio', items });
+      })
+      .catch(() => {
+        if (id !== peticionRef.current) return;
+        // Un refresco fallido no borra la lista que ya se mostraba
+        if (inicial) setContinuar({ estado: 'error', items: [] });
+      });
+  };
+  const pedirRef = useRef(pedirContinuar);
+  useEffect(() => { pedirRef.current = pedirContinuar; });
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    pedirRef.current({ inicial: true });
+    return () => { peticionRef.current += 1; };
+  }, [user?.id]);
+
+  // Cambio del libro cargado
+  const libroActualId = currentBook?.id ?? null;
+  const primerLibroRef = useRef(true);
+  useEffect(() => {
+    if (primerLibroRef.current) { primerLibroRef.current = false; return; }
+    if (libroActualId != null) pedirRef.current();
+  }, [libroActualId]);
+
+  // Guardado de progreso confirmado por la API (AudioContext)
+  useEffect(() => {
+    const alGuardar = (ev) => {
+      const evento = ev.detail || null;
+      const ahora = Date.now();
+      const { ultimo, previo } = refrescoRef.current;
+      if (!debeRefrescarContinuar({ ahora, ultimo, evento, previo })) return;
+      refrescoRef.current = { ultimo: ahora, previo: { libroId: evento.libroId, capitulo: evento.capitulo } };
+      pedirRef.current();
+    };
+    window.addEventListener(EVENTO_PROGRESO_GUARDADO, alGuardar);
+    return () => window.removeEventListener(EVENTO_PROGRESO_GUARDADO, alGuardar);
+  }, []);
+
+  // Al salir el foco de la sección se aplica el refresco aplazado
+  const alSalirFocoContinuar = (e) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    const nuevo = pendienteRef.current;
+    if (nuevo) {
+      pendienteRef.current = null;
+      setContinuar(nuevo);
+    }
+  };
+
+  // Alt+0 (useAtajosGlobales): con una búsqueda activa, se limpia para que la sección aparezca
+  useEffect(() => {
+    const alPedir = () => {
+      if (consultaActiva) {
+        setSearchQuery('');
+        fetchBooks('');
+      }
+    };
+    window.addEventListener('invision:continuar', alPedir);
+    return () => window.removeEventListener('invision:continuar', alPedir);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultaActiva]);
+
+  const mostrarContinuar = !selectedGenre && !consultaActiva;
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (selectedGenre) navigate('/');
@@ -110,10 +223,52 @@ export const Home = ({ searchInputRef: refExterno }) => {
     else fetchBooks('');
   };
 
-  // Audiobook Play Trigger: Fetch chapters first, then play Chapter 1
-  const handlePlayBook = async (book) => {
+  // Copia de libroCargadoId para leerla después de cargar, fuera del render
+  const cargadoRef = useRef(libroCargadoId);
+  useEffect(() => { cargadoRef.current = libroCargadoId; }, [libroCargadoId]);
+
+  // Tras cargar, el foco pasa a "Pausar" solo si la pista quedó cargada y la
+  // persona no movió el foco a otra parte mientras cargaba. Si la carga falló,
+  // el foco sigue en la tarjeta y elegirla otra vez reintenta.
+  const enfocarSiCargo = (libro, origen, intentos = 30) => {
+    requestAnimationFrame(() => {
+      if (debeRecargar({ libroCargadoId: cargadoRef.current, libro })) {
+        if (intentos > 0) enfocarSiCargo(libro, origen, intentos - 1);
+        return;
+      }
+      const foco = document.activeElement;
+      if (!foco || foco === document.body || foco === origen || foco.closest?.(SELECTOR_REPRODUCTOR)) {
+        enfocarReproductor();
+      }
+    });
+  };
+
+  // Elegir un libro: trae los capítulos, reproduce el 1 y lleva el foco a
+  // "Pausar" (S3). Si el libro elegido ya es el cargado, no se recarga: antes,
+  // Espacio sobre la tarjeta recién elegida (ahí quedaba el foco) lo volvía a
+  // empezar desde 0:00. Ahora solo se lleva el foco al reproductor.
+  // Progreso guardado de un libro; ante cualquier falla, sin progreso (empieza como siempre)
+  const obtenerProgreso = async (book) => {
+    if (!user?.id) return null;
     try {
-      announceText(`Obteniendo capítulos de ${book.title}...`);
+      const r = await authenticatedFetch(`${API_BASE_URL}/obtener-progreso/${user.id}/${book.id}`);
+      if (!r.ok) return null;
+      const p = leerProgreso(await r.json());
+      return hayProgreso(p) ? p : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handlePlayBook = async (book, origen) => {
+    if (!debeRecargar({ libroCargadoId, libro: book })) {
+      enfocarReproductor();
+      return;
+    }
+    try {
+      const progreso = await obtenerProgreso(book);
+      // Con progreso, el único aviso es "Continuando …" al empezar a sonar
+      if (!progreso) announceText(`Obteniendo capítulos de ${book.title}...`);
       const response = await authenticatedFetch(`${API_BASE_URL}/audio-by-id/${book.id}`);
       if (!response.ok) {
         throw new Error('No se pudieron recuperar los capítulos del libro.');
@@ -124,8 +279,14 @@ export const Home = ({ searchInputRef: refExterno }) => {
         throw new Error('Este audiolibro no tiene capítulos grabados.');
       }
       
-      // Play chapter 1
-      await playChapter(book, 1);
+      const total = chaptersList.length;
+      if (progreso && progreso.capitulo <= total) {
+        await playChapter(book, progreso.capitulo, { segundos: progreso.segundos, total, reanuda: true });
+      } else {
+        // Sin progreso, o progreso más allá del último capítulo (terminado): desde el inicio
+        await playChapter(book, 1, { total });
+      }
+      enfocarSiCargo(book, origen);
     } catch (err) {
       announceText(`Error: ${err.message}`, { urgente: true });
       playCue('error');
@@ -164,10 +325,23 @@ export const Home = ({ searchInputRef: refExterno }) => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentBooks = books.slice(indexOfFirstItem, indexOfLastItem);
 
+  // Tabulador itinerante: una sola parada de Tab para la lista; flechas entre tarjetas
+  const gridRef = useRef(null);
+  const alTeclaTarjeta = (e, i) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const d = indiceDestino(e.key, i, currentBooks.length);
+    if (d === null) return;
+    e.preventDefault();
+    setActiva(d);
+    gridRef.current?.querySelectorAll('.book-card')[d]?.focus();
+  };
+
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
-    announceText(`Mostrando página ${pageNumber} de ${totalPages}.`);
+    setActiva(0);
+    announceText(`Página ${pageNumber} de ${totalPages}.`);
     playCue('action');
+    document.getElementById('results-title-header')?.focus({ preventScroll: true });
     // Scroll window to results heading
     const header = document.getElementById('results-title-header');
     if (header) {
@@ -178,7 +352,7 @@ export const Home = ({ searchInputRef: refExterno }) => {
   };
 
   return (
-    <div className="home-container">
+    <div className="home-container" data-continuar={mostrarContinuar ? continuar.estado : 'oculto'}>
       {/* Buscador Hero */}
       <section className="search-hero" aria-label="Buscador de audiolibros">
         <div>
@@ -186,19 +360,19 @@ export const Home = ({ searchInputRef: refExterno }) => {
           <p className="brand-subtitle">Biblioteca de audiolibros accesible</p>
         </div>
 
-        <form onSubmit={handleSearchSubmit} className="search-wrapper" noValidate>
+        <form onSubmit={handleSearchSubmit} className="search-wrapper" role="search" noValidate>
           <span className="search-icon-decor" aria-hidden="true">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           </span>
           <input
-            ref={searchInputRef}
+            id="buscador"
             type="search"
             className="search-input"
-            placeholder="Busca tu próximo audiolibro… (tecla S)"
+            placeholder="Busca tu próximo audiolibro…"
             aria-label="Buscar audiolibro por título o autor"
-            aria-keyshortcuts="S"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-keyshortcuts={aAriaGlobal('buscador')}
             onFocus={() => playCue('focus')}
           />
           <button
@@ -212,6 +386,7 @@ export const Home = ({ searchInputRef: refExterno }) => {
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           </button>
         </form>
+        <p className="search-atajo" aria-hidden="true">Atajo para llegar acá: <kbd className="nav-kbd">{textoTecla('buscador')}</kbd></p>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button 
@@ -235,14 +410,53 @@ export const Home = ({ searchInputRef: refExterno }) => {
         </div>
       </section>
 
+      {/* Continuar escuchando: antes de los resultados, solo sin búsqueda ni género */}
+      {mostrarContinuar && continuar.estado === 'listo' && (
+        <section className="continuar-section" aria-labelledby="continuar-heading" ref={continuarRef} onBlur={alSalirFocoContinuar}>
+          <h2 className="continuar-heading" id="continuar-heading" tabIndex={-1}>
+            <span>Continuar escuchando</span>{' '}
+            <kbd className="nav-kbd" aria-hidden="true">{textoTecla('continuar')}</kbd>
+          </h2>
+          <ul className="continuar-lista">
+            {continuar.items.map((libro) => (
+              <li key={libro.id} className="continuar-item">
+                <span className="continuar-texto" aria-hidden="true">
+                  <span className="continuar-titulo">{libro.title}</span>
+                  <span className="continuar-meta">{libro.author} · {textoPosicionHablada(libro.capitulo, libro.segundos)}</span>
+                </span>
+                <button
+                  type="button"
+                  className="btn-submit-search continuar-btn"
+                  aria-label={nombreBotonContinuar(libro.title, libro.capitulo, libro.segundos)}
+                  aria-keyshortcuts={continuar.items[0] === libro ? aAriaGlobal('continuar') : undefined}
+                  onClick={(e) => handlePlayBook(libro, e.currentTarget)}
+                  onFocus={() => playCue('focus')}
+                >
+                  Continuar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {mostrarContinuar && continuar.estado === 'cargando' && (
+        <p className="continuar-estado">Buscando tus libros en curso…</p>
+      )}
+      {mostrarContinuar && continuar.estado === 'error' && (
+        <p className="continuar-estado">No se pudo cargar «Continuar escuchando». El catálogo sigue disponible.</p>
+      )}
+
       {/* Categorías / Sidebar para visualización */}
       <section className="results-section" aria-labelledby="results-title-header">
-        <h2 className="results-heading" id="results-title-header">
+        {/* tabIndex -1: recibe el foco al elegir un género, al ingresar y al volver al Catálogo (S3) */}
+        <h2 className="results-heading" id="results-title-header" tabIndex={-1}>
           <span>
             {selectedGenre ? `Categoría: ${selectedGenre.toUpperCase()}` : 'Audiolibros Disponibles'}
           </span>
           <span className="results-count">
-            {loading ? 'Cargando catálogo...' : `${books.length} libros en catálogo`}
+            {loading ? 'Cargando catálogo...' : totalPages > 1
+              ? textoPosicion(currentPage, totalPages, currentBooks.length, books.length)
+              : `${books.length} libros en catálogo`}
           </span>
         </h2>
 
@@ -263,14 +477,16 @@ export const Home = ({ searchInputRef: refExterno }) => {
             No se encontraron audiolibros que coincidan con la búsqueda.
           </div>
         ) : (
-          <ul className="results-grid" aria-label="Resultados de libros">
-            {currentBooks.map((book) => (
+          <ul className="results-grid" aria-label="Resultados de libros" ref={gridRef}>
+            {currentBooks.map((book, i) => (
               <li key={book.id}>
                 <button
                   type="button"
                   className="book-card"
-                  onClick={() => handlePlayBook(book)}
-                  onFocus={() => playCue('focus')}
+                  tabIndex={i === activa ? 0 : -1}
+                  onKeyDown={(e) => alTeclaTarjeta(e, i)}
+                  onClick={(e) => handlePlayBook(book, e.currentTarget)}
+                  onFocus={() => { setActiva(i); playCue('focus'); }}
                 >
                   <span className="book-title">{book.title}</span>
                   <span className="book-meta">
@@ -289,22 +505,26 @@ export const Home = ({ searchInputRef: refExterno }) => {
           <nav className="pagination" aria-label="Navegación de páginas">
             <button
               className="pagination-btn"
+              data-pagina="anterior"
+              aria-keyshortcuts={currentPage === 1 ? undefined : aAriaGlobal('paginaAnterior')}
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
               onFocus={() => playCue('focus')}
             >
-              Página Anterior
+              Página Anterior <kbd className="nav-kbd" aria-hidden="true">{textoTecla('paginaAnterior')}</kbd>
             </button>
             <span className="pagination-info">
-              Página {currentPage} de {totalPages}
+              {textoPosicion(currentPage, totalPages, currentBooks.length, books.length)}
             </span>
             <button
               className="pagination-btn"
+              data-pagina="siguiente"
+              aria-keyshortcuts={currentPage === totalPages ? undefined : aAriaGlobal('paginaSiguiente')}
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
               onFocus={() => playCue('focus')}
             >
-              Página Siguiente
+              Página Siguiente <kbd className="nav-kbd" aria-hidden="true">{textoTecla('paginaSiguiente')}</kbd>
             </button>
           </nav>
         )}

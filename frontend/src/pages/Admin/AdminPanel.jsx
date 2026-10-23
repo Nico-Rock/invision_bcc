@@ -9,19 +9,9 @@ import { UserManagement } from './components/UserManagement';
 import { ContentManagement } from './components/ContentManagement';
 import { Papelera } from './components/Papelera';
 import { Tareas } from './components/Tareas';
-import { ESTADOS_TAREA, tareaActiva } from '../../lib/consola';
-
-// Pestañas (spec 005, R13 y R18): la consola abre en Inicio, que dice qué
-// necesita atención. El orden va de lo diario a lo excepcional.
-const PESTANAS = [
-  { id: 'inicio', nombre: 'Inicio' },
-  { id: 'content', nombre: 'Libros' },
-  { id: 'users', nombre: 'Usuarios' },
-  { id: 'import', nombre: 'Importar fichas' },
-  { id: 'tareas', nombre: 'Tareas' },
-  { id: 'papelera', nombre: 'Papelera' },
-  { id: 'audit', nombre: 'Auditoría' },
-];
+import { ESTADOS_TAREA, PESTANAS, tareaActiva } from '../../lib/consola';
+import { deEvento, pestanaDeTecla } from '../../lib/atajos';
+import { aAriaPestana, textoTeclaPestana } from '../../lib/atajosGlobales';
 
 /**
  * Vigila las tareas largas desde cualquier pestaña (R21): cuando una termina,
@@ -79,16 +69,43 @@ export const AdminPanel = () => {
     setTimeout(() => (opciones.foco ? document.getElementById(opciones.foco) : tabRefs.current[id])?.focus(), 0);
   };
 
-  // Patrón de pestañas ARIA completo: flechas, Inicio y Fin
+  // Patrón de pestañas ARIA completo: flechas, Inicio y Fin, y el dígito de
+  // cada pestaña (atajos por defecto, solo con el foco en la lista)
   const handleTabKeyDown = (e, index) => {
     const ultimo = PESTANAS.length - 1;
     const destino = { ArrowRight: index === ultimo ? 0 : index + 1, ArrowLeft: index === 0 ? ultimo : index - 1, Home: 0, End: ultimo }[e.key];
-    if (destino === undefined) return;
+    if (destino !== undefined) {
+      e.preventDefault();
+      changeTab(PESTANAS[destino].id);
+      return;
+    }
+    const atajo = pestanaDeTecla(deEvento(e), { activa: activeTab, visibles: PESTANAS });
+    if (!atajo) return;
     e.preventDefault();
-    changeTab(PESTANAS[destino].id);
+    if (atajo.tipo === 'ir') {
+      changeTab(atajo.id);
+      return;
+    }
+    // Ya estaba activa: no se recarga ni se pierde el filtro; solo se avisa
+    const pestana = PESTANAS.find((p) => p.id === atajo.id);
+    const filtro = atajo.id === 'content' ? filtroLibros : null;
+    announceText(`${pestana.nombre}${filtro ? `, ${filtro.nombre}` : ''}.`);
+    tabRefs.current[atajo.id]?.focus();
   };
 
   const irA = (id, opciones) => changeTab(id, opciones);
+
+  // Alt+Mayús+1…7 (hook global): abre la pestaña y deja el foco en ella
+  const changeTabRef = useRef(changeTab);
+  useEffect(() => { changeTabRef.current = changeTab; });
+  useEffect(() => {
+    const alPedir = (e) => {
+      const id = e.detail?.id;
+      if (PESTANAS.some((p) => p.id === id)) changeTabRef.current(id);
+    };
+    window.addEventListener('invision:pestana', alPedir);
+    return () => window.removeEventListener('invision:pestana', alPedir);
+  }, []);
 
   return (
     <div className="admin-panel-container">
@@ -98,6 +115,10 @@ export const AdminPanel = () => {
           Gestión del patrimonio digital de la Biblioteca Central para Ciegos
         </p>
       </header>
+
+      <p className="tabs-ayuda">
+        Con el foco en las pestañas: las flechas ← → (o los números 1 a 7) cambian de sección; Tab entra en la sección.
+      </p>
 
       <div role="tablist" aria-label="Secciones de administración" className="tabs-header">
         {PESTANAS.map((p, i) => (
@@ -109,13 +130,14 @@ export const AdminPanel = () => {
             id={`tab-${p.id}`}
             aria-selected={activeTab === p.id}
             aria-controls={`panel-${p.id}`}
+            aria-keyshortcuts={aAriaPestana(i + 1)}
             className={`tab-btn ${activeTab === p.id ? 'active' : ''}`}
             tabIndex={activeTab === p.id ? 0 : -1}
             onClick={() => changeTab(p.id)}
             onKeyDown={(e) => handleTabKeyDown(e, i)}
             onFocus={() => playCue('focus')}
           >
-            {p.nombre}
+            <span>{p.nombre}</span> <kbd className="nav-kbd" aria-hidden="true">{textoTeclaPestana(i + 1)}</kbd>
           </button>
         ))}
       </div>
