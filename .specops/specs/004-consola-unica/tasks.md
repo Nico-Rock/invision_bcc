@@ -154,3 +154,6 @@
 | Task ID | Status | Verification command | Exit code | Verified by / timestamp |
 |---|---|---|---|---|
 | T1 | done (vía spec 005, T1) | `PYTEST_API`: `../`, `a/b.mp3`, `.wav` rechazados; SAS de solo creación por 15 min; no se firma si la pista existe | 0 | Claude Code, 2026-09-26 |
+| T10 | parcial | `npm run test:unit` (atajos.test.js); pruebas Playwright escritas en `frontend/tests/a11y/consola.spec.js`, no ejecutadas | 0 (solo pruebas unitarias) | Claude Code, 2026-10-22 |
+
+Nota T10: atajos por defecto implementados: dígitos 1 a 7 solo con el foco en las pestañas. La tecla 3 global (puerta de entrada a la consola) se retiró por decisión de Nico (2026-10-22, variante S3 de `docs/auditoria/2026-10-22-simulacion-75-recorridos.md`): en JAWS el 3 es "encabezado de nivel 3" y los atajos globales de una tecla incumplen WCAG 2.1.4. Se entra por el enlace Administración del menú y el foco va a la pestaña activa. Falta el catálogo editable del spec 003 y la verificación con sesión de administrador y lector de pantalla real. No está verificada.

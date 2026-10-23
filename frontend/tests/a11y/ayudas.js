@@ -66,3 +66,26 @@ export async function medir(page) {
     etiquetas: window.Medir.etiquetaEnNombre(),
   }));
 }
+
+// Avisos del canal cortés (los <p> de #a11y-cortes), en orden.
+export const avisos = (page) => page.evaluate(() => [...document.querySelectorAll('#a11y-cortes p')].map((p) => p.textContent));
+
+export const vaciarAvisos = (page) => page.evaluate(() => {
+  document.getElementById('a11y-cortes').replaceChildren();
+  document.getElementById('a11y-urgente').textContent = '';
+});
+
+// Segundos transcurridos según el reloj visible del reproductor ("m:ss").
+export async function segundosReproducidos(page) {
+  const texto = (await page.locator('.progress-bar-container > span').first().textContent()).trim();
+  const [m, s] = texto.split(':').map(Number);
+  return m * 60 + s;
+}
+
+// Elige el primer libro del catálogo con el teclado y espera a que suene,
+// con el foco en el botón de reproducir y pausar (variante S3).
+export async function elegirLibro(page) {
+  await page.locator('.book-card').first().focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Pausar audiolibro' }).waitFor({ timeout: 60_000 });
+}

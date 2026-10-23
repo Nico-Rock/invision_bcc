@@ -336,4 +336,128 @@ test.describe('consola de administración', () => {
     await expect(informe.getByRole('listitem').first()).toBeVisible();
     await expect(informe.getByRole('button', { name: 'Imprimir el informe' })).toBeVisible();
   });
+
+  // Atajos por defecto de las pestañas (spec 004, T10). Se saltean sin sesión de administrador.
+  test('T10: el dígito lleva a la pestaña, con un solo aviso y el foco en ella', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Inicio' }).focus();
+    await vaciarAvisos(page);
+    await page.keyboard.press('Digit2');
+    await expect(page.getByRole('tab', { name: 'Libros', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Libros', exact: true })).toBeFocused();
+    await expect.poll(() => avisos(page)).toContainEqual('Libros.');
+    expect((await avisos(page)).filter((a) => a === 'Libros.')).toHaveLength(1);
+    expect(new URL(page.url()).pathname).toBe('/admin/import');
+  });
+
+  test('T10: 1 sobre una pestaña va a Inicio y no a Perfil; con Mayúscula no hace nada', async ({ page }) => {
+    await pestana(page, 'Usuarios');
+    await page.getByRole('tab', { name: 'Usuarios', exact: true }).focus();
+    await page.keyboard.press('Digit1');
+    await expect(page.getByRole('tab', { name: 'Inicio', exact: true })).toHaveAttribute('aria-selected', 'true');
+    expect(new URL(page.url()).pathname).toBe('/admin/import');
+    await page.keyboard.press('Shift+Digit2');
+    await expect(page.getByRole('tab', { name: 'Inicio', exact: true })).toHaveAttribute('aria-selected', 'true');
+    expect(new URL(page.url()).pathname).toBe('/admin/import');
+  });
+
+  test('T10: un 2 dentro del buscador de libros se escribe en el campo', async ({ page }) => {
+    await abrirLibros(page);
+    const buscador = page.getByRole('searchbox', { name: /Buscar libros/ });
+    await buscador.click();
+    await page.keyboard.press('2');
+    await expect(buscador).toHaveValue('2');
+    await expect(page.getByRole('tab', { name: 'Libros', exact: true })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  // La tecla 3 global se retiró por decisión de Nico (variante S3): en JAWS el 3
+  // es "encabezado de nivel 3". Se entra por el enlace del menú y el foco va a
+  // la pestaña activa.
+  test('T10: el 3 fuera de la consola no hace nada; el enlace Administración del menú lleva el foco a la pestaña activa', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('heading', { name: /Audiolibros Disponibles/ }).waitFor();
+    await page.locator('#results-title-header').focus();
+    await page.keyboard.press('Digit3');
+    await page.waitForTimeout(500);
+    expect(new URL(page.url()).pathname).toBe('/');
+    await expect(page.getByRole('tablist')).toHaveCount(0);
+    const enlace = page.getByRole('link', { name: 'Administración', exact: true });
+    await expect(enlace).not.toHaveAttribute('aria-keyshortcuts');
+    await enlace.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('tab', { name: 'Inicio', exact: true })).toBeFocused({ timeout: 30_000 });
+    await expect(page.getByRole('tab', { name: 'Inicio', exact: true })).toHaveAttribute('aria-selected', 'true');
+    // Dentro de la consola, el 3 fuera de las pestañas tampoco hace nada
+    await abrirLibros(page);
+    await page.getByRole('button', { name: 'Registrar audiolibro' }).focus();
+    await page.keyboard.press('Digit3');
+    await expect(page.getByRole('button', { name: 'Registrar audiolibro' })).toBeFocused();
+    await expect(page.getByRole('tab', { name: 'Libros', exact: true })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  // Descubrimiento de las pestañas: «Saltar a las secciones», el texto visible y la ayuda
+  test('Saltos: desde la carga de la consola, 3 Tab llegan a «Saltar a las secciones»; Enter enfoca la pestaña activa y → cambia de sección', async ({ page }) => {
+    await page.reload();
+    await page.getByRole('tablist').waitFor();
+    for (const texto of ['Saltar al contenido principal', 'Saltar al menú', 'Saltar a las secciones']) {
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('link', { name: texto })).toBeFocused();
+    }
+    await page.keyboard.press('Enter');
+    const inicio = page.getByRole('tab', { name: 'Inicio', exact: true });
+    await expect(inicio).toBeFocused();
+    await expect(inicio).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('tab', { name: 'Usuarios', exact: true })).toBeFocused();
+    await expect(page.getByRole('tab', { name: 'Usuarios', exact: true })).toHaveAttribute('aria-selected', 'true');
+    // El salto sigue a la pestaña activa
+    await page.getByRole('link', { name: 'Saltar a las secciones' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('tab', { name: 'Usuarios', exact: true })).toBeFocused();
+  });
+
+  test('Pestañas: una sola con tabIndex 0, Tab sale de la lista, el texto visible va antes y ninguna tiene descripción accesible', async ({ page }) => {
+    const con0 = await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].filter((t) => t.tabIndex === 0).length);
+    expect(con0).toBe(1);
+    await expect(page.locator('[role="tab"][aria-describedby]')).toHaveCount(0);
+    const aviso = page.getByText('Con el foco en las pestañas: las flechas ← → (o los números 1 a 7) cambian de sección; Tab entra en la sección.');
+    await expect(aviso).toBeVisible();
+    expect(await page.evaluate(() => {
+      const p = document.querySelector('.tabs-ayuda');
+      return !!(p.compareDocumentPosition(document.querySelector('[role="tablist"]')) & Node.DOCUMENT_POSITION_FOLLOWING);
+    })).toBe(true);
+    await page.locator('[role="tab"][aria-selected="true"]').focus();
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.querySelector('[role="tablist"]').contains(document.activeElement))).toBe(false);
+  });
+
+  test('T10: aria-keyshortcuts coincide con el dígito y la ayuda de un Admin muestra la fila 1 a 7', async ({ page }) => {
+    for (const [i, nombre] of PESTANAS.entries()) {
+      await expect(page.getByRole('tab', { name: nombre, exact: true })).toHaveAttribute('aria-keyshortcuts', String(i + 1));
+    }
+    await vaciarAvisos(page);
+    await page.getByRole('button', { name: 'Ayuda', exact: true }).click();
+    const ayuda = page.getByRole('dialog');
+    await expect(ayuda.getByRole('cell', { name: '1 a 7' })).toBeVisible();
+    await expect(ayuda.getByRole('cell', { name: '← o → o Inicio o Fin' })).toBeVisible();
+    await expect(ayuda).toContainText('Tab entra en la sección');
+    await expect(ayuda).toContainText('Con el foco en las pestañas');
+    await expect.poll(() => avisos(page)).toContainEqual(expect.stringMatching(/1 para Inicio/));
+    expect((await avisos(page)).join(' ')).not.toMatch(/El 3/);
+    expect(await axe(page)).toEqual([]);
+  });
+
+  // El <audio> no está en el documento: el salto de 15 s se observa por su aviso
+  test('T10: con un libro sonando, la flecha derecha sobre una pestaña cambia de pestaña y el audio no se mueve', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('heading', { name: /Audiolibros Disponibles/ }).waitFor();
+    await page.locator('.book-card').first().click();
+    await page.getByRole('region', { name: 'Reproductor de audiolibros' }).waitFor();
+    await page.getByRole('link', { name: 'Administración', exact: true }).click();
+    await expect(page.getByRole('tab', { name: 'Inicio', exact: true })).toBeFocused({ timeout: 30_000 });
+    await vaciarAvisos(page);
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('tab', { name: 'Libros', exact: true })).toHaveAttribute('aria-selected', 'true');
+    expect(await avisos(page)).not.toContainEqual(expect.stringMatching(/segundos adelantados/));
+  });
 });
