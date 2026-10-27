@@ -1788,3 +1788,35 @@ main:focus-visible {
 .lista-capitulos li { margin-bottom: 0.5rem; }
 .reglas-operacion ol { margin: 0.5rem 0 1rem 1.5rem; }
 .reglas-operacion li { margin-bottom: 0.5rem; }
+/* El selector de archivos tiene un ancho propio: a 320 px se salía de la ficha */
+.capitulos-libro input[type="file"] { max-width: 100%; box-sizing: border-box; }
+
+/* Reproductor: objetivos de 48 px (WCAG 2.5.5). El trazo visible sigue siendo
+   de 8 px; lo que crece es la zona que responde al puntero y al dedo. */
+.player-book-title {
+  min-height: var(--objetivo);
+  line-height: var(--objetivo);
+}
+.progress-slider {
+  height: var(--objetivo);
+  background: transparent;
+}
+.progress-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+  background: #4B5563;
+}
+.progress-slider::-webkit-slider-thumb { margin-top: -8px; }
+.progress-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: #4B5563;
+}
+.progress-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-orange);
+  border: 2px solid #FFFFFF;
+}
+.player-volumen { height: var(--objetivo); }

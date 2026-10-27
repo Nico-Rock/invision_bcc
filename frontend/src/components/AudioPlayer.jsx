@@ -227,6 +227,7 @@ export const AudioPlayer = () => {
             }}
             onFocus={() => playCue('focus')}
             aria-label="Control de volumen"
+            className="player-volumen"
             style={{
               flex: 1,
               cursor: 'pointer',

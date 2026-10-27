@@ -18,4 +18,9 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Pruebas y configuración de herramientas: corren en Node (process, Buffer)
+    files: ['tests/**/*.js', 'playwright.config.js', 'vite.config.js'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
 ])

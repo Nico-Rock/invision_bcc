@@ -5,7 +5,10 @@
 // escribe en el almacenamiento real (si la simulación fallara, Azure rechaza la
 // firma falsa). Todo lo que se crea lleva "PRUEBA ARNES" y se elimina al final.
 import { test, expect } from '@playwright/test';
-import { apiDisponible, prefs, axe, medir } from './ayudas.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { apiDisponible, prefs, axe, medir, simularApi, LIBRO_SIMULADO, PENDIENTES_SIMULADOS } from './ayudas.js';
 
 const EMAIL = process.env.INVISION_ADMIN_EMAIL;
 const CLAVE = process.env.INVISION_ADMIN_PASSWORD;
@@ -459,5 +462,241 @@ test.describe('consola de administración', () => {
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('tab', { name: 'Libros', exact: true })).toHaveAttribute('aria-selected', 'true');
     expect(await avisos(page)).not.toContainEqual(expect.stringMatching(/segundos adelantados/));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-h (brecha 8, 8b, 14 y E; criterios 7, 9, 10, 11): sin API real ni credenciales.
+// Toda llamada a la API se simula en el navegador (ayudas.js: simularApi): el
+// reproductor suena un WAV de silencio generado en memoria y nada se escribe
+// en ningún almacenamiento ni base.
+// ---------------------------------------------------------------------------
+const aqui = path.dirname(fileURLToPath(import.meta.url));
+const NOMBRE_LIBRO = LIBRO_SIMULADO.nombre;
+
+test('CWE-79: ningún archivo de src usa dangerouslySetInnerHTML', () => {
+  const hallazgos = [];
+  const recorrer = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const ruta = path.join(dir, e.name);
+      if (e.isDirectory()) recorrer(ruta);
+      else if (/\.(jsx?|tsx?)$/.test(e.name) && fs.readFileSync(ruta, 'utf8').includes('dangerouslySetInnerHTML')) hallazgos.push(path.relative(aqui, ruta));
+    }
+  };
+  recorrer(path.resolve(aqui, '../../src'));
+  expect(hallazgos).toEqual([]);
+});
+
+test.describe('consola con la API simulada', () => {
+  test.describe.configure({ timeout: 120_000 });
+  let api;
+
+  const abrirConsola = async (page, sobrescribir) => {
+    await prefs(page);
+    api = await simularApi(page, sobrescribir);
+    await page.goto('/admin/import');
+    await page.getByRole('tablist').waitFor();
+  };
+
+  // Toda llamada a la API tiene que estar simulada: si el sitio pide algo más, se nota
+  test.afterEach(() => {
+    expect(api.sinSimular, 'llamadas a la API sin simular').toEqual([]);
+  });
+
+  const abrirFicha = async (page) => {
+    await pestana(page, 'Libros');
+    await page.locator('tbody tr').first().waitFor();
+    await page.getByRole('button', { name: `Gestionar ${NOMBRE_LIBRO}`, exact: true }).click();
+    const ficha = page.getByRole('dialog');
+    await expect(ficha.getByRole('heading', { name: `Gestionar: ${NOMBRE_LIBRO}` })).toBeVisible();
+    return ficha;
+  };
+
+  test('criterio 9: tres botones de escucha, un solo reproductor dentro de la ficha, foco en Pausar, sin atajos fuera del reproductor, y el audio sigue al cerrar', async ({ page }) => {
+    await abrirConsola(page);
+    const ficha = await abrirFicha(page);
+    await expect(ficha.getByRole('heading', { name: 'Capítulos cargados' })).toBeVisible();
+    const botones = ficha.getByRole('button', { name: /^Escuchar capítulo \d/ });
+    await expect(botones).toHaveCount(3);
+    await expect(ficha.getByRole('list', { name: 'Capítulos cargados' }).getByRole('listitem')).toHaveCount(3);
+    await expect(botones.nth(1)).toHaveAccessibleName('Escuchar capítulo 2: Pista 2.mp3');
+
+    await vaciarAvisos(page);
+    await botones.nth(1).click();
+    await expect(page.getByRole('button', { name: 'Pausar audiolibro' })).toBeFocused({ timeout: 30_000 });
+    await expect(page.locator('.player-dock')).toHaveCount(1);
+    await expect(page.locator('dialog[open] .player-dock')).toHaveCount(1);
+    await expect(page.locator('#playerChapter')).toHaveText('Capítulo 2 de 3');
+    expect(await avisos(page)).toContainEqual('Escucha previa: los socios no ven este libro.');
+
+    // Con el foco en la ficha (no en el reproductor), Espacio, N y P no mueven el audio
+    await page.locator('#capitulos-titulo').focus();
+    for (const tecla of [' ', 'n', 'p']) await page.keyboard.press(tecla);
+    await expect(page.locator('#playerChapter')).toHaveText('Capítulo 2 de 3');
+    await expect(page.getByRole('button', { name: 'Pausar audiolibro' })).toBeVisible();
+
+    // Con el foco dentro del reproductor, N sí actúa (no se agregó ningún atajo nuevo)
+    await page.getByRole('button', { name: 'Pausar audiolibro' }).focus();
+    await page.keyboard.press('n');
+    await expect(page.locator('#playerChapter')).toHaveText('Capítulo 3 de 3');
+
+    await page.keyboard.press('Escape');
+    await expect(ficha).toBeHidden();
+    await expect(page.locator('.player-dock')).toHaveCount(1);
+    await expect(page.locator('dialog .player-dock')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Pausar audiolibro' })).toBeVisible();
+  });
+
+  test('criterio 10: ficha con reproductor abierto, axe 0, contraste AAA, 48 px y dos regiones vivas; modo claro y alto contraste, normal y al 200 %', async ({ page }) => {
+    await abrirConsola(page);
+    let primera = true;
+    const revisar = async (etiqueta, doscientos) => {
+      const ficha = await abrirFicha(page);
+      if (primera) {
+        await ficha.getByRole('button', { name: /^Escuchar capítulo 1/ }).click();
+        await page.getByRole('button', { name: 'Pausar audiolibro' }).waitFor({ timeout: 30_000 });
+        primera = false;
+      }
+      await expect(page.locator('dialog[open] .player-dock')).toHaveCount(1);
+      await page.waitForTimeout(600);
+      expect(await axe(page), etiqueta).toEqual([]);
+      const m = await medir(page);
+      expect(m.contraste, etiqueta).toEqual([]);
+      expect(m.objetivos, etiqueta).toEqual([]);
+      expect(m.vivas, etiqueta).toHaveLength(2);
+      if (doscientos) {
+        expect(m.reflow.fuera, etiqueta).toEqual([]);
+        expect(m.reflow.desplazamientoHorizontal, etiqueta).toBe(false);
+      }
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toBeHidden();
+    };
+    await revisar('claro, tamaño normal', false);
+    for (let i = 0; i < 10; i++) await page.getByRole('button', { name: /Aumentar Texto/ }).click();
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('32px');
+    await revisar('claro, 200 %', true);
+    await page.getByRole('button', { name: 'Alto Contraste' }).click();
+    await revisar('alto contraste, 200 %', true);
+    for (let i = 0; i < 10; i++) await page.getByRole('button', { name: /Disminuir Texto/ }).click();
+    await revisar('alto contraste, tamaño normal', false);
+  });
+
+  test('criterio 10 (320 px): la ficha con el reproductor no desborda ni deja controles fuera de vista', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await abrirConsola(page);
+    const ficha = await abrirFicha(page);
+    await ficha.getByRole('button', { name: /^Escuchar capítulo 1/ }).click();
+    await page.getByRole('button', { name: 'Pausar audiolibro' }).waitFor({ timeout: 30_000 });
+    const m = await medir(page);
+    expect(m.reflow.fuera).toEqual([]);
+    expect(m.objetivos).toEqual([]);
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('criterio 11: Inicio dice libros con audio, pistas y GB; una carpeta sin ficha abre Registrar con el nombre escrito', async ({ page }) => {
+    const libros = [LIBRO_SIMULADO];
+    let enviado = null;
+    await abrirConsola(page, {
+      'GET /admin/audiolibros': (ruta) => ruta.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(libros) }),
+      'POST /admin/audiolibros': (ruta) => {
+        enviado = JSON.parse(ruta.request().postData());
+        libros.push({ ...LIBRO_SIMULADO, id: 8, nombre: enviado.nombre, estado_publicacion: 'borrador' });
+        return ruta.fulfill({ status: 201, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ id: 8 }) });
+      },
+    });
+    const inicio = page.getByRole('tabpanel');
+    await expect(inicio.getByRole('heading', { name: 'Almacenamiento de audio' })).toBeVisible();
+    await expect(inicio).toContainText('538 libros con audio');
+    await expect(inicio).toContainText('6.240 pistas');
+    await expect(inicio).toContainText('112,5 GB');
+    await expect(inicio.getByRole('heading', { name: 'Reglas de operación' })).toBeVisible();
+    await expect(inicio.getByRole('listitem').filter({ hasText: 'validación formal previa' })).toHaveCount(1);
+    expect(await avisos(page)).toContainEqual(expect.stringMatching(/^Inicio\. Pendientes:.*538 libros con audio.*2 carpetas de audio sin ficha/));
+
+    const ver = inicio.getByRole('button', { name: 'Ver 2 carpetas sin ficha' });
+    await expect(ver).toHaveAttribute('aria-expanded', 'false');
+    await ver.click();
+    await expect(ver).toHaveAttribute('aria-expanded', 'true');
+
+    // Inicio con cifras y carpetas desplegadas: axe 0, AAA, 48 px y dos regiones vivas, en los dos modos
+    for (const contraste of [false, true]) {
+      if (contraste) await page.getByRole('button', { name: 'Alto Contraste' }).click();
+      await page.waitForTimeout(600);
+      expect(await axe(page), `Inicio ${contraste ? 'alto contraste' : 'claro'}`).toEqual([]);
+      const m = await medir(page);
+      expect(m.contraste).toEqual([]);
+      expect(m.objetivos).toEqual([]);
+      expect(m.vivas).toHaveLength(2);
+    }
+
+    await inicio.getByRole('button', { name: 'Registrar audiolibro: PRUEBA ARNES Carpeta Dos' }).click();
+    const ficha = page.getByRole('dialog');
+    await expect(ficha.getByRole('heading', { name: 'Registrar audiolibro' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Libros', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(ficha.getByLabel(/Título/)).toHaveValue('PRUEBA ARNES Carpeta Dos');
+    await expect(ficha.getByLabel(/Título/)).toBeFocused();
+    await expect(ficha).toContainText('Se crea como borrador');
+    await ficha.getByRole('button', { name: 'Guardar' }).click();
+    await expect(ficha.getByRole('heading', { name: 'Gestionar: PRUEBA ARNES Carpeta Dos' })).toBeVisible({ timeout: 30_000 });
+    expect(enviado.nombre).toBe('PRUEBA ARNES Carpeta Dos');
+    // El sitio nunca pide publicar: el estado lo fija el servidor, que crea el libro como borrador
+    expect(Object.keys(enviado)).not.toContain('estado_publicacion');
+    expect(await avisos(page)).toContainEqual(expect.stringMatching(/registrado como borrador/));
+  });
+
+  test('criterio 6 (sitio): con el índice en error, Inicio dice el error por el canal urgente y no «Calculando»', async ({ page }) => {
+    const error = { ...PENDIENTES_SIMULADOS, indice: { estado: 'error', ultimo_ok: null, error: 'el almacenamiento no respondió', libros: null, pistas: null, gb: null }, sin_audio: { calculando: true, cantidad: null, libros: [] }, audio_sin_ficha: null };
+    await abrirConsola(page, { 'GET /admin/pendientes': (ruta) => ruta.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(error) }) });
+    const inicio = page.getByRole('tabpanel');
+    await expect(inicio).toContainText('El índice del almacenamiento falló: el almacenamiento no respondió.');
+    await expect(inicio).not.toContainText('Calculando');
+    await expect(page.locator('#a11y-urgente')).toContainText('el almacenamiento no respondió');
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('criterio 7 (sitio): sin la tabla de sesiones, Auditoría muestra una nota y no un error urgente', async ({ page }) => {
+    const texto = 'Esta base no registra los inicios y cierres de sesión.';
+    await abrirConsola(page, { 'GET /admin/auditoria/sesiones': (ruta) => ruta.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ detail: texto }) }) });
+    await pestana(page, 'Auditoría');
+    const panel = page.getByRole('tabpanel');
+    await expect(panel.getByText(texto)).toBeVisible();
+    await expect(panel.locator('.texto-error')).toHaveCount(0);
+    await expect(page.locator('#a11y-urgente')).toBeEmpty();
+    await expect(panel.getByRole('heading', { name: /Cambios de contenido/ })).toBeVisible();
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('brecha 14: una pista vacía se rechaza antes de pedir el permiso; el tamaño viaja en el permiso y en la confirmación; se avisa de las pistas sin número', async ({ page }) => {
+    const peticiones = { permiso: [], confirmar: [] };
+    const ok = (cuerpo) => ({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) });
+    await abrirConsola(page, {
+      [`POST /audiolibros/${LIBRO_SIMULADO.id}/capitulos/presign-upload`]: (ruta) => {
+        peticiones.permiso.push(ruta.request().url());
+        return ruta.fulfill(ok({ estado: 'nuevo', sas_url: 'http://localhost:8000/blob-simulado', blob_path: `${NOMBRE_LIBRO}/Pista 1.mp3` }));
+      },
+      'PUT /blob-simulado': { status: 201, headers: { 'access-control-allow-origin': '*' }, body: '' },
+      [`POST /audiolibros/${LIBRO_SIMULADO.id}/capitulos/confirmar`]: (ruta) => {
+        peticiones.confirmar.push(JSON.parse(ruta.request().postData()));
+        return ruta.fulfill(ok({ problemas: [], descripcion: 'sin problemas', duracion_hablada: '1 segundo' }));
+      },
+    });
+    const ficha = await abrirFicha(page);
+    const campo = ficha.getByLabel(/Elegí los archivos MP3/);
+    await vaciarAvisos(page);
+    await campo.setInputFiles({ name: 'Vacia 3.mp3', mimeType: 'audio/mpeg', buffer: Buffer.alloc(0) });
+    await expect.poll(() => page.locator('#a11y-urgente').textContent()).toMatch(/Vacia 3\.mp3.*vacío/);
+    await expect(ficha.getByRole('button', { name: /^Subir/ })).toHaveCount(0);
+    expect(peticiones.permiso).toHaveLength(0);
+
+    await vaciarAvisos(page);
+    await campo.setInputFiles([
+      { name: 'Prólogo.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from('abc') },
+      { name: 'Pista 1.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from('abcd') },
+    ]);
+    await expect.poll(() => avisos(page)).toContainEqual(expect.stringMatching(/1 pista sin número en el nombre va al final: Prólogo\.mp3/));
+    await ficha.getByRole('button', { name: 'Subir 2 pistas' }).click();
+    await expect.poll(() => peticiones.confirmar.length, { timeout: 30_000 }).toBe(2);
+    expect(peticiones.permiso.map((u) => new URL(u).searchParams.get('tamano'))).toEqual(['4', '3']);
+    expect(peticiones.confirmar.map((c) => c.tamano)).toEqual([4, 3]);
   });
 });
