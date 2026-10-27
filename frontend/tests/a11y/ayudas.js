@@ -128,9 +128,9 @@ export const CAPITULOS_SIMULADOS = [
 
 // Respuesta de /admin/pendientes con los campos nuevos de T-c (nombres en lib/pendientes.js)
 export const PENDIENTES_SIMULADOS = {
-  indice: { estado: 'listo', ultimo_ok: '2026-10-22T10:00:00', error: null, libros: 538, pistas: 6240, gb: 112.46 },
+  indice: { estado: 'listo', ultimo_ok: '2026-10-22T10:00:00', error: null, libros_con_audio: 538, pistas: 6240, gb: 112.46 },
   sin_audio: { calculando: false, cantidad: 1, libros: [{ id: 7, nombre: 'PRUEBA ARNES Libro' }] },
-  audio_sin_ficha: { cantidad: 2, carpetas: ['PRUEBA ARNES Carpeta Uno', 'PRUEBA ARNES Carpeta Dos'] },
+  sin_ficha: { calculando: false, cantidad: 2, carpetas: [{ nombre: 'PRUEBA ARNES Carpeta Uno', pistas: 3 }, { nombre: 'PRUEBA ARNES Carpeta Dos', pistas: 5 }] },
   sin_narrador: { habilitado: true, cantidad: 0, libros: [] },
   borradores: { habilitado: true, cantidad: 1, libros: [{ id: 7, nombre: 'PRUEBA ARNES Libro' }] },
   parecidos: { generos: [], autores: [], narradores: [] },

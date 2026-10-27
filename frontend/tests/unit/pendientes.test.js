@@ -13,7 +13,7 @@ test('GB con coma decimal y una cifra', () => {
 });
 
 test('índice listo: libros con audio, pistas y GB, en palabras', () => {
-  const r = resumenIndice({ estado: 'listo', libros: 538, pistas: 6240, gb: 112.46, ultimo_ok: '2026-10-22T10:00:00' });
+  const r = resumenIndice({ estado: 'listo', libros_con_audio: 538, pistas: 6240, gb: 112.46, ultimo_ok: '2026-10-22T10:00:00' });
   assert.equal(r.tipo, 'cifras');
   assert.match(r.texto, /538 libros con audio/);
   assert.match(r.texto, /6\.240 pistas/);
@@ -22,7 +22,7 @@ test('índice listo: libros con audio, pistas y GB, en palabras', () => {
 });
 
 test('singular: 1 libro con audio, 1 pista', () => {
-  const r = resumenIndice({ estado: 'listo', libros: 1, pistas: 1, gb: 0.05 });
+  const r = resumenIndice({ estado: 'listo', libros_con_audio: 1, pistas: 1, gb: 0.05 });
   assert.match(r.texto, /1 libro con audio, 1 pista, 0,1 GB/);
 });
 
@@ -35,7 +35,7 @@ test('índice en error: dice el error tal cual, no «calculando», y es urgente'
 });
 
 test('índice en error con un índice anterior: conserva las cifras y avisa de su fecha', () => {
-  const r = resumenIndice({ estado: 'error', error: 'timeout', libros: 10, pistas: 50, gb: 1, ultimo_ok: '2026-10-22T10:00:00' });
+  const r = resumenIndice({ estado: 'error', error: 'timeout', libros_con_audio: 10, pistas: 50, gb: 1, ultimo_ok: '2026-10-22T10:00:00' });
   assert.equal(r.tipo, 'error');
   assert.match(r.texto, /timeout/);
   assert.match(r.texto, /10 libros con audio/);
@@ -55,10 +55,10 @@ test('respuesta vieja de la API (sin campos nuevos): no inventa cifras', () => {
 });
 
 test('carpetas sin ficha: cantidad, nombres y las que no caben en la lista', () => {
-  assert.deepEqual(carpetasSinFicha({ audio_sin_ficha: { cantidad: 2, carpetas: ['A', 'B'] } }), { cantidad: 2, carpetas: ['A', 'B'], ocultas: 0 });
-  assert.deepEqual(carpetasSinFicha({ audio_sin_ficha: { cantidad: 80, carpetas: ['A'] } }), { cantidad: 80, carpetas: ['A'], ocultas: 79 });
+  assert.deepEqual(carpetasSinFicha({ sin_ficha: { cantidad: 2, carpetas: [{ nombre: 'A', pistas: 1 }, { nombre: 'B', pistas: 2 }] } }), { cantidad: 2, carpetas: ['A', 'B'], ocultas: 0 });
+  assert.deepEqual(carpetasSinFicha({ sin_ficha: { cantidad: 80, carpetas: ['A'] } }), { cantidad: 80, carpetas: ['A'], ocultas: 79 });
   assert.deepEqual(carpetasSinFicha({}), { cantidad: 0, carpetas: [], ocultas: 0 });
-  assert.deepEqual(carpetasSinFicha({ audio_sin_ficha: null }), { cantidad: 0, carpetas: [], ocultas: 0 });
+  assert.deepEqual(carpetasSinFicha({ sin_ficha: { calculando: false, cantidad: null, carpetas: [], error: 'x' } }), { cantidad: 0, carpetas: [], ocultas: 0 });
 });
 
 test('texto del botón de carpetas sin ficha', () => {

@@ -645,7 +645,7 @@ test.describe('consola con la API simulada', () => {
   });
 
   test('criterio 6 (sitio): con el índice en error, Inicio dice el error por el canal urgente y no «Calculando»', async ({ page }) => {
-    const error = { ...PENDIENTES_SIMULADOS, indice: { estado: 'error', ultimo_ok: null, error: 'el almacenamiento no respondió', libros: null, pistas: null, gb: null }, sin_audio: { calculando: true, cantidad: null, libros: [] }, audio_sin_ficha: null };
+    const error = { ...PENDIENTES_SIMULADOS, indice: { estado: 'error', ultimo_ok: null, error: 'el almacenamiento no respondió', libros_con_audio: null, pistas: null, gb: null }, sin_audio: { calculando: false, cantidad: null, libros: [], error: 'el almacenamiento no respondió' }, sin_ficha: { calculando: false, cantidad: null, carpetas: [], error: 'el almacenamiento no respondió' } };
     await abrirConsola(page, { 'GET /admin/pendientes': (ruta) => ruta.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(error) }) });
     const inicio = page.getByRole('tabpanel');
     await expect(inicio).toContainText('El índice del almacenamiento falló: el almacenamiento no respondió.');

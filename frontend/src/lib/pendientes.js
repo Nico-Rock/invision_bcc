@@ -1,11 +1,12 @@
 /**
  * Lo que el Inicio dice del almacenamiento (T-g, brecha 1, 2, 5, 8b y 11).
  * Módulo puro. Aquí se nombran, en un solo lugar, los campos nuevos que la API
- * entrega en GET /admin/pendientes (SUPUESTO, escritos en paralelo):
+ * entrega en GET /admin/pendientes (conciliados con admin_extras.py, T-c):
  *
  *   indice: { estado: 'vacio'|'indexando'|'listo'|'error', ultimo_ok, error,
- *             libros, pistas, gb }
- *   audio_sin_ficha: { cantidad, carpetas: [nombre] }
+ *             libros_con_audio, pistas, gb }
+ *   sin_ficha: { calculando, cantidad, carpetas: [{ nombre, pistas }], error? }
+ *   sin_audio: { calculando, cantidad, libros, error? }
  *
  * y la respuesta 503 de /admin/auditoria/sesiones/ cuando falta la tabla.
  */
@@ -14,10 +15,11 @@ import { plural } from './consola.js';
 export const formatoGB = (gb) => Number(gb).toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const esNumero = (n) => typeof n === 'number' && Number.isFinite(n);
-const tieneCifras = (i) => i && esNumero(i.libros) && esNumero(i.pistas) && esNumero(i.gb);
+const librosDe = (i) => (esNumero(i.libros_con_audio) ? i.libros_con_audio : i.libros);
+const tieneCifras = (i) => i && esNumero(librosDe(i)) && esNumero(i.pistas) && esNumero(i.gb);
 
 const textoCifras = (i) =>
-  `${plural(i.libros, 'libro con audio', 'libros con audio')}, ${plural(i.pistas, 'pista', 'pistas').replace(/^(\d+)/, (m) => Number(m).toLocaleString('es-AR'))}, ${formatoGB(i.gb)} GB`;
+  `${plural(librosDe(i), 'libro con audio', 'libros con audio')}, ${plural(i.pistas, 'pista', 'pistas').replace(/^(\d+)/, (m) => Number(m).toLocaleString('es-AR'))}, ${formatoGB(i.gb)} GB`;
 
 const fechaDe = (iso) => {
   if (!iso) return '';
@@ -43,9 +45,10 @@ export function resumenIndice(indice) {
 
 /** Carpetas de audio sin ficha; `ocultas` son las que la lista no trae. */
 export function carpetasSinFicha(datos) {
-  const a = datos && datos.audio_sin_ficha;
+  const a = datos && datos.sin_ficha;
   if (!a) return { cantidad: 0, carpetas: [], ocultas: 0 };
-  const carpetas = Array.isArray(a.carpetas) ? a.carpetas : [];
+  // Cada carpeta llega como { nombre, pistas }; se acepta también el nombre solo
+  const carpetas = Array.isArray(a.carpetas) ? a.carpetas.map((c) => (typeof c === 'string' ? c : c.nombre)) : [];
   const cantidad = esNumero(a.cantidad) ? a.cantidad : carpetas.length;
   return { cantidad, carpetas, ocultas: Math.max(0, cantidad - carpetas.length) };
 }

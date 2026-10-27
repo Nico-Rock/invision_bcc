@@ -138,8 +138,8 @@ export const Inicio = ({ irA }) => {
       <h3 id="pendientes-titulo">Qué necesita atención</h3>
       <ul className="lista-pendientes" aria-labelledby="pendientes-titulo">
         <li>
-          {datos.sin_audio.calculando && indice.tipo === 'error' ? (
-            <span className="texto-error">No se puede saber qué fichas no tienen audio. {indice.texto}</span>
+          {datos.sin_audio.error || (datos.sin_audio.calculando && indice.tipo === 'error') ? (
+            <span className="texto-error">No se puede saber qué fichas no tienen audio. {indice.tipo === 'error' ? indice.texto : datos.sin_audio.error}</span>
           ) : datos.sin_audio.calculando ? (
             <span>Calculando qué fichas no tienen audio (se revisa el almacenamiento en segundo plano)…</span>
           ) : datos.sin_audio.cantidad ? (
@@ -253,7 +253,8 @@ export const Inicio = ({ irA }) => {
 
 function resumenHablado(d) {
   const partes = [];
-  if (d.sin_audio.calculando) partes.push('se está calculando qué fichas no tienen audio');
+  if (d.sin_audio.error) partes.push('no se pudo saber qué fichas no tienen audio');
+  else if (d.sin_audio.calculando) partes.push('se está calculando qué fichas no tienen audio');
   else partes.push(plural(d.sin_audio.cantidad, 'ficha sin audio', 'fichas sin audio'));
   if (d.sin_narrador.habilitado) partes.push(plural(d.sin_narrador.cantidad, 'sin narrador', 'sin narrador'));
   if (d.borradores.habilitado) partes.push(plural(d.borradores.cantidad, 'borrador', 'borradores'));
