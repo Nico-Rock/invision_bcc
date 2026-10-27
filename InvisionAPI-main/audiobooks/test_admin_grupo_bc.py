@@ -301,3 +301,100 @@ def test_r23_eliminar_definitivamente_desde_la_papelera(client, admin_token, tes
     test_db.expire_all()
     assert test_db.query(Audiolibro).filter_by(id=libro_id).first() is None
     assert client.delete(f"/admin/papelera/{libro_id}", headers=H(admin_token)).status_code == 404
+
+
+# --- T-a (brecha del panel, criterios 1 a 3): visibilidad, orden y errores del streaming ------
+
+def contenedor_audio(blobs):
+    """Almacenamiento simulado que además sirve bytes: cada pista devuelve su propio nombre."""
+    c = contenedor(blobs)
+
+    def cliente_blob(nombre):
+        bc = MagicMock()
+        bc.exists.return_value = nombre in blobs
+        bc.get_blob_properties.return_value = SimpleNamespace(size=len(nombre))
+        bc.download_blob.return_value.chunks.side_effect = lambda: iter([nombre.encode()])
+        return bc
+
+    c.get_blob_client.side_effect = cliente_blob
+    return c
+
+
+def _id_de(test_db, correo):
+    from models import Usuario
+    return test_db.query(Usuario).filter_by(email=correo).first().id
+
+
+def _escuchar(client, token, usuario_id, libro_id, indice):
+    return client.get(f"/stream-audio-simple/{usuario_id}/{libro_id}/{indice}", headers=H(token))
+
+
+@pytest.mark.parametrize("oculto_por", ["borrador", "papelera"])
+def test_ta_c1_socio_recibe_404_en_libro_oculto_y_admin_si_escucha(client, admin_token, socio, test_db, oculto_por):
+    nombre = f"OCULTO {oculto_por.upper()} TA"
+    libro_id = crear(client, admin_token, nombre)  # nace en borrador
+    if oculto_por == "papelera":
+        assert client.delete(f"/admin/audiolibros/{libro_id}", headers=H(admin_token)).status_code == 200
+    almacen = contenedor_audio({f"{nombre}/Pista 1.mp3": mp3(10)})
+    admin_id = _id_de(test_db, "admin@example.com")
+    with patch("routes.container_client", almacen), patch("crud.container_client", almacen):
+        assert _escuchar(client, socio["token"], socio["id"], libro_id, 1).status_code == 404
+        assert client.get(f"/audio-by-id/{libro_id}", headers=H(socio["token"])).status_code == 404
+        assert _escuchar(client, admin_token, admin_id, libro_id, 1).status_code in (200, 206)
+        r = client.get(f"/audio-by-id/{libro_id}", headers=H(admin_token))
+        assert r.status_code == 200 and len(r.json()["capitulos"]) == 1
+
+
+def test_ta_c1_socio_si_escucha_un_libro_publicado(client, admin_token, socio):
+    nombre = "PUBLICADO TA"
+    libro_id = crear(client, admin_token, nombre)
+    almacen = contenedor_audio({f"{nombre}/Pista 1.mp3": mp3(10)})
+    with patch("admin_extras.container_client", almacen):
+        assert client.put(f"/admin/audiolibros/{libro_id}/publicacion", headers=H(admin_token),
+                          json={"estado": "publicado"}).status_code == 200
+    with patch("routes.container_client", almacen), patch("crud.container_client", almacen):
+        assert _escuchar(client, socio["token"], socio["id"], libro_id, 1).status_code in (200, 206)
+        assert client.get(f"/audio-by-id/{libro_id}", headers=H(socio["token"])).status_code == 200
+
+
+def test_ta_c2_el_capitulo_i_de_la_lista_es_el_que_suena(client, admin_token, test_db):
+    nombre = "1984"
+    libro_id = crear(client, admin_token, nombre)
+    almacen = contenedor_audio({
+        "1984/1984 Pista 2.mp3": mp3(10),
+        "1984/1984 Pista 10.mp3": mp3(10),
+        "1984/Prólogo.mp3": mp3(10),
+    })
+    admin_id = _id_de(test_db, "admin@example.com")
+    with patch("routes.container_client", almacen), patch("crud.container_client", almacen):
+        lista = client.get(f"/audio-by-id/{libro_id}", headers=H(admin_token)).json()["capitulos"]
+        assert [c["nombre"] for c in lista] == ["1984 Pista 2.mp3", "1984 Pista 10.mp3", "Prólogo.mp3"]
+        for i in (1, 2, 3):
+            r = _escuchar(client, admin_token, admin_id, libro_id, i)
+            assert r.status_code in (200, 206), r.text
+            assert r.content.decode() == f"1984/{lista[i - 1]['nombre']}", f"capítulo {i}"
+        assert _escuchar(client, admin_token, admin_id, libro_id, 4).status_code == 404
+
+
+def test_ta_c3_error_del_almacenamiento_sin_detalle_interno(client, admin_token, test_db):
+    libro_id = crear(client, admin_token, "FALLA ALMACEN TA")
+    almacen = MagicMock()
+    almacen.list_blobs.side_effect = RuntimeError("cuenta cuentaprueba clave=SECRETO https://cuentaprueba.blob.core.windows.net")
+    admin_id = _id_de(test_db, "admin@example.com")
+    with patch("routes.container_client", almacen):
+        r = _escuchar(client, admin_token, admin_id, libro_id, 1)
+    assert r.status_code == 500
+    cuerpo = r.text.lower()
+    assert "cuentaprueba" not in cuerpo and "secreto" not in cuerpo and "blob.core" not in cuerpo
+    assert r.json()["detail"]
+
+
+def test_ta_c3_los_404_internos_no_se_vuelven_500(client, admin_token, test_db):
+    libro_id = crear(client, admin_token, "SIN PISTAS TA")
+    admin_id = _id_de(test_db, "admin@example.com")
+    with patch("routes.container_client", contenedor_audio({})):
+        assert _escuchar(client, admin_token, admin_id, libro_id, 1).status_code == 404
+        assert _escuchar(client, admin_token, admin_id, 999999, 1).status_code == 404
+    # 403 interno: pedir el audio con el id de otra persona
+    with patch("routes.container_client", contenedor_audio({})):
+        assert _escuchar(client, admin_token, admin_id + 999, libro_id, 1).status_code == 403

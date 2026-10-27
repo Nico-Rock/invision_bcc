@@ -12,6 +12,7 @@ from crud import (
     guardar_progreso,
     obtener_progreso,
     get_audio_stream,
+    ordenar_capitulos,
     get_chapters_by_audiobook_id,
     mis_audiolibros,
     user_get_roles,
@@ -34,6 +35,7 @@ from crud import (
 from models import Usuario, Audiolibro, SesionAcceso, Categoria, Clasificacion, UserRole
 from schemas import UserUpdate, UserPasswordUpdate, UserResponse, RoleInfo, AddRoleToUser, UserCreate, UserBaseResponse, AdminUserUpdate, AudiobookCreateUpdate
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, container_client
+import logging
 import re
 from urllib.parse import unquote
 from fastapi.responses import StreamingResponse
@@ -371,6 +373,14 @@ async def get_progress(usuario_id: int, audiolibro_id: int, db: Session = Depend
     return await obtener_progreso(db, usuario_id, audiolibro_id)
 
 
+def _exigir_visible(db, user_info, audiolibro_id):
+    """Borradores y papelera: solo el Admin los escucha; para un socio no existen (404)."""
+    if "Admin" in user_info.get("roles", []):
+        return
+    if audiolibro_id in ex.ids_ocultos_para_socios(db):
+        raise HTTPException(status_code=404, detail="Audiolibro no encontrado.")
+
+
 @router.get("/stream-audio-simple/{usuario_id}/{audiolibro_id}/{chapter_index}")
 async def stream_audio_range(
     usuario_id: int,
@@ -389,6 +399,8 @@ async def stream_audio_range(
     if authenticated_user_id != usuario_id:
         raise HTTPException(status_code=403, detail="No tienes permiso para acceder a este recurso.")
 
+    _exigir_visible(db, user_info, audiolibro_id)
+
     try:
         audiolibro = db.query(Audiolibro).filter_by(id=audiolibro_id).first()
         if not audiolibro:
@@ -401,26 +413,15 @@ async def stream_audio_range(
         if not chapters:
             raise HTTPException(status_code=404, detail="No se encontraron capítulos.")
 
-        def extract_chapter_number(blob_name):
-            match = re.search(r"(\d+)", blob_name)
-            return int(match.group(1)) if match else None
-
-        chapters_with_numbers = []
-        for blob_name in chapters:
-            chapter_number = extract_chapter_number(blob_name)
-            if chapter_number is not None:
-                chapters_with_numbers.append((blob_name, chapter_number))
-
-        if not chapters_with_numbers:
-            raise HTTPException(status_code=404, detail="No se pudieron ordenar los capítulos por número.")
-
-        chapters_with_numbers.sort(key=lambda x: x[1])
+        # Mismo orden que la lista de capítulos (audio-by-id): la posición i de la
+        # lista es el archivo que suena.
+        ordenados = ordenar_capitulos(chapters)
 
         selected_chapter_index = chapter_index - 1
-        if selected_chapter_index < 0 or selected_chapter_index >= len(chapters_with_numbers):
+        if selected_chapter_index < 0 or selected_chapter_index >= len(ordenados):
             raise HTTPException(status_code=404, detail=f"Capítulo {chapter_index} no encontrado.")
 
-        chapter_blob_name = chapters_with_numbers[selected_chapter_index][0]
+        chapter_blob_name = ordenados[selected_chapter_index]
 
         blob_client = container_client.get_blob_client(chapter_blob_name)
         blob_props = blob_client.get_blob_properties()
@@ -452,8 +453,12 @@ async def stream_audio_range(
 
         return StreamingResponse(stream.chunks(), status_code=206, headers=headers)
 
+    except HTTPException:
+        raise  # los 404 y 403 propios no se convierten en 500
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # El detalle (cuenta, URL, rutas) queda en el registro del servidor, no en la respuesta (R16).
+        logging.getLogger(__name__).error("Falló el streaming del audiolibro %s: %s: %s", audiolibro_id, type(e).__name__, e)
+        raise HTTPException(status_code=500, detail="No se pudo reproducir el audio. Intenta de nuevo en unos minutos.")
 
 
 @router.get("/audio-by-id/{audiolibro_id}")
@@ -462,7 +467,8 @@ async def get_chapters(
     db: Session = Depends(get_db),
     token: str = Depends(oauth2_scheme)
 ):
-    decode_access_token(token)
+    user_info = decode_access_token(token)
+    _exigir_visible(db, user_info, audiolibro_id)
 
     try:
         # Llamar a la función del CRUD para obtener los capítulos
