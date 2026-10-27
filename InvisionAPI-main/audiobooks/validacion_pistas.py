@@ -7,6 +7,7 @@ servidor: la pantalla puede saltearse, esto no (CWE-22, CWE-20).
 import re
 
 LARGO_MAXIMO = 200
+MAX_PISTA_BYTES = 500 * 1024 * 1024  # 500 MB por pista
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -22,4 +23,16 @@ def validar_nombre_pista(nombre):
         return f"El nombre del archivo supera los {LARGO_MAXIMO} caracteres."
     if not nombre.lower().endswith(".mp3"):
         return "Solo se aceptan archivos MP3."
+    return None
+
+
+def validar_tamano_pista(tamano):
+    """Devuelve None si el tamaño (en bytes) sirve, o el motivo legible si no.
+
+    Una pista vacía se subiría igual y quedaría «con problemas» sin poder
+    reemplazarse (el permiso es solo de creación), así que se rechaza antes."""
+    if tamano is None or tamano <= 0:
+        return "El archivo está vacío: no se puede subir una pista sin contenido."
+    if tamano > MAX_PISTA_BYTES:
+        return "El archivo supera los 500 megabytes permitidos por pista."
     return None

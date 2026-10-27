@@ -163,3 +163,75 @@ def test_v6_narrador_se_valida_en_el_servidor(client, admin_token):
     r = client.post("/admin/audiolibros", headers=_auth(admin_token),
                     json={"nombre": "LARGO", "narrador": "x" * 500})
     assert r.status_code == 422
+
+
+# --- T-b (brecha del panel, criterios 4 y 5): tamaño de la pista y título duplicado ----------
+
+LIMITE = 500 * 1024 * 1024
+
+
+@pytest.mark.parametrize("tamano", [0, -1, LIMITE + 1])
+def test_tb_c4_presign_rechaza_pistas_vacias_o_enormes_sin_firmar(client, admin_token, libro, tamano):
+    contenedor = MagicMock()
+    contenedor.get_blob_client.return_value.exists.return_value = False
+    with patch("routes.container_client", contenedor), patch("routes.generate_blob_sas") as firmar:
+        r = client.post(f"/audiolibros/{libro.id}/capitulos/presign-upload",
+                        params={"filename": "Pista 01.mp3", "tamano": tamano}, headers=_auth(admin_token))
+    assert r.status_code == 422, r.text
+    firmar.assert_not_called()
+
+
+@pytest.mark.parametrize("tamano", [1, LIMITE])
+def test_tb_c4_presign_acepta_el_tamano_valido(client, admin_token, libro, tamano):
+    contenedor = MagicMock()
+    contenedor.get_blob_client.return_value.exists.return_value = False
+    with patch("routes.container_client", contenedor), patch("routes.generate_blob_sas", return_value="sig=1"):
+        r = client.post(f"/audiolibros/{libro.id}/capitulos/presign-upload",
+                        params={"filename": "Pista 01.mp3", "tamano": tamano}, headers=_auth(admin_token))
+    assert r.status_code == 200, r.text
+    assert r.json()["estado"] == "subir"
+
+
+def _almacen_con(blobs):
+    c = MagicMock()
+
+    def cliente_blob(nombre):
+        bc = MagicMock()
+        bc.exists.return_value = nombre in blobs
+        bc.download_blob.return_value.readall.return_value = blobs.get(nombre, b"")
+        return bc
+
+    c.get_blob_client.side_effect = cliente_blob
+    return c
+
+
+def test_tb_c4_confirmar_con_otro_tamano_da_409(client, admin_token, libro):
+    contenido = bytes([0xFF, 0xFB, 0x90, 0x64]) + bytes(413)
+    blob = f"{libro.nombre}/Pista 01.mp3"
+    with patch("admin_extras.container_client", _almacen_con({blob: contenido})):
+        distinto = client.post(f"/audiolibros/{libro.id}/capitulos/confirmar", headers=_auth(admin_token),
+                               json={"blob_path": blob, "tamano": len(contenido) + 1})
+        igual = client.post(f"/audiolibros/{libro.id}/capitulos/confirmar", headers=_auth(admin_token),
+                            json={"blob_path": blob, "tamano": len(contenido)})
+    assert distinto.status_code == 409, distinto.text
+    assert "tamaño" in distinto.json()["detail"]
+    assert igual.status_code == 200, igual.text
+
+
+def test_tb_c5_titulo_duplicado_da_409_sin_agregar_filas(client, admin_token, test_db):
+    r = client.post("/admin/audiolibros", headers=_auth(admin_token), json={"nombre": "Harry Potter TB"})
+    assert r.status_code == 201, r.text
+    antes = test_db.query(Audiolibro).count()
+    for repetido in ("harry potter tb", "  HARRY POTTER TB  ", "Harry Potter TB"):
+        r = client.post("/admin/audiolibros", headers=_auth(admin_token), json={"nombre": repetido})
+        assert r.status_code == 409, (repetido, r.text)
+    test_db.expire_all()
+    assert test_db.query(Audiolibro).count() == antes
+
+
+def test_tb_c5_editar_a_un_titulo_existente_da_409_pero_la_propia_ficha_se_puede_guardar(client, admin_token):
+    a = client.post("/admin/audiolibros", headers=_auth(admin_token), json={"nombre": "Libro Uno TB"}).json()["id"]
+    b = client.post("/admin/audiolibros", headers=_auth(admin_token), json={"nombre": "Libro Dos TB"}).json()["id"]
+    r = client.put(f"/admin/audiolibros/{b}", headers=_auth(admin_token), json={"nombre": " libro uno tb"})
+    assert r.status_code == 409, r.text
+    assert client.put(f"/admin/audiolibros/{a}", headers=_auth(admin_token), json={"nombre": "LIBRO UNO TB"}).status_code == 200

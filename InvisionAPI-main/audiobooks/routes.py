@@ -1,8 +1,9 @@
 # routes.py
 
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Path
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import get_db
 from crud import (
@@ -528,7 +529,7 @@ from fastapi import BackgroundTasks
 from sharepoint import ingest_audiobook_files
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from urllib.parse import quote
-from validacion_pistas import validar_nombre_pista
+from validacion_pistas import validar_nombre_pista, validar_tamano_pista
 from models_extras import NarracionAudiolibro, narracion_habilitada
 import extras as ex
 from fastapi.responses import JSONResponse
@@ -558,6 +559,7 @@ async def importar_lote(
 async def get_presigned_upload_url(
     audiolibro_id: int,
     filename: str = "",
+    tamano: Optional[int] = None,
     db: Session = Depends(get_db),
     token: str = Depends(oauth2_scheme)
 ):
@@ -575,6 +577,11 @@ async def get_presigned_upload_url(
     motivo = validar_nombre_pista(filename)
     if motivo:
         raise HTTPException(status_code=422, detail=motivo)
+    # `tamano` (bytes): lo manda la consola; sin él no se puede comprobar (compatibilidad).
+    if tamano is not None:
+        motivo = validar_tamano_pista(tamano)
+        if motivo:
+            raise HTTPException(status_code=422, detail=motivo)
 
     audiolibro = db.query(Audiolibro).filter(Audiolibro.id == audiolibro_id).first()
     if not audiolibro:
@@ -702,12 +709,24 @@ def _guardar_narracion(db, libro_id, payload):
     return "guardada"
 
 
+def _exigir_titulo_libre(db, nombre, excepto_id=None):
+    """409 si ya hay una ficha con ese título, sin distinguir mayúsculas ni espacios extremos.
+    La carpeta de audio se llama como el título: dos fichas iguales compartirían audio."""
+    consulta = db.query(Audiolibro.id).filter(
+        func.lower(func.ltrim(func.rtrim(Audiolibro.nombre))) == nombre.strip().lower())
+    if excepto_id is not None:
+        consulta = consulta.filter(Audiolibro.id != excepto_id)
+    if consulta.first():
+        raise HTTPException(status_code=409, detail=f"Ya existe un audiolibro con el título «{nombre.strip()}».")
+
+
 @router.post("/admin/audiolibros", status_code=status.HTTP_201_CREATED)
 async def create_admin_audiolibro(payload: AudiobookCreateUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     user_info = decode_access_token(token)
     if "Admin" not in user_info.get("roles", []):
         raise HTTPException(status_code=403, detail="No autorizado")
-    
+
+    _exigir_titulo_libre(db, payload.nombre)
     libro = Audiolibro(
         nombre=payload.nombre,
         descripcion=payload.descripcion,
@@ -754,7 +773,8 @@ async def update_admin_audiolibro(id: int, payload: AudiobookCreateUpdate, db: S
     libro = db.query(Audiolibro).filter(Audiolibro.id == id).first()
     if not libro:
         raise HTTPException(status_code=404, detail="Audiolibro no encontrado")
-    
+    _exigir_titulo_libre(db, payload.nombre, excepto_id=libro.id)
+
     # Valores anteriores para el historial y el deshacer (spec 005, R23)
     narr_antes = ex.narracion_de(db, libro.id)
     antes = {

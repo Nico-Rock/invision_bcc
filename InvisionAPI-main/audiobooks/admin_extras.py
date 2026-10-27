@@ -174,6 +174,7 @@ def cambiar_publicacion(libro_id: int, cambio: CambioPublicacion, db: Session = 
 
 class Confirmacion(BaseModel):
     blob_path: str = Field(..., max_length=500)
+    tamano: Optional[int] = None  # bytes que la consola subió; si viene, debe coincidir con lo guardado
 
 
 def _guardar_verificacion(db, libro_id, blob, resultado):
@@ -199,6 +200,10 @@ def confirmar_pista(libro_id: int, datos: Confirmacion, db: Session = Depends(ge
     if not cliente.exists():
         raise HTTPException(status_code=404, detail="La pista no está en el almacenamiento: la subida no se completó.")
     resultado = va.analizar(cliente.download_blob().readall())
+    if datos.tamano is not None and datos.tamano != resultado["bytes"]:
+        raise HTTPException(status_code=409, detail=(
+            f"El tamaño de la pista guardada ({resultado['bytes']} bytes) no coincide con el del archivo "
+            f"que se subió ({datos.tamano} bytes): la subida quedó incompleta. Vuelve a subirla."))
     guardada = _guardar_verificacion(db, libro.id, datos.blob_path, resultado)
     ex.registrar(db, usuario_id, "subir_pista", libro.nombre, datos.blob_path[len(prefijo):])
     return {**resultado, "duracion_hablada": va.duracion_hablada(resultado["duracion_segundos"]),
