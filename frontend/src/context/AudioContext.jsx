@@ -44,6 +44,10 @@ export const AudioProvider = ({ children }) => {
   const [volume, setVolume] = useState(() => leerVolumen());
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [chapters, setChapters] = useState([]);
+  // Dónde se monta el único reproductor: null = su lugar fijo al pie; un
+  // elemento = dentro de la ficha abierta (Dialogo con alojaReproductor).
+  // El <audio> vive aquí, así que mover el reproductor no corta el sonido.
+  const [anfitrionReproductor, setAnfitrionReproductor] = useState(null);
   const [muted, setMuted] = useState(false);
   // Libro cuya pista se descargó y quedó asignada al audio. currentBook se fija
   // antes de descargar; si la descarga falla, este valor queda vacío y elegir
@@ -561,6 +565,8 @@ export const AudioProvider = ({ children }) => {
     esPrimerUso: () => primerUsoRef.current,
     chapters,
     setChapters,
+    anfitrionReproductor,
+    setAnfitrionReproductor,
     muted,
     stepVolume,
     toggleMute,

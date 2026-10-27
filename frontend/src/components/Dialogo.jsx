@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef } from 'react';
+import { AudioContext } from '../context/AudioContext';
 
 /**
  * Diálogo modal nativo (spec 002, R30, D18). `showModal()` vuelve inerte el
@@ -9,8 +10,12 @@ import { useEffect, useRef } from 'react';
  * Tab y Shift+Tab giran adentro: el modal nativo deja salir el foco hacia la
  * interfaz del navegador (en el panel quedaba en <body>).
  */
-export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', claseDialogo = '', children }) => {
+export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', claseDialogo = '', alojaReproductor = false, children }) => {
   const ref = useRef(null);
+  // Con alojaReproductor, el único AudioPlayer se monta dentro de este diálogo
+  // (createPortal desde AudioPlayer); al cerrarse, vuelve a su lugar al pie.
+  const audio = useContext(AudioContext);
+  const setAnfitrion = audio ? audio.setAnfitrionReproductor : null;
   const disparadorRef = useRef(null);
 
   useEffect(() => {
@@ -69,7 +74,12 @@ export const Dialogo = ({ abierto, onClose, tituloId, className = 'modal-card', 
     >
       {/* La tarjeta va adentro: así el clic en el fondo es el único que
           tiene como destino al <dialog> mismo */}
-      {abierto && <div className={className}>{children}</div>}
+      {abierto && (
+        <div className={className}>
+          {children}
+          {alojaReproductor && setAnfitrion && <div className="reproductor-anfitrion" ref={setAnfitrion} />}
+        </div>
+      )}
     </dialog>
   );
 };

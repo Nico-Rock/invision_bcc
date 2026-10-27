@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAudio } from '../hooks/useAudio';
 import { API_BASE_URL } from '../config';
@@ -31,6 +32,7 @@ export const AudioPlayer = () => {
     announceText,
     chapters,
     setChapters,
+    anfitrionReproductor,
   } = useAudio();
 
   const fetchChapters = async () => {
@@ -75,7 +77,7 @@ export const AudioPlayer = () => {
     }
   };
 
-  return (
+  const reproductor = (
     // id y tabIndex -1: destino del enlace "Saltar al reproductor". Con el foco
     // dentro, responden Espacio, flechas, N, P y M (useKeyboardShortcuts).
     <section id="reproductor" className="player-dock active" aria-labelledby="reproductor-titulo" tabIndex={-1}>
@@ -235,5 +237,8 @@ export const AudioPlayer = () => {
       </div>
     </section>
   );
+
+  // Una sola instancia: dentro de la ficha abierta si esta la aloja, o al pie
+  return anfitrionReproductor ? createPortal(reproductor, anfitrionReproductor) : reproductor;
 };
 export default AudioPlayer;

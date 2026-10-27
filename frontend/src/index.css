@@ -1758,3 +1758,30 @@ main:focus-visible {
   .shortcuts-help-btn { padding: 0.6rem 0.6rem; font-size: 1rem; }
   .btn-logout { padding: 0.6rem 0.6rem; font-size: 1.1rem; gap: 0.4rem; }
 }
+
+/* Reproductor dentro de la ficha (T-e, brecha 8): el mismo reproductor, sin
+   posición fija. Queda pegado al borde inferior de la ficha mientras se
+   desplaza, en una sola columna para que no se solape al 200 % ni a 320 px. */
+.reproductor-anfitrion {
+  position: sticky;
+  bottom: 0;
+  margin-top: 1rem;
+  z-index: 2;
+}
+.reproductor-anfitrion:empty { display: none; }
+.reproductor-anfitrion .player-dock,
+.reproductor-anfitrion .player-dock.active {
+  position: static;
+  transform: none;
+  box-shadow: none;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  text-align: center;
+  border: 4px solid var(--accent-orange);
+}
+.reproductor-anfitrion .player-buttons {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}

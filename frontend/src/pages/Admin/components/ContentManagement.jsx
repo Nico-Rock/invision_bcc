@@ -188,7 +188,7 @@ export const ContentManagement = ({ filtroInicial = null }) => {
         </div>
       )}
 
-      <Dialogo abierto={!!ficha} tituloId="ficha-libro-titulo" className="modal-card modal-ancho" onClose={() => setFicha(null)}>
+      <Dialogo abierto={!!ficha} tituloId="ficha-libro-titulo" className="modal-card modal-ancho" alojaReproductor onClose={() => setFicha(null)}>
         {ficha && (
           <FichaLibro
             key={ficha.libro ? `${ficha.libro.id}-${version}` : 'nuevo'}
