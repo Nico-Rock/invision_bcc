@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
-import { ordenarPistas, validarNombrePista } from '../../../lib/capitulos';
+import { ordenarPistas, validarPista, paramsPermiso, cuerpoConfirmacion, frasePistasSinNumero, etiquetaEscuchar, avisoEscuchaPrevia } from '../../../lib/capitulos';
 
 const ESTADOS = { pendiente: 'pendiente', subiendo: 'subiendo', subida: 'subida', problemas: 'subida con problemas', existe: 'ya existía, no se pisó', fallo: 'falló' };
 
@@ -15,8 +15,8 @@ const ESTADOS = { pendiente: 'pendiente', subiendo: 'subiendo', subida: 'subida'
  */
 export const CapitulosLibro = ({ libro }) => {
   const { authenticatedFetch } = useAuth();
-  const { announceText, playCue } = useAudio();
-  const [cargados, setCargados] = useState(null);
+  const { announceText, playCue, playChapter } = useAudio();
+  const [capitulos, setCapitulos] = useState(null); // [{ indice, nombre }] o null si no se pudo consultar
   const [pistas, setPistas] = useState([]); // [{ file, estado }]
   const [subiendo, setSubiendo] = useState(false);
   const [verificacion, setVerificacion] = useState(null); // resumen del servidor o { nota }
@@ -28,10 +28,10 @@ export const CapitulosLibro = ({ libro }) => {
   const contarCargados = async () => {
     try {
       const r = await authenticatedFetch(`${API_BASE_URL}/audio-by-id/${libro.id}`);
-      const data = r.ok ? await r.json() : {};
-      setCargados((data.capitulos || []).length);
+      const data = r.ok ? await r.json() : null;
+      setCapitulos(data ? (data.capitulos || []) : null);
     } catch {
-      setCargados(null);
+      setCapitulos(null);
     }
   };
 
@@ -54,23 +54,36 @@ export const CapitulosLibro = ({ libro }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libro.id]);
 
+  // Escucha previa (brecha 8): el único reproductor suena dentro de la ficha y
+  // el foco pasa a "Pausar", igual que al elegir un libro en el catálogo.
+  const escuchar = async (cap, total) => {
+    if (avisoEscuchaPrevia(libro.estado_publicacion)) announceText(avisoEscuchaPrevia(libro.estado_publicacion));
+    await playChapter({ id: libro.id, nombre: libro.nombre, title: libro.nombre }, cap.indice, { total });
+    const enfocar = (intentos = 30) => {
+      const boton = document.getElementById('playerPlayBtn');
+      if (boton) boton.focus();
+      else if (intentos > 0) requestAnimationFrame(() => enfocar(intentos - 1));
+    };
+    enfocar();
+  };
+
   const elegir = (e) => {
     const archivos = [...e.target.files];
-    const rechazados = archivos.filter((f) => validarNombrePista(f.name));
-    const validos = ordenarPistas(archivos.filter((f) => !validarNombrePista(f.name)));
+    const rechazados = archivos.filter((f) => validarPista(f));
+    const validos = ordenarPistas(archivos.filter((f) => !validarPista(f)));
     setPistas(validos.map((file) => ({ file, estado: 'pendiente' })));
     if (rechazados.length) {
       playCue('error');
-      announceText(`${rechazados.length === 1 ? 'Un archivo no se puede subir' : `${rechazados.length} archivos no se pueden subir`}: ${rechazados.map((f) => `${f.name}, ${validarNombrePista(f.name)}`).join('; ')}`, { urgente: true });
+      announceText(`${rechazados.length === 1 ? 'Un archivo no se puede subir' : `${rechazados.length} archivos no se pueden subir`}: ${rechazados.map((f) => `${f.name}, ${validarPista(f)}`).join('; ')}`, { urgente: true });
     }
     if (validos.length) {
-      announceText(`${validos.length === 1 ? '1 pista elegida' : `${validos.length} pistas elegidas`}, en este orden de reproducción: ${validos.map((f, i) => `${i + 1}, ${f.name}`).join('; ')}. Presioná Subir.`);
+      announceText(`${validos.length === 1 ? '1 pista elegida' : `${validos.length} pistas elegidas`}, en este orden de reproducción: ${validos.map((f, i) => `${i + 1}, ${f.name}`).join('; ')}. Presioná Subir.${frasePistasSinNumero(validos) ? ` ${frasePistasSinNumero(validos)}` : ''}`);
       setTimeout(() => accionRef.current?.focus(), 0);
     }
   };
 
   const subirUna = async (file) => {
-    const r = await authenticatedFetch(`${API_BASE_URL}/audiolibros/${libro.id}/capitulos/presign-upload?filename=${encodeURIComponent(file.name)}`, { method: 'POST' });
+    const r = await authenticatedFetch(`${API_BASE_URL}/audiolibros/${libro.id}/capitulos/presign-upload?${paramsPermiso(file)}`, { method: 'POST' });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'el servidor rechazó el permiso');
     if (data.estado === 'existe') return 'existe';
@@ -82,7 +95,7 @@ export const CapitulosLibro = ({ libro }) => {
     if (!put.ok) throw new Error(`el almacenamiento respondió ${put.status}`);
     // Confirmación: el servidor comprueba que la pista llegó y la analiza (R20)
     const c = await authenticatedFetch(`${API_BASE_URL}/audiolibros/${libro.id}/capitulos/confirmar`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blob_path: data.blob_path }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: cuerpoConfirmacion(data.blob_path, file),
     });
     const v = await c.json().catch(() => ({}));
     if (!c.ok) throw new Error(typeof v.detail === 'string' ? v.detail : 'no se pudo confirmar la subida');
@@ -175,10 +188,25 @@ export const CapitulosLibro = ({ libro }) => {
     <section className="capitulos-libro" aria-labelledby="capitulos-titulo">
       <h3 id="capitulos-titulo" tabIndex="-1" ref={tituloRef}>Capítulos</h3>
       <p>
-        {cargados === null ? 'No se pudo consultar cuántos capítulos tiene.'
-          : cargados === 0 ? 'Este libro todavía no tiene audio.'
-          : `Tiene ${cargados === 1 ? '1 capítulo cargado' : `${cargados} capítulos cargados`}.`}
+        {capitulos === null ? 'No se pudo consultar cuántos capítulos tiene.'
+          : capitulos.length === 0 ? 'Este libro todavía no tiene audio.'
+          : `Tiene ${capitulos.length === 1 ? '1 capítulo cargado' : `${capitulos.length} capítulos cargados`}.`}
       </p>
+      {capitulos && capitulos.length > 0 && (
+        <>
+          <h4 id={`cargados-${libro.id}`}>Capítulos cargados</h4>
+          {avisoEscuchaPrevia(libro.estado_publicacion) && <p className="nota-campo">{avisoEscuchaPrevia(libro.estado_publicacion)}</p>}
+          <ol className="orden-pistas lista-capitulos" aria-labelledby={`cargados-${libro.id}`}>
+            {capitulos.map((c) => (
+              <li key={c.indice}>
+                <button type="button" className="btn-submit btn-secundario" onClick={() => escuchar(c, capitulos.length)}>
+                  {etiquetaEscuchar(c.indice, c.nombre)}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
       <p className="nota-campo">Las pistas se suben al almacenamiento real de la biblioteca. Una pista que ya existe nunca se reemplaza.</p>
 
       <h4 id={`verificacion-${libro.id}`}>Verificación del audio</h4>

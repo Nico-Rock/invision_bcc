@@ -1785,3 +1785,4 @@ main:focus-visible {
   justify-content: center;
   gap: 0.75rem;
 }
+.lista-capitulos li { margin-bottom: 0.5rem; }
