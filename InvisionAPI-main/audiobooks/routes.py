@@ -530,7 +530,7 @@ from sharepoint import ingest_audiobook_files
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from urllib.parse import quote
 from validacion_pistas import validar_nombre_pista, validar_tamano_pista
-from models_extras import NarracionAudiolibro, narracion_habilitada
+from models_extras import NarracionAudiolibro, narracion_habilitada, tabla_habilitada
 import extras as ex
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone, timedelta
@@ -606,6 +606,9 @@ async def get_presigned_upload_url(
     return {"estado": "subir", "sas_url": sas_url, "blob_path": blob_name}
 
 
+MAX_SESIONES = 200
+
+
 @router.get("/admin/auditoria/sesiones/")
 async def get_sesiones_auditoria(
     db: Session = Depends(get_db),
@@ -615,7 +618,11 @@ async def get_sesiones_auditoria(
     if "Admin" not in user_info["roles"]:
         raise HTTPException(status_code=403, detail="No autorizado")
         
-    sesiones = db.query(SesionAcceso).order_by(SesionAcceso.timestamp.desc()).all()
+    if not tabla_habilitada(db, "sesiones_acceso"):
+        raise HTTPException(
+            status_code=503,
+            detail="Esta base no registra sesiones: la tabla de accesos todavía no existe (pendiente de aprobación de la BCC).")
+    sesiones = db.query(SesionAcceso).order_by(SesionAcceso.timestamp.desc()).limit(MAX_SESIONES).all()
     return [
         {
             "id": s.id,

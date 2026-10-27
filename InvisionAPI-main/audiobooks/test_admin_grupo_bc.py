@@ -398,3 +398,119 @@ def test_ta_c3_los_404_internos_no_se_vuelven_500(client, admin_token, test_db):
     # 403 interno: pedir el audio con el id de otra persona
     with patch("routes.container_client", contenedor_audio({})):
         assert _escuchar(client, admin_token, admin_id + 999, libro_id, 1).status_code == 403
+
+
+# --- T-c (brecha del panel, criterios 6 y 7): pendientes con cifras y accesos sin tabla ---------
+
+def blobs_falsos(nombres, tamano=1024 * 1024):
+    return [SimpleNamespace(name=n, size=tamano, last_modified=None) for n in nombres]
+
+
+def indice_real(listar):
+    from indice_audio import IndiceBlob
+    idx = IndiceBlob(listar=listar)
+    idx.refrescar()
+    return idx
+
+
+def test_tc_c6_indice_en_error_sin_anterior_dice_el_error_y_no_calculando(client, admin_token):
+    def falla():
+        raise RuntimeError("Azure no responde: tiempo agotado")
+
+    idx = indice_real(falla)
+    with patch("admin_extras.INDICE_AUDIO", idx):
+        p = client.get("/admin/pendientes", headers=H(admin_token)).json()
+    assert p["indice"]["estado"] == "error"
+    assert "tiempo agotado" in p["indice"]["error"]
+    assert p["sin_audio"]["calculando"] is False
+    assert "tiempo agotado" in p["sin_audio"]["error"]
+    assert p["sin_audio"]["cantidad"] is None
+    assert p["indice"]["libros_con_audio"] is None and p["sin_ficha"]["calculando"] is False
+    assert "calculando" not in p["indice"]["error"].lower()
+
+
+def test_tc_c6_indice_listo_entrega_cifras_y_carpetas_sin_ficha(client, admin_token):
+    crear(client, admin_token, "FICHA CON AUDIO TC")
+    crear(client, admin_token, "FICHA SIN AUDIO TC")
+    idx = indice_real(lambda: blobs_falsos([
+        "FICHA CON AUDIO TC/Pista 1.mp3", "FICHA CON AUDIO TC/Pista 2.mp3",
+        "CARPETA HUERFANA TC/Pista 1.mp3", "suelto.mp3",
+    ], tamano=512 * 1024 * 1024))
+    with patch("admin_extras.INDICE_AUDIO", idx):
+        p = client.get("/admin/pendientes", headers=H(admin_token)).json()
+    datos = idx.datos()
+    assert p["indice"]["estado"] == "listo" and p["indice"]["error"] is None
+    assert p["indice"]["ultimo_ok"] is not None
+    assert p["indice"]["libros_con_audio"] == len(datos["books"]) == 3
+    assert p["indice"]["pistas"] == datos["total_blobs"] == 4
+    assert p["indice"]["gb"] == datos["total_size_gb"] == 2.0
+    assert [c["nombre"] for c in p["sin_ficha"]["carpetas"]] == ["CARPETA HUERFANA TC"]
+    assert p["sin_ficha"]["cantidad"] == 1 and p["sin_ficha"]["carpetas"][0]["pistas"] == 1
+    assert "FICHA SIN AUDIO TC" in [b["nombre"] for b in p["sin_audio"]["libros"]]
+    assert "FICHA CON AUDIO TC" not in [b["nombre"] for b in p["sin_audio"]["libros"]]
+
+
+def test_tc_c6_indice_en_error_con_uno_anterior_conserva_las_cifras(client, admin_token):
+    estado = {"falla": False}
+
+    def listar():
+        if estado["falla"]:
+            raise RuntimeError("corte a mitad")
+        return blobs_falsos(["ANTERIOR TC/Pista 1.mp3"])
+
+    from indice_audio import IndiceBlob
+    idx = IndiceBlob(listar=listar)
+    idx.refrescar()
+    estado["falla"] = True
+    idx.refrescar()
+    with patch("admin_extras.INDICE_AUDIO", idx):
+        p = client.get("/admin/pendientes", headers=H(admin_token)).json()
+    assert p["indice"]["estado"] == "error" and "corte a mitad" in p["indice"]["error"]
+    assert p["indice"]["pistas"] == 1 and p["indice"]["ultimo_ok"] is not None
+    assert p["sin_audio"]["calculando"] is False
+
+
+def test_tc_c6_confirmar_una_pista_invalida_el_indice(client, admin_token):
+    libro_id = crear(client, admin_token, "INVALIDA TC")
+    falso = MagicMock()
+    with patch("admin_extras.container_client", contenedor({"INVALIDA TC/Pista 1.mp3": mp3(1000)})), \
+         patch("admin_extras.INDICE_AUDIO", falso):
+        r = client.post(f"/audiolibros/{libro_id}/capitulos/confirmar", headers=H(admin_token),
+                        json={"blob_path": "INVALIDA TC/Pista 1.mp3"})
+    assert r.status_code == 200, r.text
+    falso.invalidar.assert_called_once()
+
+
+def _con_tabla_sesiones_ausente():
+    from models import SesionAcceso
+    SesionAcceso.__table__.drop(bind=test_engine)
+
+
+def test_tc_c7_sin_tabla_de_sesiones_da_503_legible_y_el_resto_funciona(client, admin_token):
+    from models import SesionAcceso
+    _con_tabla_sesiones_ausente()
+    try:
+        r = client.get("/admin/auditoria/sesiones/", headers=H(admin_token))
+        assert r.status_code == 503, r.text
+        detalle = r.json()["detail"]
+        assert "sesiones" in detalle.lower() and "OperationalError" not in detalle and "sqlite" not in detalle.lower()
+        assert client.get("/admin/audiolibros", headers=H(admin_token)).status_code == 200
+        with patch("admin_extras.INDICE_AUDIO", indice([])):
+            assert client.get("/admin/pendientes", headers=H(admin_token)).status_code == 200
+    finally:
+        SesionAcceso.__table__.create(bind=test_engine)
+
+
+def test_tc_c7_las_sesiones_se_limitan_a_200_filas_las_mas_recientes_primero(client, admin_token, test_db):
+    from models import SesionAcceso
+    base = datetime.datetime(2026, 1, 1)
+    test_db.query(SesionAcceso).delete()
+    test_db.add_all([SesionAcceso(usuario_id=1, tipo_evento="LOGIN", timestamp=base + datetime.timedelta(minutes=i))
+                     for i in range(205)])
+    test_db.commit()
+    r = client.get("/admin/auditoria/sesiones/", headers=H(admin_token))
+    assert r.status_code == 200
+    filas = r.json()
+    assert len(filas) == 200
+    assert filas[0]["timestamp"] > filas[-1]["timestamp"]
+    assert filas[0]["timestamp"].startswith("2026-01-01T03:24")  # minuto 204

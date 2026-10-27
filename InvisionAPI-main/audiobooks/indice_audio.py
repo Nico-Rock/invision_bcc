@@ -92,6 +92,16 @@ class IndiceBlob:
         self._estado = "vacio"
         self._error = None
         self._ultimo_intento = None
+        self._version = 0         # sube con cada invalidación
+        self._version_vista = 0   # versión que tenía el último índice construido
+
+    def invalidar(self):
+        """Marca el índice como vencido (por ejemplo, tras subir una pista): el próximo
+        `obtener()` reindexa en segundo plano sin esperar al TTL ni al reintento tras
+        un error. Los últimos datos válidos se siguen entregando mientras tanto."""
+        with self._lock:
+            self._version += 1
+            self._ultimo_intento = None
 
     def estado(self, detalle=False):
         """Estado del índice. Sin `detalle` el error es un texto genérico: los
@@ -116,6 +126,7 @@ class IndiceBlob:
         with self._lock:
             self._estado = "indexando"
             self._ultimo_intento = self._reloj()
+            version = self._version
         try:
             nuevos = _construir(self._listar())
         except Exception as e:
@@ -125,6 +136,7 @@ class IndiceBlob:
             with self._lock:
                 self._estado = "error"
                 self._error = f"{type(e).__name__}: {primera_linea}"
+                self._version_vista = version  # el fallo consume la invalidación; rige el reintento a los 60 s
             print(f"❌ Falló la indexación de Azure Blob: {type(e).__name__}: {e}")
             return
         nuevos["last_fetched"] = self._reloj()
@@ -132,6 +144,7 @@ class IndiceBlob:
             self._datos = nuevos
             self._estado = "listo"
             self._error = None
+            self._version_vista = version
         print(f"✅ Azure Blob indexado: {len(nuevos['books'])} libros, {nuevos['total_blobs']} pistas.")
 
     def refrescar_en_segundo_plano(self):
@@ -153,6 +166,8 @@ class IndiceBlob:
             if self._estado == "indexando":
                 return False
             ahora = self._reloj()
+            if self._version != self._version_vista:
+                return True
             if self._estado == "error" and self._ultimo_intento:
                 return (ahora - self._ultimo_intento).total_seconds() >= REINTENTO_TRAS_ERROR_SEGUNDOS
             ultimo = self._datos["last_fetched"]

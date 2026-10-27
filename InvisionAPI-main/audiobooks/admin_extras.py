@@ -55,6 +55,15 @@ def _listar_blobs():
 INDICE_AUDIO = IndiceBlob(listar=_listar_blobs)
 
 
+CARPETA_RAIZ = "Raíz / Sin Clasificar"  # blobs sueltos, sin carpeta: no son un libro
+
+
+def _error_en_palabras(error):
+    if not error:
+        return None
+    return f"No se pudo consultar el almacenamiento de audio ({error}). Se reintenta solo cada minuto."
+
+
 def lanzar(funcion):
     """Tareas largas en un hilo (D17); los tests lo reemplazan por una llamada directa."""
     threading.Thread(target=funcion, daemon=True).start()
@@ -108,13 +117,30 @@ def pendientes(db: Session = Depends(get_db), usuario_id=Depends(admin)):
     resumen = lambda libros: [{"id": l.id, "nombre": l.nombre} for l in libros[:MAX_LISTA]]  # noqa: E731
 
     INDICE_AUDIO.obtener()
-    estado_indice = INDICE_AUDIO.estado()
-    if estado_indice["estado"] == "listo" or estado_indice.get("ultimo_ok"):
-        con_audio = set(INDICE_AUDIO.datos().get("books", {}).keys())
+    estado_indice = INDICE_AUDIO.estado(detalle=True)
+    hay_datos = estado_indice["estado"] == "listo" or bool(estado_indice.get("ultimo_ok"))
+    error_indice = _error_en_palabras(estado_indice.get("error"))
+    indice = {"estado": estado_indice["estado"], "ultimo_ok": estado_indice.get("ultimo_ok"), "error": error_indice,
+              "libros_con_audio": None, "pistas": None, "gb": None}
+    if hay_datos:
+        datos = INDICE_AUDIO.datos()
+        books = datos.get("books", {})
+        con_audio = set(books.keys())
         sin = [l for l in visibles if l.nombre not in con_audio]
         sin_audio = {"calculando": False, "cantidad": len(sin), "libros": resumen(sin)}
+        indice.update(libros_con_audio=len(books), pistas=datos.get("total_blobs", 0), gb=datos.get("total_size_gb", 0))
+        # Carpetas de audio cuyo nombre no coincide con ninguna ficha (ni siquiera una en la papelera)
+        con_ficha = {l.nombre for l in db.query(Audiolibro).all()}
+        huerfanas = sorted(n for n in books if n not in con_ficha and n != CARPETA_RAIZ)
+        sin_ficha = {"calculando": False, "cantidad": len(huerfanas),
+                     "carpetas": [{"nombre": n, "pistas": books[n].get("total_tracks", 0)} for n in huerfanas[:MAX_LISTA]]}
+    elif estado_indice["estado"] == "error":
+        # Falló y no hay un índice anterior: se dice el error, no «calculando»
+        sin_audio = {"calculando": False, "cantidad": None, "libros": [], "error": error_indice}
+        sin_ficha = {"calculando": False, "cantidad": None, "carpetas": [], "error": error_indice}
     else:
         sin_audio = {"calculando": True, "cantidad": None, "libros": []}
+        sin_ficha = {"calculando": True, "cantidad": None, "carpetas": []}
 
     narraciones = {}
     if tabla_habilitada(db, TABLA_NARRACION):
@@ -137,8 +163,9 @@ def pendientes(db: Session = Depends(get_db), usuario_id=Depends(admin)):
                       .order_by(TareaAdmin.id.desc()).limit(10).all()]
 
     return {
-        "indice": {"estado": estado_indice["estado"], "ultimo_ok": estado_indice.get("ultimo_ok")},
+        "indice": indice,
         "sin_audio": sin_audio,
+        "sin_ficha": sin_ficha,
         "sin_narrador": sin_narrador,
         "borradores": borradores,
         "parecidos": {
@@ -205,6 +232,7 @@ def confirmar_pista(libro_id: int, datos: Confirmacion, db: Session = Depends(ge
             f"El tamaño de la pista guardada ({resultado['bytes']} bytes) no coincide con el del archivo "
             f"que se subió ({datos.tamano} bytes): la subida quedó incompleta. Vuelve a subirla."))
     guardada = _guardar_verificacion(db, libro.id, datos.blob_path, resultado)
+    INDICE_AUDIO.invalidar()  # el Inicio debe reflejar la pista recién subida
     ex.registrar(db, usuario_id, "subir_pista", libro.nombre, datos.blob_path[len(prefijo):])
     return {**resultado, "duracion_hablada": va.duracion_hablada(resultado["duracion_segundos"]),
             "descripcion": va.describir(resultado["problemas"]), "verificacion_guardada": guardada}
