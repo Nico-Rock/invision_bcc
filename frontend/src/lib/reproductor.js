@@ -101,3 +101,11 @@ export const debeRecargar = ({ libroCargadoId = null, libro = null } = {}) => {
   if (!libro) return false;
   return libroCargadoId == null || String(libroCargadoId) !== String(libro.id);
 };
+
+/**
+ * ¿Ese libro ya se está descargando? Activar dos veces una tarjeta mientras la
+ * pista baja pedía el audio dos veces: la segunda activación se ignora.
+ * `enCursoId` es el id del libro cuya carga está en vuelo (o null).
+ */
+export const yaSeEstaCargando = ({ enCursoId = null, libro = null } = {}) =>
+  enCursoId != null && !!libro && String(enCursoId) === String(libro.id);

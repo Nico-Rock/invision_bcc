@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  accionReproductor, describirFoco, debeRecargar, TECLAS_REPRODUCTOR, SELECTOR_REPRODUCTOR,
+  accionReproductor, describirFoco, debeRecargar, yaSeEstaCargando, TECLAS_REPRODUCTOR, SELECTOR_REPRODUCTOR,
 } from '../../src/lib/reproductor.js';
 
 const ev = (key, extra = {}) => ({
@@ -119,4 +119,12 @@ test('debeRecargar: sin libro cargado todavía, se carga; sin libro elegido, nad
 
 test('debeRecargar: el id del libro se compara igual si llega como número o como texto', () => {
   assert.equal(debeRecargar({ libroCargadoId: 7, libro: { id: '7' } }), false);
+});
+
+test('yaSeEstaCargando: la segunda activación del mismo libro mientras descarga se ignora; otro libro o nada en curso, no', () => {
+  assert.equal(yaSeEstaCargando({ enCursoId: 7, libro: { id: 7 } }), true);
+  assert.equal(yaSeEstaCargando({ enCursoId: '7', libro: { id: 7 } }), true);
+  assert.equal(yaSeEstaCargando({ enCursoId: 8, libro: { id: 7 } }), false);
+  assert.equal(yaSeEstaCargando({ enCursoId: null, libro: { id: 7 } }), false);
+  assert.equal(yaSeEstaCargando({}), false);
 });

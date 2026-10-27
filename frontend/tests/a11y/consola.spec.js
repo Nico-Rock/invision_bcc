@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { apiDisponible, prefs, axe, medir, simularApi, LIBRO_SIMULADO, PENDIENTES_SIMULADOS } from './ayudas.js';
+import { apiDisponible, prefs, axe, medir, simularApi, wavSilencio, LIBRO_SIMULADO, PENDIENTES_SIMULADOS } from './ayudas.js';
 
 const EMAIL = process.env.INVISION_ADMIN_EMAIL;
 const CLAVE = process.env.INVISION_ADMIN_PASSWORD;
@@ -698,5 +698,34 @@ test.describe('consola con la API simulada', () => {
     await expect.poll(() => peticiones.confirmar.length, { timeout: 30_000 }).toBe(2);
     expect(peticiones.permiso.map((u) => new URL(u).searchParams.get('tamano'))).toEqual(['4', '3']);
     expect(peticiones.confirmar.map((c) => c.tamano)).toEqual([4, 3]);
+  });
+
+  test('catálogo: activar dos veces una tarjeta mientras la pista se descarga pide el audio una sola vez', async ({ page }) => {
+    let descargas = 0;
+    const ok = { 'access-control-allow-origin': '*', 'content-type': 'application/json' };
+    await abrirConsola(page, {
+      'POST /search': { status: 200, headers: ok, body: JSON.stringify({ results: [LIBRO_SIMULADO] }) },
+      [`GET /stream-audio-simple/1/${LIBRO_SIMULADO.id}/1`]: async (ruta) => {
+        descargas += 1;
+        await new Promise((listo) => setTimeout(listo, 1500)); // la descarga tarda
+        await ruta.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'audio/wav' }, body: wavSilencio() });
+      },
+    });
+    await page.goto('/');
+    const tarjeta = page.locator('.book-card').first();
+    await tarjeta.waitFor();
+    // El reproductor fijo tapa la tarjeta apenas aparece: se activa dos veces por evento, sin puntero
+    await tarjeta.dispatchEvent('click');
+    await tarjeta.dispatchEvent('click');
+    await page.getByRole('button', { name: 'Pausar audiolibro' }).waitFor({ timeout: 30_000 });
+    expect(descargas).toBe(1);
+  });
+
+  test('320 px: la fila de pestañas de Administración no desborda la página', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await abrirConsola(page);
+    const m = await medir(page);
+    expect(m.reflow.desplazamientoHorizontal).toBe(false);
+    expect(m.reflow.fuera).toEqual([]);
   });
 });

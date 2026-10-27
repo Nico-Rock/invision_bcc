@@ -6,7 +6,7 @@ import { useAudio } from '../hooks/useAudio';
 import { API_BASE_URL } from '../config';
 import { indiceDestino, textoPosicion } from '../lib/listaLibros';
 import { aAriaGlobal, textoTecla } from '../lib/atajosGlobales';
-import { SELECTOR_REPRODUCTOR, debeRecargar } from '../lib/reproductor';
+import { SELECTOR_REPRODUCTOR, debeRecargar, yaSeEstaCargando } from '../lib/reproductor';
 import {
   leerProgreso, hayProgreso, listaContinuar, nombreBotonContinuar, textoPosicionHablada,
   debeRefrescarContinuar, EVENTO_PROGRESO_GUARDADO,
@@ -225,6 +225,8 @@ export const Home = () => {
 
   // Copia de libroCargadoId para leerla después de cargar, fuera del render
   const cargadoRef = useRef(libroCargadoId);
+  // Libro cuya descarga está en vuelo: una segunda activación no la repite
+  const enCursoRef = useRef(null);
   useEffect(() => { cargadoRef.current = libroCargadoId; }, [libroCargadoId]);
 
   // Tras cargar, el foco pasa a "Pausar" solo si la pista quedó cargada y la
@@ -265,6 +267,8 @@ export const Home = () => {
       enfocarReproductor();
       return;
     }
+    if (yaSeEstaCargando({ enCursoId: enCursoRef.current, libro: book })) return;
+    enCursoRef.current = book.id;
     try {
       const progreso = await obtenerProgreso(book);
       // Con progreso, el único aviso es "Continuando …" al empezar a sonar
@@ -290,6 +294,8 @@ export const Home = () => {
     } catch (err) {
       announceText(`Error: ${err.message}`, { urgente: true });
       playCue('error');
+    } finally {
+      enCursoRef.current = null;
     }
   };
 

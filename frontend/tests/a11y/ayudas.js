@@ -152,7 +152,7 @@ export async function simularApi(page, sobrescribir = {}) {
   const tabla = {
     'GET /genres': json(200, []),
     'GET /search': json(200, []),
-    'GET /mis-audiolibros': json(200, []),
+    'GET /mis-audiolibros/1': json(200, []),
     'GET /user/me/preferencias': json(404, { detail: 'sin perfil' }),
     'GET /admin/pendientes': json(200, PENDIENTES_SIMULADOS),
     'GET /admin/audiolibros': json(200, [LIBRO_SIMULADO]),
