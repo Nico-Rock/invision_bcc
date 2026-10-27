@@ -31,10 +31,10 @@ const CAMPOS_VOCABULARIO = [
  * mismo?" ante un valor parecido a uno existente, y la confirmación de borrado,
  * que explica las consecuencias y arranca con el foco en "Cancelar".
  */
-export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabilitada, papeleraHabilitada, onGuardado, onEliminado }) => {
+export const FichaLibro = ({ modo, libro, nombreInicial = '', categorias, vocabulario, narracionHabilitada, papeleraHabilitada, onGuardado, onEliminado }) => {
   const { authenticatedFetch } = useAuth();
   const { announceText, playCue } = useAudio();
-  const [form, setForm] = useState(() => desdeLibro(libro));
+  const [form, setForm] = useState(() => (libro ? desdeLibro(libro) : { ...vacio, nombre: nombreInicial }));
   const [errorTitulo, setErrorTitulo] = useState('');
   const [vista, setVista] = useState('form'); // form | parecido | eliminar
   const [conflicto, setConflicto] = useState(null); // { campo, etiqueta, escrito, existentes }
@@ -84,7 +84,7 @@ export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabi
       }
       playCue('success');
       let texto = modo === 'crear'
-        ? `Audiolibro ${payload.nombre} registrado. Ahora podés subir sus capítulos en esta misma ficha.`
+        ? `Audiolibro ${payload.nombre} registrado${nombreInicial ? ' como borrador' : ''}. Ahora podés ${nombreInicial ? 'escuchar y revisar sus capítulos' : 'subir sus capítulos'} en esta misma ficha.`
         : `Audiolibro ${payload.nombre} actualizado.`;
       if (data.narracion === 'no_habilitada' && (payload.narrador || payload.en_memoria)) {
         texto += ' El narrador no se guardó: esta base todavía no lo tiene habilitado.';
@@ -211,9 +211,10 @@ export const FichaLibro = ({ modo, libro, categorias, vocabulario, narracionHabi
             onChange={cambiar('nombre')}
             aria-required="true"
             aria-invalid={errorTitulo ? 'true' : undefined}
-            aria-describedby={errorTitulo ? 'libro-titulo-error' : undefined}
+            aria-describedby={[errorTitulo ? 'libro-titulo-error' : '', nombreInicial ? 'libro-titulo-nota' : ''].filter(Boolean).join(' ') || undefined}
             autoComplete="off"
           />
+          {nombreInicial && <p id="libro-titulo-nota" className="nota-campo">Es el nombre de una carpeta de audio sin ficha: la ficha debe llamarse igual para usar ese audio. Se crea como borrador y los socios no la ven hasta que la publiques.</p>}
           {errorTitulo && <p id="libro-titulo-error" className="texto-error">{errorTitulo}</p>}
         </div>
 

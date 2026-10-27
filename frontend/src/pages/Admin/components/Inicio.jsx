@@ -4,6 +4,7 @@ import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
 import { Dialogo } from '../../../components/Dialogo';
 import { plural } from '../../../lib/consola';
+import { resumenIndice, carpetasSinFicha, textoVerCarpetas, REGLAS_OPERACION } from '../../../lib/pendientes';
 
 const NOMBRE_CAMPO = { generos: 'género', autores: 'autor', narradores: 'narrador' };
 const CAMPO_API = { generos: 'genero', autores: 'autor', narradores: 'narrador' };
@@ -81,6 +82,7 @@ export const Inicio = ({ irA }) => {
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
   const [grupo, setGrupo] = useState(null);
+  const [verCarpetas, setVerCarpetas] = useState(false);
   const anunciado = useRef(false);
 
   const cargar = async () => {
@@ -108,10 +110,13 @@ export const Inicio = ({ irA }) => {
       if (!vigente || !d) return;
       if (!anunciado.current) {
         anunciado.current = true;
+        const indice = resumenIndice(d.indice);
+        // Un índice caído se dice una vez por el canal urgente, no como «en curso»
+        if (indice.tipo === 'error') { playCue('error'); announceText(indice.texto, { urgente: true }); }
         announceText(resumenHablado(d));
       }
-      // Mientras se arma el índice de audio, se vuelve a consultar solo
-      if (d.sin_audio.calculando) espera = setTimeout(ciclo, 5000);
+      // Mientras se arma el índice de audio, se vuelve a consultar solo; si falló, no
+      if (d.sin_audio.calculando && d.indice?.estado !== 'error') espera = setTimeout(ciclo, 5000);
     };
     ciclo();
     return () => { vigente = false; clearTimeout(espera); };
@@ -123,6 +128,8 @@ export const Inicio = ({ irA }) => {
 
   const grupos = Object.entries(datos.parecidos).flatMap(([clave, lista]) => lista.map((valores) => ({ clave, valores })));
   const inf = datos.informe;
+  const indice = resumenIndice(datos.indice);
+  const sinFicha = carpetasSinFicha(datos);
 
   return (
     <section className="admin-card" aria-labelledby="inicio-titulo">
@@ -131,7 +138,9 @@ export const Inicio = ({ irA }) => {
       <h3 id="pendientes-titulo">Qué necesita atención</h3>
       <ul className="lista-pendientes" aria-labelledby="pendientes-titulo">
         <li>
-          {datos.sin_audio.calculando ? (
+          {datos.sin_audio.calculando && indice.tipo === 'error' ? (
+            <span className="texto-error">No se puede saber qué fichas no tienen audio. {indice.texto}</span>
+          ) : datos.sin_audio.calculando ? (
             <span>Calculando qué fichas no tienen audio (se revisa el almacenamiento en segundo plano)…</span>
           ) : datos.sin_audio.cantidad ? (
             <button type="button" className="btn-submit btn-secundario" onClick={() => irA('content', { filtro: { tipo: 'ids', nombre: 'sin audio', ids: datos.sin_audio.libros.map((l) => l.id) } })}>
@@ -139,6 +148,28 @@ export const Inicio = ({ irA }) => {
             </button>
           ) : <span>Todas las fichas tienen audio.</span>}
         </li>
+        {sinFicha.cantidad > 0 && (
+          <li>
+            <button type="button" className="btn-submit btn-secundario" aria-expanded={verCarpetas} aria-controls="carpetas-sin-ficha" onClick={() => setVerCarpetas(!verCarpetas)}>
+              {textoVerCarpetas(sinFicha.cantidad)}
+            </button>
+            {verCarpetas && (
+              <div id="carpetas-sin-ficha">
+                <p className="nota-campo">Hay audio en el almacenamiento sin una ficha que lo use. Registrarlo crea la ficha como borrador: los socios no la ven hasta que la publiques.</p>
+                <ul className="lista-pendientes" aria-label="Carpetas de audio sin ficha">
+                  {sinFicha.carpetas.map((nombre) => (
+                    <li key={nombre}>
+                      <button type="button" className="btn-submit btn-secundario" onClick={() => irA('content', { registrar: nombre })}>
+                        Registrar audiolibro: {nombre}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {sinFicha.ocultas > 0 && <p className="nota-campo">{plural(sinFicha.ocultas, 'carpeta más no se lista', 'carpetas más no se listan')} aquí.</p>}
+              </div>
+            )}
+          </li>
+        )}
         <li>
           {!datos.sin_narrador.habilitado ? <span>El narrador todavía no está habilitado en esta base.</span>
             : datos.sin_narrador.cantidad ? (
@@ -171,6 +202,12 @@ export const Inicio = ({ irA }) => {
         )}
       </ul>
 
+      <section aria-labelledby="almacenamiento-titulo">
+        <h3 id="almacenamiento-titulo">Almacenamiento de audio</h3>
+        {indice.tipo === 'ausente' ? <p>Las cifras del almacenamiento no están disponibles.</p>
+          : <p className={indice.urgente ? 'texto-error' : undefined}>{indice.texto}</p>}
+      </section>
+
       <h3 id="parecidos-titulo">Valores parecidos ({grupos.length})</h3>
       {grupos.length === 0 ? <p>No hay valores parecidos entre sí.</p> : (
         <ul className="lista-pendientes" aria-labelledby="parecidos-titulo">
@@ -198,6 +235,15 @@ export const Inicio = ({ irA }) => {
         <button type="button" className="btn-submit btn-secundario no-imprimir" onClick={() => window.print()}>Imprimir el informe</button>
       </section>
 
+      <section className="reglas-operacion" aria-labelledby="reglas-titulo">
+        <h3 id="reglas-titulo">Reglas de operación</h3>
+        <ol>
+          {REGLAS_OPERACION.map((r) => (
+            <li key={r.titulo}><strong>{r.titulo}.</strong> {r.texto}</li>
+          ))}
+        </ol>
+      </section>
+
       <Dialogo abierto={!!grupo} tituloId="unir-titulo" className="modal-card modal-mediano" onClose={() => setGrupo(null)}>
         {grupo && <UnirVariantes grupo={grupo} onHecho={async () => { await cargar(); setGrupo(null); }} />}
       </Dialogo>
@@ -211,6 +257,10 @@ function resumenHablado(d) {
   else partes.push(plural(d.sin_audio.cantidad, 'ficha sin audio', 'fichas sin audio'));
   if (d.sin_narrador.habilitado) partes.push(plural(d.sin_narrador.cantidad, 'sin narrador', 'sin narrador'));
   if (d.borradores.habilitado) partes.push(plural(d.borradores.cantidad, 'borrador', 'borradores'));
+  const idx = resumenIndice(d.indice);
+  if (idx.tipo === 'cifras') partes.push(idx.texto.replace(/^En el almacenamiento hay /, '').replace(/\.( Índice del.*)?$/, ''));
+  const sf = carpetasSinFicha(d).cantidad;
+  if (sf) partes.push(plural(sf, 'carpeta de audio sin ficha', 'carpetas de audio sin ficha'));
   const grupos = Object.values(d.parecidos).reduce((n, l) => n + l.length, 0);
   partes.push(plural(grupos, 'grupo de valores parecidos', 'grupos de valores parecidos'));
   if (d.tareas_con_errores.length) partes.push(plural(d.tareas_con_errores.length, 'tarea con errores', 'tareas con errores'));

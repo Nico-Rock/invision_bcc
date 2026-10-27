@@ -56,16 +56,19 @@ export const AdminPanel = () => {
   const { announceText, playCue } = useAudio();
   const [activeTab, setActiveTab] = useState('inicio');
   const [filtroLibros, setFiltroLibros] = useState(null);
+  const [registrarNombre, setRegistrarNombre] = useState(null); // carpeta sin ficha que abre «Registrar audiolibro»
   const tabRefs = useRef({});
   useVigilanteDeTareas();
 
   // Un solo aviso, con el nombre que se ve
   const changeTab = (id, opciones = {}) => {
     setActiveTab(id);
-    if (id === 'content') setFiltroLibros(opciones.filtro || null);
+    if (id === 'content') { setFiltroLibros(opciones.filtro || null); setRegistrarNombre(opciones.registrar || null); }
     const pestana = PESTANAS.find((p) => p.id === id);
     announceText(`${pestana.nombre}${opciones.filtro ? `, ${opciones.filtro.nombre}` : ''}.`);
     playCue('action');
+    // Con «Registrar» el diálogo se abre solo y se queda con el foco
+    if (opciones.registrar) return;
     setTimeout(() => (opciones.foco ? document.getElementById(opciones.foco) : tabRefs.current[id])?.focus(), 0);
   };
 
@@ -145,7 +148,7 @@ export const AdminPanel = () => {
       {PESTANAS.map((p) => (
         <div key={p.id} id={`panel-${p.id}`} role="tabpanel" aria-labelledby={`tab-${p.id}`} hidden={activeTab !== p.id}>
           {activeTab === p.id && p.id === 'inicio' && <Inicio irA={irA} />}
-          {activeTab === p.id && p.id === 'content' && <ContentManagement filtroInicial={filtroLibros} />}
+          {activeTab === p.id && p.id === 'content' && <ContentManagement filtroInicial={filtroLibros} registrarInicial={registrarNombre} />}
           {activeTab === p.id && p.id === 'users' && <UserManagement />}
           {activeTab === p.id && p.id === 'import' && <Importador irA={irA} />}
           {activeTab === p.id && p.id === 'tareas' && <Tareas />}

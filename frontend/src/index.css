@@ -1786,3 +1786,5 @@ main:focus-visible {
   gap: 0.75rem;
 }
 .lista-capitulos li { margin-bottom: 0.5rem; }
+.reglas-operacion ol { margin: 0.5rem 0 1rem 1.5rem; }
+.reglas-operacion li { margin-bottom: 0.5rem; }

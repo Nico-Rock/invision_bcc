@@ -3,11 +3,16 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useAudio } from '../../../hooks/useAudio';
 import { API_BASE_URL } from '../../../config';
 import { OPERACIONES, fechaHablada } from '../../../lib/consola';
+import { notaAccesos } from '../../../lib/pendientes';
 
 const leer = async (fetcher, url) => {
   const r = await fetcher(url);
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : String(r.status));
+  if (!r.ok) {
+    const err = new Error(typeof d.detail === 'string' ? d.detail : String(r.status));
+    err.status = r.status;
+    throw err;
+  }
   return d;
 };
 
@@ -21,6 +26,7 @@ export const AuditLogs = () => {
   const [operaciones, setOperaciones] = useState(null);
   const [errorOps, setErrorOps] = useState('');
   const [accesos, setAccesos] = useState(null);
+  const [notaDeAccesos, setNotaDeAccesos] = useState(''); // base sin tabla de sesiones: no es una falla
   const [filtro, setFiltro] = useState('');
 
   const cargarOperaciones = async (operacion) => {
@@ -39,9 +45,16 @@ export const AuditLogs = () => {
     cargarOperaciones('');
     leer(authenticatedFetch, `${API_BASE_URL}/admin/auditoria/sesiones/`)
       .then(setAccesos)
-      .catch(() => {
+      .catch((err) => {
         setAccesos([]);
-        announceText('No se pudo cargar la auditoría de accesos.', { urgente: true });
+        const n = notaAccesos(err.status, err.message);
+        if (n.tipo === 'nota') {
+          // 503 por falta de la tabla de sesiones: se dice, sin alarma
+          setNotaDeAccesos(n.texto);
+          announceText(`Accesos: ${n.texto}`);
+          return;
+        }
+        announceText(n.texto, { urgente: true });
         playCue('error');
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,8 +103,10 @@ export const AuditLogs = () => {
       )}
       {operaciones && operaciones.length === 0 && !errorOps && <p>No hay cambios registrados.</p>}
 
-      <h3 id="accesos-titulo">Accesos ({accesos ? accesos.length : '…'})</h3>
-      {accesos === null ? (
+      <h3 id="accesos-titulo">Accesos ({notaDeAccesos ? 'sin registro' : accesos ? accesos.length : '…'})</h3>
+      {notaDeAccesos ? (
+        <p className="nota-campo">{notaDeAccesos}</p>
+      ) : accesos === null ? (
         <p className="estado-carga-admin">Cargando eventos de acceso…</p>
       ) : accesos.length === 0 ? (
         <p className="estado-carga-admin">No hay eventos de inicio o cierre de sesión registrados.</p>

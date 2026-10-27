@@ -11,7 +11,7 @@ import { valoresUnicos } from '../../../lib/vocabulario';
  * control por fila ("Gestionar"), total en el título y conteo anunciado al
  * buscar. Antes eran 1.077 botones en 538 filas y "Eliminar" al lado de "Editar".
  */
-export const ContentManagement = ({ filtroInicial = null }) => {
+export const ContentManagement = ({ filtroInicial = null, registrarInicial = null }) => {
   const { authenticatedFetch } = useAuth();
   const { announceText, playCue } = useAudio();
 
@@ -20,7 +20,9 @@ export const ContentManagement = ({ filtroInicial = null }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [ficha, setFicha] = useState(null); // { modo: 'crear' | 'editar', libro }
+  // { modo: 'crear' | 'editar', libro, nombre? }. Con registrarInicial, la ficha de
+  // alta nace abierta con el nombre de una carpeta de audio que no tiene ficha.
+  const [ficha, setFicha] = useState(registrarInicial ? { modo: 'crear', libro: null, nombre: registrarInicial } : null);
   const [version, setVersion] = useState(0);
   const [filtro, setFiltro] = useState(filtroInicial ? filtroInicial.tipo : 'todos');
   const [idsFiltro] = useState(filtroInicial && filtroInicial.ids ? new Set(filtroInicial.ids) : null);
@@ -194,6 +196,7 @@ export const ContentManagement = ({ filtroInicial = null }) => {
             key={ficha.libro ? `${ficha.libro.id}-${version}` : 'nuevo'}
             modo={ficha.modo}
             libro={ficha.libro}
+            nombreInicial={ficha.nombre || ''}
             categorias={categories}
             vocabulario={vocabulario}
             narracionHabilitada={narracionHabilitada}
