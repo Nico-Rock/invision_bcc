@@ -23,7 +23,7 @@ env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path=env_path)
 
 # Credenciales y configuración
-AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "cuentaprueba")
+AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "")
 AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY")
 AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME", "audiolibros")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
@@ -48,9 +48,9 @@ except ImportError:
 
 def get_db_connection():
     # 1. Intentar conectar primero a Azure SQL Database en la Nube
-    sql_server = os.getenv("SQL_SERVER", "tu-servidor.database.windows.net")
-    sql_db = os.getenv("SQL_DATABASE", "nombre_base")
-    sql_user = os.getenv("SQL_USERNAME", "usuario_sql")
+    sql_server = os.getenv("SQL_SERVER")
+    sql_db = os.getenv("SQL_DATABASE")
+    sql_user = os.getenv("SQL_USERNAME")
     sql_pass = os.getenv("SQL_PASSWORD")
 
     if PYMSSQL_AVAILABLE and sql_server and sql_pass:
