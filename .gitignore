@@ -1,10 +1,27 @@
+# Dependencias y compilados
 node_modules/
 dist/
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Secretos y configuración local (usa .env.example como plantilla)
 .env
+.env.*
+!.env.example
 *.db
+
+# Artefactos de pruebas
+test-results/
+playwright-report/
+
+# Datos y material que no se publica
 *.zip
-.DS_Store
+Catalogo*.csv
 _ops_upload/
+
+# Sistema y herramientas locales
+.DS_Store
+.claude/
+.conductor/
